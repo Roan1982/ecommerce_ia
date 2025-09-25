@@ -343,6 +343,22 @@ class InventarioAdminSite(admin.AdminSite):
             path('usuarios/agregar/', self.admin_view(self.agregar_usuario_view), name='agregar_usuario'),
             path('usuarios/editar/<int:usuario_id>/', self.admin_view(self.editar_usuario_view), name='editar_usuario'),
             path('usuarios/<int:usuario_id>/', self.admin_view(self.detalle_usuario_view), name='detalle_usuario'),
+            # URLs adicionales para funcionalidades personalizadas
+            path('productos/', self.admin_view(self.productos_view), name='productos'),
+            path('productos/agregar/', self.admin_view(self.agregar_producto_view), name='agregar_producto'),
+            path('productos/editar/<int:producto_id>/', self.admin_view(self.editar_producto_view), name='editar_producto'),
+            path('productos/eliminar/<int:producto_id>/', self.admin_view(self.eliminar_producto_view), name='eliminar_producto'),
+            path('productos/actualizar-stock/', self.admin_view(self.actualizar_stock_view), name='actualizar_stock'),
+            path('cupones/', self.admin_view(self.cupones_view), name='cupones'),
+            path('cupones/agregar/', self.admin_view(self.agregar_cupon_view), name='agregar_cupon'),
+            path('cupones/editar/<int:cupon_id>/', self.admin_view(self.editar_cupon_view), name='editar_cupon'),
+            path('cupones/eliminar/<int:cupon_id>/', self.admin_view(self.eliminar_cupon_view), name='eliminar_cupon'),
+            path('cupones/actualizar-estado/', self.admin_view(self.actualizar_estado_cupon_view), name='actualizar_estado_cupon'),
+            path('configuracion/', self.admin_view(self.configuracion_view), name='configuracion'),
+            path('configuracion/guardar/', self.admin_view(self.guardar_configuracion_view), name='guardar_configuracion'),
+            path('configuracion/restaurar/', self.admin_view(self.restaurar_configuracion_view), name='restaurar_configuracion'),
+            path('backup/', self.admin_view(self.crear_backup_view), name='crear_backup'),
+            path('email/test/', self.admin_view(self.probar_email_view), name='probar_email'),
         ]
         return custom_urls + urls
 
@@ -846,6 +862,110 @@ class InventarioAdminSite(admin.AdminSite):
         context.update(admin_context)
 
         return render(request, "admin/tienda/usuario_detalle.html", context)
+
+    @method_decorator(staff_member_required)
+    def productos_view(self, request):
+        """Vista de gestión de productos"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista estándar de productos del admin
+        return redirect('admin:tienda_producto_changelist')
+
+    @method_decorator(staff_member_required)
+    def agregar_producto_view(self, request):
+        """Vista para agregar producto"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista de agregar producto del admin
+        return redirect('admin:tienda_producto_add')
+
+    @method_decorator(staff_member_required)
+    def editar_producto_view(self, request, producto_id):
+        """Vista para editar producto"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista de editar producto del admin
+        return redirect('admin:tienda_producto_change', object_id=producto_id)
+
+    @method_decorator(staff_member_required)
+    def eliminar_producto_view(self, request, producto_id):
+        """Vista para eliminar producto"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista de eliminar producto del admin
+        return redirect('admin:tienda_producto_delete', object_id=producto_id)
+
+    @method_decorator(staff_member_required)
+    def actualizar_stock_view(self, request):
+        """Vista para actualizar stock de productos"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista de productos
+        return redirect('admin:tienda_producto_changelist')
+
+    @method_decorator(staff_member_required)
+    def cupones_view(self, request):
+        """Vista de gestión de cupones"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista estándar de cupones del admin
+        return redirect('admin:tienda_cupon_changelist')
+
+    @method_decorator(staff_member_required)
+    def agregar_cupon_view(self, request):
+        """Vista para agregar cupón"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista de agregar cupón del admin
+        return redirect('admin:tienda_cupon_add')
+
+    @method_decorator(staff_member_required)
+    def editar_cupon_view(self, request, cupon_id):
+        """Vista para editar cupón"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista de editar cupón del admin
+        return redirect('admin:tienda_cupon_change', object_id=cupon_id)
+
+    @method_decorator(staff_member_required)
+    def eliminar_cupon_view(self, request, cupon_id):
+        """Vista para eliminar cupón"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista de eliminar cupón del admin
+        return redirect('admin:tienda_cupon_delete', object_id=cupon_id)
+
+    @method_decorator(staff_member_required)
+    def actualizar_estado_cupon_view(self, request):
+        """Vista para actualizar estado de cupones"""
+        from django.shortcuts import redirect
+        # Redirigir a la vista de cupones
+        return redirect('admin:tienda_cupon_changelist')
+
+    @method_decorator(staff_member_required)
+    def configuracion_view(self, request):
+        """Vista de configuración general"""
+        # Redirigir a la vista de configuración existente
+        return self.config_view(request)
+
+    @method_decorator(staff_member_required)
+    def guardar_configuracion_view(self, request):
+        """Vista para guardar configuración"""
+        from django.shortcuts import redirect
+        # Redirigir a la configuración general
+        return redirect('admin:config_general')
+
+    @method_decorator(staff_member_required)
+    def restaurar_configuracion_view(self, request):
+        """Vista para restaurar configuración"""
+        from django.shortcuts import redirect
+        # Redirigir a la configuración general
+        return redirect('admin:config_general')
+
+    @method_decorator(staff_member_required)
+    def crear_backup_view(self, request):
+        """Vista para crear backup"""
+        from django.shortcuts import redirect
+        # Redirigir al mantenimiento
+        return redirect('admin:mantenimiento')
+
+    @method_decorator(staff_member_required)
+    def probar_email_view(self, request):
+        """Vista para probar envío de emails"""
+        from django.shortcuts import redirect
+        # Redirigir al mantenimiento
+        return redirect('admin:mantenimiento')
 
 
 # Crear instancia del sitio admin personalizado
