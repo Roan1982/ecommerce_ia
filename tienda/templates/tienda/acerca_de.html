@@ -1,0 +1,166 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Acerca de Nosotros - E-commerce IA" %}{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">{% trans "Sobre E-commerce IA" %}</h1>
+                <p class="lead mb-4">
+                    {% trans "Somos pioneros en el comercio electrónico inteligente, utilizando inteligencia artificial para revolucionar la experiencia de compra en línea." %}
+                </p>
+            </div>
+            <div class="col-lg-6">
+                <div class="text-center">
+                    <i class="bi bi-building display-1 text-white opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- About Content -->
+<div class="container">
+    <!-- Mission Section -->
+    <div class="row mb-5">
+        <div class="col-lg-8 mx-auto">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-5">
+                    <h2 class="text-center mb-4">{% trans "Nuestra Misión" %}</h2>
+                    <p class="lead text-center text-muted mb-4">
+                        {% trans "Transformar el comercio electrónico mediante el uso de inteligencia artificial para crear experiencias de compra personalizadas y significativas para cada cliente." %}
+                    </p>
+                    <div class="row g-4">
+                        <div class="col-md-4 text-center">
+                            <i class="bi bi-target text-primary mb-3" style="font-size: 3rem;"></i>
+                            <h5>{% trans "Innovación" %}</h5>
+                            <p class="text-muted">{% trans "Utilizamos las últimas tecnologías de IA para mejorar constantemente nuestros servicios." %}</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <i class="bi bi-people text-success mb-3" style="font-size: 3rem;"></i>
+                            <h5>{% trans "Cliente Primero" %}</h5>
+                            <p class="text-muted">{% trans "Cada decisión se toma pensando en la satisfacción y experiencia del cliente." %}</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <i class="bi bi-shield-check text-info mb-3" style="font-size: 3rem;"></i>
+                            <h5>{% trans "Confianza" %}</h5>
+                            <p class="text-muted">{% trans "Garantizamos transacciones seguras y protección de datos personales." %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technology Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-5">{% trans "Tecnología que Nos Respaldan" %}</h2>
+        </div>
+    </div>
+    <div class="row g-4 mb-5">
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-robot text-primary" style="font-size: 4rem;"></i>
+                    </div>
+                    <h4 class="card-title">{% trans "Inteligencia Artificial Avanzada" %}</h4>
+                    <p class="card-text text-muted">
+                        {% trans "Nuestros algoritmos de machine learning analizan patrones de compra, preferencias y comportamiento para ofrecer recomendaciones precisas y personalizadas." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-code-slash text-success" style="font-size: 4rem;"></i>
+                    </div>
+                    <h4 class="card-title">{% trans "Desarrollo Moderno" %}</h4>
+                    <p class="card-text text-muted">
+                        {% trans "Construido con Django, Python y las mejores prácticas de desarrollo web para garantizar rendimiento, escalabilidad y seguridad." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-5">{% trans "Nuestro Equipo" %}</h2>
+        </div>
+    </div>
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-person-circle text-primary" style="font-size: 4rem;"></i>
+                    </div>
+                    <h5 class="card-title">{% trans "Equipo de Desarrollo" %}</h5>
+                    <p class="card-text text-muted">
+                        {% trans "Ingenieros especializados en IA y desarrollo web que trabajan para crear la mejor experiencia posible." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-graph-up text-success" style="font-size: 4rem;"></i>
+                    </div>
+                    <h5 class="card-title">{% trans "Especialistas en Datos" %}</h5>
+                    <p class="card-text text-muted">
+                        {% trans "Analistas de datos que perfeccionan nuestros algoritmos de recomendación constantemente." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-headset text-info" style="font-size: 4rem;"></i>
+                    </div>
+                    <h5 class="card-title">{% trans "Soporte al Cliente" %}</h5>
+                    <p class="card-text text-muted">
+                        {% trans "Equipo dedicado a garantizar que cada cliente tenga una experiencia excepcional." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact CTA -->
+    <div class="text-center mb-5">
+        <div class="card border-0 bg-light">
+            <div class="card-body p-5">
+                <h3 class="mb-4">{% trans "¿Tienes Preguntas?" %}</h3>
+                <p class="lead text-muted mb-4">
+                    {% trans "Estamos aquí para ayudarte. Nuestro equipo de soporte está disponible para resolver cualquier duda o problema." %}
+                </p>
+                <div class="row g-3 justify-content-center">
+                    <div class="col-auto">
+                        <a href="mailto:contacto@ecommerceia.com" class="btn btn-primary">
+                            <i class="bi bi-envelope"></i> {% trans "Contactar Soporte" %}
+                        </a>
+                    </div>
+                    <div class="col-auto">
+                        <a href="{% url 'home' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-house"></i> {% trans "Volver al Inicio" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -21,6 +21,10 @@ recomendador = RecomendadorIA()
 def home(request):
     return render(request, 'tienda/home.html')
 
+def acerca_de(request):
+    """Vista para la página Acerca de Nosotros"""
+    return render(request, 'tienda/acerca_de.html')
+
 def registro(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
