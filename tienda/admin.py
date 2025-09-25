@@ -1063,7 +1063,7 @@ class CustomUserAdmin(UserAdmin):
     list_filter = ["is_staff", "is_superuser", "is_active", "date_joined"]
     search_fields = ["username", "first_name", "last_name", "email"]
     ordering = ["username"]
-    change_list_template = "admin/change_list.html"
+    change_list_template = "admin/auth/user/change_list.html"
     change_form_template = "admin/change_form.html"
 
     fieldsets = (
@@ -1098,9 +1098,64 @@ class CustomUserAdmin(UserAdmin):
         ]
         return custom_urls + urls
 
+    def changelist_view(self, request, extra_context=None):
+        """Vista personalizada para la lista de usuarios con estadísticas"""
+        response = super().changelist_view(request, extra_context)
+
+        if hasattr(response, 'context_data'):
+            context = response.context_data
+
+            # Obtener queryset filtrado
+            cl = context.get('cl')
+            if cl:
+                users = cl.get_queryset(request)
+            else:
+                users = self.get_queryset(request)
+
+            # Aplicar filtros adicionales desde la URL
+            is_active_filter = request.GET.get('is_active')
+            user_type_filter = request.GET.get('user_type')
+            q_filter = request.GET.get('q')
+
+            if is_active_filter is not None:
+                users = users.filter(is_active=is_active_filter == '1')
+
+            if user_type_filter == 'staff':
+                users = users.filter(is_staff=True)
+            elif user_type_filter == 'superuser':
+                users = users.filter(is_superuser=True)
+            elif user_type_filter == 'regular':
+                users = users.filter(is_staff=False, is_superuser=False)
+
+            if q_filter:
+                users = users.filter(
+                    models.Q(username__icontains=q_filter) |
+                    models.Q(first_name__icontains=q_filter) |
+                    models.Q(last_name__icontains=q_filter) |
+                    models.Q(email__icontains=q_filter)
+                )
+
+            # Estadísticas
+            from django.contrib.auth.models import User
+            total_users = User.objects.count()
+            active_users = User.objects.filter(is_active=True).count()
+            staff_users = User.objects.filter(is_staff=True).count()
+            superuser_users = User.objects.filter(is_superuser=True).count()
+
+            # Agregar datos al contexto
+            context.update({
+                'users': users,
+                'total_users': total_users,
+                'active_users': active_users,
+                'staff_users': staff_users,
+                'superuser_users': superuser_users,
+            })
+
+        return response
+
 @admin.register(Group, site=admin_site)
 class CustomGroupAdmin(GroupAdmin):
-    change_list_template = "admin/change_list.html"
+    change_list_template = "admin/auth/group/change_list.html"
     change_form_template = "admin/change_form.html"
 
     fieldsets = (
@@ -1116,6 +1171,44 @@ class CustomGroupAdmin(GroupAdmin):
     )
 
     filter_horizontal = ("permissions",)
+
+    def changelist_view(self, request, extra_context=None):
+        """Vista personalizada para la lista de grupos con estadísticas"""
+        response = super().changelist_view(request, extra_context)
+
+        if hasattr(response, 'context_data'):
+            context = response.context_data
+
+            # Obtener queryset filtrado
+            cl = context.get('cl')
+            if cl:
+                groups = cl.get_queryset(request)
+            else:
+                groups = self.get_queryset(request)
+
+            # Aplicar filtros adicionales desde la URL
+            q_filter = request.GET.get('q')
+
+            if q_filter:
+                groups = groups.filter(name__icontains=q_filter)
+
+            # Estadísticas
+            from django.contrib.auth.models import Group
+            total_groups = Group.objects.count()
+            total_users_in_groups = Group.objects.annotate(user_count=models.Count('user')).aggregate(total=models.Sum('user_count'))['total'] or 0
+            total_permissions = 0
+            for group in Group.objects.all():
+                total_permissions += group.permissions.count()
+
+            # Agregar datos al contexto
+            context.update({
+                'groups': groups,
+                'total_groups': total_groups,
+                'total_users_in_groups': total_users_in_groups,
+                'total_permissions': total_permissions,
+            })
+
+        return response
 
 
 # Registrar modelos adicionales de aplicaciones estándar
