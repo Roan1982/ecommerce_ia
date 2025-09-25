@@ -1,16 +1,212 @@
 {% extends 'tienda/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Productos" %}{% endblock %}
+{% block title %}{% trans "Productos - E-commerce IA" %}{% endblock %}
 
 {% block content %}
-<h1>{% trans "Productos Disponibles" %}</h1>
-{% for producto in productos %}
-    <div class="producto">
-        <h3>{{ producto.nombre }}</h3>
-        <p>{% trans "Precio" %}: ${{ producto.precio }}</p>
-        <p>{% trans "Categoría" %}: {{ producto.categoria }}</p>
-        <a href="{% url 'comprar' producto.id %}" class="btn">{% trans "Comprar" %}</a>
+<div class="container">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-5 fw-bold text-center mb-4">
+                <i class="bi bi-grid text-primary me-2"></i>{% trans "Productos Disponibles" %}
+            </h1>
+            <p class="text-muted text-center lead">
+                {% trans "Descubre nuestra selección de productos de calidad. Cada compra te acerca a mejores recomendaciones." %}
+            </p>
+        </div>
+    <!-- Search and Filter Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <!-- Search Input -->
+                        <div class="col-md-6">
+                            <label for="searchInput" class="form-label fw-bold">
+                                <i class="bi bi-search me-1"></i>{% trans "Buscar productos" %}
+                            </label>
+                            <input type="text" class="form-control" id="searchInput" name="q"
+                                   value="{{ query }}" placeholder="{% trans 'Nombre, descripción o categoría...' %}">
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="col-md-3">
+                            <label for="categorySelect" class="form-label fw-bold">
+                                <i class="bi bi-funnel me-1"></i>{% trans "Categoría" %}
+                            </label>
+                            <select class="form-select" id="categorySelect" name="categoria">
+                                <option value="">{% trans "Todas las categorías" %}</option>
+                                {% for cat in categorias %}
+                                    <option value="{{ cat }}" {% if cat == categoria_seleccionada %}selected{% endif %}>
+                                        {{ cat }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Sort Options -->
+                        <div class="col-md-3">
+                            <label for="sortSelect" class="form-label fw-bold">
+                                <i class="bi bi-sort-down me-1"></i>{% trans "Ordenar por" %}
+                            </label>
+                            <select class="form-select" id="sortSelect" name="ordenar">
+                                <option value="nombre" {% if ordenar_por == 'nombre' %}selected{% endif %}>
+                                    {% trans "Nombre A-Z" %}
+                                </option>
+                                <option value="precio" {% if ordenar_por == 'precio' %}selected{% endif %}>
+                                    {% trans "Precio: Menor a Mayor" %}
+                                </option>
+                                <option value="precio_desc" {% if ordenar_por == 'precio_desc' %}selected{% endif %}>
+                                    {% trans "Precio: Mayor a Menor" %}
+                                </option>
+                                <option value="fecha_desc" {% if ordenar_por == 'fecha_desc' %}selected{% endif %}>
+                                    {% trans "Más Recientes" %}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="bi bi-search me-1"></i>{% trans "Buscar" %}
+                            </button>
+                            <a href="{% url 'productos' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-1"></i>{% trans "Limpiar Filtros" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
-{% endfor %}
+
+    <!-- Results Info -->
+    {% if query or categoria_seleccionada %}
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="alert alert-light border-0">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-info-circle text-primary me-2"></i>
+                        <span>
+                            {% if query and categoria_seleccionada %}
+                                {% trans "Mostrando resultados para" %} "<strong>{{ query }}</strong>" {% trans "en la categoría" %} "<strong>{{ categoria_seleccionada }}</strong>"
+                            {% elif query %}
+                                {% trans "Mostrando resultados para" %} "<strong>{{ query }}</strong>"
+                            {% elif categoria_seleccionada %}
+                                {% trans "Mostrando productos de la categoría" %} "<strong>{{ categoria_seleccionada }}</strong>"
+                            {% endif %}
+                            <span class="badge bg-primary ms-2">{{ productos|length }} {% trans "productos encontrados" %}</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    <div class="row g-4">
+        {% for producto in productos %}
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <!-- Product Image -->
+                {% if producto.imagen_url %}
+                    <img src="{{ producto.imagen_url }}" class="card-img-top" alt="{{ producto.nombre }}"
+                         style="height: 200px; object-fit: cover;">
+                {% else %}
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="bi bi-{{ producto.categoria|lower|default:'box' }}-seam text-muted" style="font-size: 4rem;"></i>
+                    </div>
+                {% endif %}
+
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title fw-bold">{{ producto.nombre }}</h5>
+                    {% if producto.descripcion %}
+                        <p class="card-text text-muted flex-grow-1">{{ producto.descripcion }}</p>
+                    {% else %}
+                        <p class="card-text text-muted flex-grow-1">
+                            {% trans "Producto de alta calidad en la categoría" %} {{ producto.categoria }}.
+                            {% trans "Perfecto para tus necesidades." %}
+                        </p>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div>
+                            <span class="h4 text-primary fw-bold mb-0">${{ producto.precio }}</span>
+                            <br>
+                            {% if producto.promedio_calificacion > 0 %}
+                                <small class="text-muted">
+                                    <div class="d-flex align-items-center">
+                                        <div class="rating-display me-1">
+                                            {% for i in "12345"|make_list %}
+                                                <i class="bi bi-star{% if forloop.counter <= producto.promedio_calificacion|floatformat:0 %}-fill{% endif %} text-warning small"></i>
+                                            {% endfor %}
+                                        </div>
+                                        <span class="small">{{ producto.promedio_calificacion|floatformat:1 }} ({{ producto.total_resenas }})</span>
+                                    </div>
+                                </small>
+                            {% endif %}
+                            <small class="{% if producto.en_stock %}text-success{% else %}text-danger{% endif %}">
+                                <i class="bi bi-{% if producto.en_stock %}check-circle-fill{% else %}x-circle-fill{% endif %}"></i>
+                                {% if producto.en_stock %}
+                                    {% trans "En stock" %} ({{ producto.stock }})
+                                {% else %}
+                                    {% trans "Agotado" %}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'ver_resenas' producto.id %}" class="btn btn-outline-info btn-sm"
+                               title="{% trans 'Ver reseñas' %}">
+                                <i class="bi bi-star-half"></i>
+                            </a>
+                            <a href="{% url 'producto_detalle' producto.id %}" class="btn btn-outline-secondary btn-sm"
+                               title="{% trans 'Ver detalle' %}">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'agregar_al_carrito' producto.id %}" class="btn btn-outline-primary btn-sm"
+                               {% if not producto.en_stock %}disabled{% endif %} title="{% trans 'Agregar al carrito' %}">
+                                <i class="bi bi-cart-plus"></i>
+                            </a>
+                            <a href="{% url 'comprar' producto.id %}" class="btn btn-primary btn-sm" title="{% trans 'Comprar ahora' %}">
+                                <i class="bi bi-lightning"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Footer with Category Badge -->
+                <div class="card-footer bg-transparent border-0">
+                    <span class="badge bg-{% if producto.categoria == 'Tecnología' %}primary{% elif producto.categoria == 'Libros' %}success{% else %}info{% endif %}">
+                        <i class="bi bi-tag"></i> {{ producto.categoria }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+                <h3 class="text-muted mt-3">{% trans "No hay productos disponibles" %}</h3>
+                <p class="text-muted">{% trans "Estamos trabajando para agregar más productos pronto." %}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Info Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="alert alert-info border-0 shadow-sm">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-info-circle text-info me-3" style="font-size: 2rem;"></i>
+                    <div>
+                        <h5 class="alert-heading mb-1">{% trans "¡Cada compra mejora tus recomendaciones!" %}</h5>
+                        <p class="mb-0">
+                            {% trans "Nuestro sistema de IA aprende de tus preferencias para sugerirte productos que realmente te interesarán." %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

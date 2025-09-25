@@ -1,0 +1,615 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Carrito de Compras" %}{% endblock %}
+
+{% block content %}
+<!-- Formulario oculto para CSRF token -->
+<form id="csrf-form" style="display: none;">
+    {% csrf_token %}
+</form>
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="mb-0">
+                            <i class="bi bi-cart3 me-2"></i>
+                            {% trans "Mi Carrito de Compras" %}
+                        </h2>
+                        {% if carrito %}
+                            <span class="badge bg-light text-primary fs-6">
+                                {{ carrito.total_productos }} {% trans "productos" %}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    {% if items %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col">{% trans "Producto" %}</th>
+                                        <th scope="col" class="text-center">{% trans "Precio Unitario" %}</th>
+                                        <th scope="col" class="text-center">{% trans "Cantidad" %}</th>
+                                        <th scope="col" class="text-center">{% trans "Subtotal" %}</th>
+                                        <th scope="col" class="text-center">{% trans "Acciones" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items %}
+                                    <tr data-item-id="{{ item.id }}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if item.producto.imagen_url %}
+                                                    <img src="{{ item.producto.imagen_url }}" alt="{{ item.producto.nombre }}"
+                                                         class="rounded me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                                {% else %}
+                                                    <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center"
+                                                         style="width: 60px; height: 60px;">
+                                                        <i class="bi bi-image text-muted"></i>
+                                                    </div>
+                                                {% endif %}
+                                                <div>
+                                                    <h6 class="mb-1">{{ item.producto.nombre }}</h6>
+                                                    <small class="text-muted">{{ item.producto.categoria }}</small>
+                                                    {% if item.producto.descripcion %}
+                                                        <br><small class="text-muted">{{ item.producto.descripcion|truncatechars:50 }}</small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            <strong>${{ item.producto.precio }}</strong>
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                        onclick="changeQuantity({{ item.id }}, -1)"
+                                                        style="width: 32px; height: 32px; padding: 0;">
+                                                    <i class="bi bi-dash"></i>
+                                                </button>
+                                                <span id="cantidad-display-{{ item.id }}" class="fw-bold mx-2" style="min-width: 30px; text-align: center;">
+                                                    {{ item.cantidad }}
+                                                </span>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                        onclick="changeQuantity({{ item.id }}, 1)"
+                                                        style="width: 32px; height: 32px; padding: 0;">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                            <input type="hidden" id="cantidad-{{ item.id }}" value="{{ item.cantidad }}"
+                                                   data-max="{{ item.producto.stock }}">
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            <strong class="text-primary subtotal-item" data-item-id="{{ item.id }}">${{ item.subtotal }}</strong>
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                                    onclick="eliminarDelCarrito({{ item.id }}, '{{ item.producto.nombre }}')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Resumen del carrito -->
+                        <div class="row mt-4">
+                            <div class="col-md-8">
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'productos' %}" class="btn btn-outline-primary">
+                                        <i class="bi bi-arrow-left me-1"></i>
+                                        {% trans "Continuar Comprando" %}
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#vaciarCarritoModal">
+                                        <i class="bi bi-cart-x me-1"></i>
+                                        {% trans "Vaciar Carrito" %}
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{% trans "Resumen del Pedido" %}</h5>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>{% trans "Productos" %} ({{ carrito.total_productos }}):</span>
+                                            <strong>${{ carrito.total_precio }}</strong>
+                                        </div>
+
+                                        <!-- Sección de Cupón -->
+                                        <div class="mb-3">
+                                            <label for="codigoCupon" class="form-label small">{% trans "Código de descuento" %}</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="text" class="form-control" id="codigoCupon"
+                                                       placeholder="{% trans 'Ingresa código' %}">
+                                                <button class="btn btn-outline-success btn-sm" type="button" id="aplicarCuponBtn">
+                                                    {% trans "Aplicar" %}
+                                                </button>
+                                            </div>
+                                            <div id="cuponMensaje" class="mt-1" style="display: none;"></div>
+                                        </div>
+
+                                        <div class="d-flex justify-content-between mb-3 envio-row">
+                                            <span>{% trans "Envío:" %}</span>
+                                            <strong class="text-success">{% trans "Gratis" %}</strong>
+                                        </div>
+
+                                        <!-- Mostrar descuento si hay cupón aplicado -->
+                                        {% if cupon_aplicado %}
+                                            <div class="d-flex justify-content-between mb-2 text-success">
+                                                <span>{% trans "Descuento" %} ({{ cupon_aplicado.descripcion }}):</span>
+                                                <strong>-${{ descuento_cupon|floatformat:2 }}</strong>
+                                            </div>
+                                        {% endif %}
+
+                                        <hr>
+                                        <div class="d-flex justify-content-between mb-3">
+                                            <span class="h5">{% trans "Total:" %}</span>
+                                            <strong class="h5 text-primary" id="totalFinal">
+                                                {% if cupon_aplicado %}
+                                                    ${{ total_con_descuento|floatformat:2 }}
+                                                {% else %}
+                                                    ${{ carrito.total_precio|floatformat:2 }}
+                                                {% endif %}
+                                            </strong>
+                                        </div>
+
+                                        <button class="btn btn-success btn-lg w-100">
+                                            <i class="bi bi-credit-card me-2"></i>
+                                            <a href="{% url 'checkout' %}" class="text-white text-decoration-none">
+                                                {% trans "Proceder al Checkout" %}
+                                            </a>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- Carrito vacío -->
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="bi bi-cart-x display-1 text-muted"></i>
+                            </div>
+                            <h3 class="text-muted mb-3">{% trans "Tu carrito está vacío" %}</h3>
+                            <p class="text-muted mb-4">
+                                {% trans "¡Agrega algunos productos para comenzar tu compra!" %}
+                            </p>
+                            <a href="{% url 'productos' %}" class="btn btn-primary btn-lg">
+                                <i class="bi bi-shop me-2"></i>
+                                {% trans "Ir a Productos" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para vaciar carrito -->
+<div class="modal fade" id="vaciarCarritoModal" tabindex="-1" aria-labelledby="vaciarCarritoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="vaciarCarritoModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    {% trans "Vaciar Carrito de Compras" %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="bi bi-cart-x text-warning" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="fw-bold text-center mb-3">¿Estás seguro de que quieres vaciar tu carrito?</h6>
+                <p class="text-muted text-center mb-3">
+                    Esta acción eliminará todos los productos de tu carrito de compras.
+                </p>
+                <div class="alert alert-danger" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <div>
+                            <strong>{% trans "Se perderán:" %}</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>{{ carrito.total_productos }} {% trans "producto(s)" %}</li>
+                                <li>{% trans "Valor total:" %} <strong class="text-danger">${{ carrito.total_precio }}</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-muted small text-center">
+                    <em>{% trans "Esta acción no se puede deshacer." %}</em>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>
+                    {% trans "Cancelar" %}
+                </button>
+                <a href="{% url 'vaciar_carrito' %}" class="btn btn-danger">
+                    <i class="bi bi-cart-x me-1"></i>
+                    {% trans "Sí, Vaciar Carrito" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para eliminar producto -->
+<div class="modal fade" id="eliminarProductoModal" tabindex="-1" aria-labelledby="eliminarProductoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="eliminarProductoModalLabel">
+                    <i class="bi bi-trash me-2"></i>
+                    {% trans "Eliminar Producto" %}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="fw-bold text-center mb-3" id="productoNombreEliminar">¿Estás seguro de que quieres eliminar este producto?</h6>
+                <p class="text-muted text-center mb-3">
+                    Esta acción eliminará el producto seleccionado de tu carrito de compras.
+                </p>
+                <div class="alert alert-warning" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        <div>
+                            <strong>{% trans "Producto a eliminar:" %}</strong>
+                            <span id="productoDetalleEliminar" class="d-block mt-1"></span>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-muted small text-center">
+                    <em>{% trans "Esta acción no se puede deshacer." %}</em>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>
+                    {% trans "Cancelar" %}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmarEliminarBtn">
+                    <i class="bi bi-trash me-1"></i>
+                    {% trans "Sí, Eliminar" %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function eliminarDelCarrito(itemId, nombreProducto) {
+    // Obtener información del producto
+    const itemRow = document.querySelector(`tr[data-item-id="${itemId}"]`);
+    if (!itemRow) {
+        console.error('No se encontró la fila del producto');
+        return;
+    }
+
+    const input = document.getElementById(`cantidad-${itemId}`);
+    const cantidad = input ? input.value : '1';
+    const precio = itemRow.querySelector('.text-primary')?.textContent || '$0';
+
+    // Actualizar el modal con la información del producto
+    document.getElementById('productoNombreEliminar').textContent = `¿Estás seguro de que quieres eliminar "${nombreProducto}"?`;
+    document.getElementById('productoDetalleEliminar').textContent = `${cantidad} unidad(es) - ${precio}`;
+
+    // Guardar el itemId para usar en la confirmación
+    window.itemIdAEliminar = itemId;
+
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('eliminarProductoModal'));
+    modal.show();
+}
+function changeQuantity(itemId, change) {
+    const input = document.getElementById(`cantidad-${itemId}`);
+    const display = document.getElementById(`cantidad-display-${itemId}`);
+    const currentValue = parseInt(input.value);
+    const newValue = currentValue + change;
+    const maxStock = parseInt(input.dataset.max);
+
+    if (newValue >= 1 && newValue <= maxStock) {
+        actualizarCantidad(itemId, newValue);
+    }
+}
+
+function actualizarCantidad(itemId, cantidad) {
+    const input = document.getElementById(`cantidad-${itemId}`);
+    const display = document.getElementById(`cantidad-display-${itemId}`);
+    const currentValue = parseInt(input.value);
+
+    // Mostrar loading state
+    display.textContent = cantidad;
+    input.value = cantidad;
+    const buttons = document.querySelectorAll(`button[onclick*="changeQuantity(${itemId},"]`);
+    buttons.forEach(btn => btn.disabled = true);
+
+    // Hacer llamada AJAX
+    fetch(`actualizar/${itemId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: `cantidad=${cantidad}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar UI
+            updateCartUI(data);
+            showMessage('Cantidad actualizada', 'success');
+        } else {
+            // Revertir cambio
+            display.textContent = currentValue;
+            input.value = currentValue;
+            showMessage(data.error || 'Error al actualizar', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Revertir cambio
+        display.textContent = currentValue;
+        input.value = currentValue;
+        showMessage('Error de conexión', 'danger');
+    })
+    .finally(() => {
+        // Rehabilitar botones
+        buttons.forEach(btn => btn.disabled = false);
+    });
+}
+
+function updateCartUI(data) {
+    // Actualizar badge del header
+    const badge = document.querySelector('.badge');
+    if (badge) {
+        badge.textContent = `${data.total_productos} productos`;
+    }
+
+    // Actualizar subtotales de items
+    data.items.forEach(item => {
+        const subtotalElement = document.querySelector(`.subtotal-item[data-item-id="${item.id}"]`);
+        if (subtotalElement) {
+            subtotalElement.textContent = `$${item.subtotal.toFixed(2)}`;
+        }
+    });
+
+    // Actualizar resumen del carrito
+    const resumenCard = document.querySelector('.card.bg-light .card-body');
+    if (resumenCard) {
+        const productosSpan = resumenCard.querySelector('strong');
+        if (productosSpan) {
+            productosSpan.textContent = `$${data.total_precio.toFixed(2)}`;
+        }
+
+        // Actualizar total final (considerando descuento si existe)
+        const totalSpan = document.getElementById('totalFinal');
+        if (totalSpan) {
+            // Verificar si hay cupón aplicado
+            const cuponAplicado = document.querySelector('.text-success');
+            if (cuponAplicado && data.descuento_cupon) {
+                totalSpan.textContent = `$${(data.total_precio - data.descuento_cupon).toFixed(2)}`;
+            } else {
+                totalSpan.textContent = `$${data.total_precio.toFixed(2)}`;
+            }
+        }
+    }
+}
+
+function showMessage(message, type) {
+    // Crear elemento de mensaje temporal
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+
+    // Auto-remover después de 3 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+
+// Agregar animación de carga a los botones
+document.addEventListener('DOMContentLoaded', function() {
+    const buttons = document.querySelectorAll('.btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (this.type === 'submit' || this.tagName === 'A') {
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Cargando...';
+                this.disabled = true;
+            }
+        });
+    });
+
+    // Funcionalidad para confirmar eliminación de producto
+    const confirmarEliminarBtn = document.getElementById('confirmarEliminarBtn');
+    confirmarEliminarBtn.addEventListener('click', function() {
+        const itemId = window.itemIdAEliminar;
+        if (!itemId) return;
+
+        // Ocultar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('eliminarProductoModal'));
+        modal.hide();
+
+        // Deshabilitar botón mientras procesa
+        confirmarEliminarBtn.disabled = true;
+        confirmarEliminarBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Eliminando...';
+
+        // Hacer llamada AJAX
+        fetch(`eliminar/${itemId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remover la fila de la tabla
+                const row = document.querySelector(`tr[data-item-id="${itemId}"]`);
+                if (row) row.remove();
+
+                // Actualizar UI
+                updateCartUI(data);
+                showMessage('Producto eliminado del carrito', 'success');
+
+                // Si no quedan productos, recargar la página para mostrar carrito vacío
+                if (data.total_productos === 0) {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+            } else {
+                showMessage(data.error || 'Error al eliminar producto', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error de conexión', 'danger');
+        })
+        .finally(() => {
+            confirmarEliminarBtn.disabled = false;
+            confirmarEliminarBtn.innerHTML = '<i class="bi bi-trash me-1"></i> Sí, Eliminar';
+            window.itemIdAEliminar = null;
+        });
+    });
+
+    // Funcionalidad de cupones
+    const aplicarCuponBtn = document.getElementById('aplicarCuponBtn');
+    const codigoCuponInput = document.getElementById('codigoCupon');
+    const cuponMensaje = document.getElementById('cuponMensaje');
+
+    aplicarCuponBtn.addEventListener('click', function() {
+        const codigo = codigoCuponInput.value.trim().toUpperCase();
+        if (!codigo) {
+            mostrarMensajeCupon('Por favor ingresa un código de cupón', 'warning');
+            return;
+        }
+
+        // Deshabilitar botón mientras procesa
+        aplicarCuponBtn.disabled = true;
+        aplicarCuponBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Aplicando...';
+
+        // Hacer llamada AJAX
+        fetch('{% url "aplicar_cupon" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: `codigo=${codigo}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Actualizar UI con descuento
+                actualizarTotalConDescuento(data);
+                mostrarMensajeCupon(`¡Cupón aplicado! ${data.descripcion}`, 'success');
+
+                // Cambiar botón para remover cupón
+                aplicarCuponBtn.textContent = 'Remover';
+                aplicarCuponBtn.className = 'btn btn-outline-danger btn-sm';
+                aplicarCuponBtn.onclick = removerCupon;
+            } else {
+                mostrarMensajeCupon(data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarMensajeCupon('Error de conexión', 'danger');
+        })
+        .finally(() => {
+            aplicarCuponBtn.disabled = false;
+        });
+    });
+
+    function removerCupon() {
+        aplicarCuponBtn.disabled = true;
+        aplicarCuponBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Removiendo...';
+
+        fetch('{% url "remover_cupon" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Restaurar total original
+                document.getElementById('totalFinal').textContent = `$${data.total_original.toFixed(2)}`;
+                mostrarMensajeCupon('Cupón removido', 'info');
+
+                // Restaurar botón original
+                aplicarCuponBtn.textContent = 'Aplicar';
+                aplicarCuponBtn.className = 'btn btn-outline-success btn-sm';
+                aplicarCuponBtn.onclick = null;
+                codigoCuponInput.value = '';
+            } else {
+                mostrarMensajeCupon(data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarMensajeCupon('Error de conexión', 'danger');
+        })
+        .finally(() => {
+            aplicarCuponBtn.disabled = false;
+        });
+    }
+
+    function mostrarMensajeCupon(mensaje, tipo) {
+        cuponMensaje.innerHTML = `<small class="text-${tipo}">${mensaje}</small>`;
+        cuponMensaje.style.display = 'block';
+
+        // Auto-ocultar después de 5 segundos
+        setTimeout(() => {
+            cuponMensaje.style.display = 'none';
+        }, 5000);
+    }
+
+    function actualizarTotalConDescuento(data) {
+        const totalElement = document.getElementById('totalFinal');
+
+        // Agregar fila de descuento si no existe
+        let descuentoRow = document.querySelector('.text-success');
+        if (!descuentoRow) {
+            const envioRow = document.querySelector('.envio-row');
+            if (envioRow) {
+                descuentoRow = document.createElement('div');
+                descuentoRow.className = 'd-flex justify-content-between mb-2 text-success';
+                descuentoRow.innerHTML = `
+                    <span>Descuento (${data.descripcion}):</span>
+                    <strong>-$${data.descuento.toFixed(2)}</strong>
+                `;
+                envioRow.insertAdjacentElement('afterend', descuentoRow);
+            }
+        }
+
+        totalElement.textContent = `$${data.total_con_descuento.toFixed(2)}`;
+    }
+});
+</script>
+{% endblock %}

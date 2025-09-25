@@ -1,0 +1,165 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Cupones de Descuento" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-success text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="mb-0">
+                            <i class="bi bi-tag-fill me-2"></i>
+                            {% trans "Cupones de Descuento Disponibles" %}
+                        </h2>
+                        <span class="badge bg-light text-success">
+                            {{ cupones|length }} {% trans "cupones activos" %}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    {% if cupones %}
+                        <div class="row">
+                            {% for cupon in cupones %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 border-success">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="card-title mb-0">
+                                            <i class="bi bi-percent me-2"></i>
+                                            {{ cupon.descripcion }}
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <h6 class="text-success fw-bold">
+                                                {% if cupon.tipo_descuento == 'porcentaje' %}
+                                                    {{ cupon.valor_descuento }}% de descuento
+                                                {% else %}
+                                                    ${{ cupon.valor_descuento }} de descuento fijo
+                                                {% endif %}
+                                            </h6>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">
+                                                <i class="bi bi-tag me-1"></i>
+                                                <strong>Código:</strong> <code class="bg-light px-2 py-1 rounded">{{ cupon.codigo }}</code>
+                                            </small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">
+                                                <i class="bi bi-cash me-1"></i>
+                                                <strong>Mínimo de compra:</strong> ${{ cupon.minimo_compra }}
+                                            </small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">
+                                                <i class="bi bi-calendar me-1"></i>
+                                                <strong>Válido hasta:</strong> {{ cupon.fecha_expiracion|date:"d/m/Y" }}
+                                            </small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">
+                                                <i class="bi bi-people me-1"></i>
+                                                <strong>Usos permitidos:</strong>
+                                                {% if cupon.usos_maximos == 0 %}
+                                                    Ilimitado
+                                                {% else %}
+                                                    {{ cupon.usos_maximos }}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer bg-light">
+                                        <button class="btn btn-success btn-sm w-100"
+                                                onclick="copiarCodigo('{{ cupon.codigo }}')">
+                                            <i class="bi bi-clipboard me-1"></i>
+                                            {% trans "Copiar Código" %}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="alert alert-info mt-4" role="alert">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <div>
+                                    <h6 class="alert-heading mb-1">{% trans "¿Cómo usar los cupones?" %}</h6>
+                                    <ul class="mb-0 small">
+                                        <li>{% trans "Ve a tu carrito de compras" %}</li>
+                                        <li>{% trans "Ingresa el código del cupón en el campo correspondiente" %}</li>
+                                        <li>{% trans "Haz clic en 'Aplicar' para obtener el descuento" %}</li>
+                                        <li>{% trans "El descuento se aplicará automáticamente al total" %}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- No hay cupones disponibles -->
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="bi bi-tag-x display-1 text-muted"></i>
+                            </div>
+                            <h3 class="text-muted mb-3">{% trans "No hay cupones disponibles" %}</h3>
+                            <p class="text-muted mb-4">
+                                {% trans "En este momento no hay cupones de descuento activos. ¡Vuelve pronto!" %}
+                            </p>
+                            <a href="{% url 'productos' %}" class="btn btn-primary btn-lg">
+                                <i class="bi bi-shop me-2"></i>
+                                {% trans "Ir a Productos" %}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copiarCodigo(codigo) {
+    navigator.clipboard.writeText(codigo).then(function() {
+        // Mostrar mensaje de éxito
+        showMessage(`Código "${codigo}" copiado al portapapeles`, 'success');
+    }).catch(function(err) {
+        console.error('Error al copiar: ', err);
+        // Fallback para navegadores antiguos
+        const textArea = document.createElement('textarea');
+        textArea.value = codigo;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showMessage(`Código "${codigo}" copiado al portapapeles`, 'success');
+    });
+}
+
+function showMessage(message, type) {
+    // Crear elemento de mensaje temporal
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+
+    // Auto-remover después de 3 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+</script>
+{% endblock %}

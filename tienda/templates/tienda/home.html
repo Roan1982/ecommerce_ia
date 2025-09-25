@@ -1,14 +1,150 @@
 {% extends 'tienda/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Inicio" %}{% endblock %}
+{% block title %}{% trans "Inicio - E-commerce IA" %}{% endblock %}
 
 {% block content %}
-<h1>{% trans "Bienvenido al E-commerce con IA" %}</h1>
-<p>{% trans "Sistema de recomendaciones inteligentes basadas en tus compras previas." %}</p>
-{% if user.is_authenticated %}
-    <p>{% trans "Hola" %}, {{ user.username }}! <a href="{% url 'productos' %}" class="btn">{% trans "Ver Productos" %}</a></p>
-{% else %}
-    <p><a href="{% url 'registro' %}" class="btn">{% trans "Registrarse" %}</a> <a href="{% url 'login' %}" class="btn">{% trans "Iniciar Sesión" %}</a></p>
-{% endif %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">{% trans "Descubre lo que realmente necesitas" %}</h1>
+                <p class="lead mb-4">
+                    {% trans "Nuestro sistema de IA analiza tus preferencias y te recomienda productos que realmente te interesarán, basándose en tus compras anteriores." %}
+                </p>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'productos' %}" class="btn btn-primary btn-lg me-3">
+                        <i class="bi bi-grid"></i> {% trans "Explorar Productos" %}
+                    </a>
+                    <a href="{% url 'recomendaciones' %}" class="btn btn-outline-light btn-lg">
+                        <i class="bi bi-stars"></i> {% trans "Ver Recomendaciones IA" %}
+                    </a>
+                {% else %}
+                    <a href="{% url 'registro' %}" class="btn btn-primary btn-lg me-3">
+                        <i class="bi bi-person-plus"></i> {% trans "Comenzar Ahora" %}
+                    </a>
+                    <a href="{% url 'login' %}" class="btn btn-outline-light btn-lg">
+                        <i class="bi bi-box-arrow-in-right"></i> {% trans "Iniciar Sesión" %}
+                    </a>
+                {% endif %}
+            </div>
+            <div class="col-lg-6">
+                <div class="text-center">
+                    <i class="bi bi-robot display-1 text-white opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<div class="container">
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card h-100 text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-stars text-primary" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title">{% trans "Recomendaciones Inteligentes" %}</h5>
+                    <p class="card-text text-muted">
+                        {% trans "Nuestro algoritmo de IA analiza tu historial de compras para sugerirte productos que realmente te interesarán." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-cart-check text-success" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title">{% trans "Compra Fácil y Segura" %}</h5>
+                    <p class="card-text text-muted">
+                        {% trans "Proceso de compra simplificado con interfaz intuitiva y pagos seguros." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <i class="bi bi-person-heart text-info" style="font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="card-title">{% trans "Personalización Total" %}</h5>
+                    <p class="card-text text-muted">
+                        {% trans "Cada usuario recibe recomendaciones únicas basadas en sus preferencias individuales." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    {% if user.is_authenticated %}
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card text-center border-0 bg-primary text-white">
+                <div class="card-body">
+                    <h3 class="card-title mb-0">{{ user|length }}</h3>
+                    <p class="mb-0">{% trans "Usuario Activo" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-0 bg-success text-white">
+                <div class="card-body">
+                    <h3 class="card-title mb-0">{% widthratio user.username|length 1 10 %}</h3>
+                    <p class="mb-0">{% trans "Recomendaciones" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-0 bg-info text-white">
+                <div class="card-body">
+                    <h3 class="card-title mb-0">24/7</h3>
+                    <p class="mb-0">{% trans "Disponibilidad" %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-0 bg-warning text-white">
+                <div class="card-body">
+                    <h3 class="card-title mb-0">100%</h3>
+                    <p class="mb-0">{% trans "Personalizado" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- CTA Section -->
+    <div class="text-center mb-5">
+        {% if user.is_authenticated %}
+            <h2 class="mb-4">{% trans "¿Qué te gustaría hacer hoy?" %}</h2>
+            <div class="row g-3 justify-content-center">
+                <div class="col-auto">
+                    <a href="{% url 'productos' %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-shop"></i> {% trans "Comprar Productos" %}
+                    </a>
+                </div>
+                <div class="col-auto">
+                    <a href="{% url 'recomendaciones' %}" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-lightbulb"></i> {% trans "Ver Recomendaciones" %}
+                    </a>
+                </div>
+            </div>
+        {% else %}
+            <h2 class="mb-4">{% trans "Únete a nuestra comunidad de compradores inteligentes" %}</h2>
+            <p class="lead text-muted mb-4">
+                {% trans "Regístrate ahora y comienza a recibir recomendaciones personalizadas basadas en IA." %}
+            </p>
+            <a href="{% url 'registro' %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-rocket-takeoff"></i> {% trans "Crear Cuenta Gratis" %}
+            </a>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}

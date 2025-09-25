@@ -4,11 +4,164 @@
 {% block title %}{% trans "Comprar Producto" %}{% endblock %}
 
 {% block content %}
-<h1>{% trans "Comprar" %} {{ producto.nombre }}</h1>
-<p>{% trans "Precio" %}: ${{ producto.precio }}</p>
-<form method="post">
-    {% csrf_token %}
-    <button type="submit" class="btn">{% trans "Confirmar Compra" %}</button>
-    <a href="{% url 'productos' %}">{% trans "Cancelar" %}</a>
-</form>
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">
+                        <i class="bi bi-bag-check me-2"></i>
+                        {% trans "Confirmar Compra" %}
+                    </h2>
+                </div>
+
+                <div class="card-body">
+                    <!-- Información del producto -->
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-4">
+                            {% if producto.imagen_url %}
+                                <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}"
+                                     class="img-fluid rounded shadow-sm" style="max-height: 250px; object-fit: cover;">
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center mx-auto"
+                                     style="width: 250px; height: 250px;">
+                                    <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-8">
+                            <h3 class="text-primary mb-3">{{ producto.nombre }}</h3>
+
+                            {% if producto.descripcion %}
+                                <p class="text-muted mb-3">{{ producto.descripcion }}</p>
+                            {% endif %}
+
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-3">
+                                        <strong class="text-muted">{% trans "Categoría:" %}</strong>
+                                        <span class="badge bg-secondary ms-2">{{ producto.categoria }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-3">
+                                        <strong class="text-muted">{% trans "Stock disponible:" %}</strong>
+                                        <span class="badge {% if producto.en_stock %}bg-success{% else %}bg-danger{% endif %} ms-2">
+                                            {{ producto.stock }} {% trans "unidades" %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Reseñas y calificaciones -->
+                            {% if producto.total_resenas > 0 %}
+                                <div class="mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <strong class="text-muted me-2">{% trans "Calificación:" %}</strong>
+                                        <div class="rating-display me-2">
+                                            {% for i in "12345"|make_list %}
+                                                <i class="bi bi-star{% if forloop.counter <= producto.promedio_calificacion|floatformat:0 %}-fill{% endif %} text-warning"></i>
+                                            {% endfor %}
+                                        </div>
+                                        <span class="fw-bold">{{ producto.promedio_calificacion|floatformat:1 }}</span>
+                                        <span class="text-muted ms-1">({{ producto.total_resenas }} {% trans "reseñas" %})</span>
+                                        <a href="{% url 'ver_resenas' producto.id %}" class="btn btn-link btn-sm ms-2 p-0">
+                                            {% trans "Ver todas las reseñas" %}
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <div>
+                                        <strong>{% trans "Compra directa:" %}</strong>
+                                        {% trans "Esta compra se procesará inmediatamente usando tu información de usuario registrada." %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumen de compra -->
+                    <div class="row mt-4">
+                        <div class="col-md-8">
+                            <h5 class="mb-3">{% trans "Detalles de la Compra" %}</h5>
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>{% trans "Producto:" %}</span>
+                                        <strong>{{ producto.nombre }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>{% trans "Cantidad:" %}</span>
+                                        <strong>1 {% trans "unidad" %}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>{% trans "Precio unitario:" %}</span>
+                                        <strong>${{ producto.precio }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>{% trans "Envío:" %}</span>
+                                        <strong class="text-success">{% trans "Gratis" %}</strong>
+                                    </div>
+                                    <hr>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="h5">{% trans "Total a pagar:" %}</span>
+                                        <strong class="h5 text-primary">${{ producto.precio }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <h5 class="mb-3">{% trans "¿No estás seguro?" %}</h5>
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'productos' %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-arrow-left me-1"></i>
+                                    {% trans "Ver más productos" %}
+                                </a>
+                                <a href="{% url 'recomendaciones' %}" class="btn btn-outline-info">
+                                    <i class="bi bi-stars me-1"></i>
+                                    {% trans "Ver recomendaciones IA" %}
+                                </a>
+                                {% if producto.total_resenas > 0 %}
+                                    <a href="{% url 'ver_resenas' producto.id %}" class="btn btn-outline-warning">
+                                        <i class="bi bi-star-half me-1"></i>
+                                        {% trans "Ver reseñas del producto" %}
+                                    </a>
+                                {% endif %}
+                            </div>
+
+                            <div class="alert alert-warning mt-3" role="alert">
+                                <small>
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    {% trans "Esta compra se procesará inmediatamente. Si deseas comprar múltiples productos, usa el carrito de compras." %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'productos' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-1"></i>
+                            {% trans "Cancelar" %}
+                        </a>
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle me-1"></i>
+                                {% trans "Confirmar Compra" %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

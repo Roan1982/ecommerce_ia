@@ -1,0 +1,209 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Pedido" %} #{{ pedido.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <!-- Header del pedido -->
+            <div class="card shadow-lg border-0 mb-4">
+                <div class="card-header bg-success text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-0">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                {% trans "¡Pedido Realizado Exitosamente!" %}
+                            </h2>
+                            <p class="mb-0 mt-1">{% trans "Número de pedido:" %} #{{ pedido.id }}</p>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge fs-6 {% if pedido.estado == 'pagado' %}bg-success{% elif pedido.estado == 'enviado' %}bg-primary{% elif pedido.estado == 'entregado' %}bg-info{% else %}bg-warning{% endif %}">
+                                {{ pedido.get_estado_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="alert alert-success" role="alert">
+                        <i class="bi bi-envelope-check me-2"></i>
+                        {% trans "Hemos enviado la confirmación de tu pedido a tu email. Te mantendremos informado sobre el estado de tu envío." %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="mb-3">
+                                <i class="bi bi-calendar-event me-1"></i>
+                                {% trans "Información del Pedido" %}
+                            </h5>
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>{% trans "Fecha:" %}</strong></td>
+                                    <td>{{ pedido.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>{% trans "Estado:" %}</strong></td>
+                                    <td>
+                                        <span class="badge {% if pedido.estado == 'pagado' %}bg-success{% elif pedido.estado == 'enviado' %}bg-primary{% elif pedido.estado == 'entregado' %}bg-info{% else %}bg-warning{% endif %}">
+                                            {{ pedido.get_estado_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>{% trans "Cliente:" %}</strong></td>
+                                    <td>{{ pedido.usuario.get_full_name|default:pedido.usuario.username }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="mb-3">
+                                <i class="bi bi-geo-alt me-1"></i>
+                                {% trans "Dirección de Envío" %}
+                            </h5>
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <strong>{{ pedido.direccion_envio.nombre_direccion }}</strong>
+                                    <br>
+                                    {{ pedido.direccion_envio.nombre_completo }}
+                                    <br>
+                                    {{ pedido.direccion_envio.calle }} {{ pedido.direccion_envio.numero }}
+                                    {% if pedido.direccion_envio.piso_departamento %} - {{ pedido.direccion_envio.piso_departamento }}{% endif %}
+                                    <br>
+                                    {{ pedido.direccion_envio.ciudad }}, {{ pedido.direccion_envio.provincia }}
+                                    <br>
+                                    CP: {{ pedido.direccion_envio.codigo_postal }}
+                                    <br>
+                                    Tel: {{ pedido.direccion_envio.telefono }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalles del pedido -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card shadow-lg border-0">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-box-seam me-1"></i>
+                                {% trans "Productos del Pedido" %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% for producto in productos %}
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-3">
+                                <div class="d-flex align-items-center">
+                                    {% if producto.producto.imagen_url %}
+                                        <img src="{{ producto.producto.imagen_url }}" alt="{{ producto.producto.nombre }}"
+                                             class="rounded me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center"
+                                             style="width: 60px; height: 60px;">
+                                            <i class="bi bi-image text-muted"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <h6 class="mb-1">{{ producto.producto.nombre }}</h6>
+                                        {% if producto.producto.descripcion %}
+                                            <p class="text-muted small mb-1">{{ producto.producto.descripcion }}</p>
+                                        {% endif %}
+                                        <small class="text-muted">
+                                            {{ producto.producto.categoria }} • ${{ producto.precio_unitario }} c/u
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="mb-1">
+                                        <span class="badge bg-secondary">{{ producto.cantidad }} {% trans "unidades" %}</span>
+                                    </div>
+                                    <strong class="text-primary">${{ producto.subtotal }}</strong>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <!-- Método de pago -->
+                    <div class="card shadow-lg border-0 mb-3">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-credit-card me-1"></i>
+                                {% trans "Método de Pago" %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                {% if pedido.metodo_pago.tipo == 'tarjeta' %}
+                                    <i class="bi bi-credit-card text-primary me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <strong>{{ pedido.metodo_pago.get_tipo_display }}</strong>
+                                        <br>
+                                        <small class="text-muted">**** **** **** {{ pedido.metodo_pago.numero_tarjeta }}</small>
+                                    </div>
+                                {% elif pedido.metodo_pago.tipo == 'efectivo' %}
+                                    <i class="bi bi-cash text-success me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <strong>{{ pedido.metodo_pago.get_tipo_display }}</strong>
+                                    </div>
+                                {% else %}
+                                    <i class="bi bi-bank text-info me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <strong>{{ pedido.metodo_pago.get_tipo_display }}</strong>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumen de costos -->
+                    <div class="card shadow-lg border-0">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-receipt me-1"></i>
+                                {% trans "Resumen de Costos" %}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>{% trans "Subtotal productos:" %}</span>
+                                <strong>${{ pedido.total_productos }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>{% trans "Envío:" %}</span>
+                                {% if pedido.costo_envio == 0 %}
+                                    <strong class="text-success">{% trans "Gratis" %}</strong>
+                                {% else %}
+                                    <strong>${{ pedido.costo_envio }}</strong>
+                                {% endif %}
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <span class="h5">{% trans "Total pagado:" %}</span>
+                                <strong class="h5 text-success">${{ pedido.total_pedido }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="mt-3">
+                        <a href="{% url 'productos' %}" class="btn btn-primary w-100 mb-2">
+                            <i class="bi bi-shop me-1"></i>
+                            {% trans "Seguir Comprando" %}
+                        </a>
+                        <a href="{% url 'home' %}" class="btn btn-outline-secondary w-100">
+                            <i class="bi bi-house me-1"></i>
+                            {% trans "Volver al Inicio" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

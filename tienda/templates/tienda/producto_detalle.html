@@ -1,0 +1,214 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{{ producto.nombre }} - {% trans "Detalle del Producto" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row">
+        <!-- Imagen del producto -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-lg">
+                {% if producto.imagen_url %}
+                    <img src="{{ producto.imagen_url }}" class="card-img-top" alt="{{ producto.nombre }}"
+                         style="height: 400px; object-fit: cover;">
+                {% else %}
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
+                         style="height: 400px;">
+                        <i class="bi bi-{{ producto.categoria|lower|default:'box' }}-seam text-muted"
+                           style="font-size: 8rem;"></i>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Información del producto -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-lg h-100">
+                <div class="card-body d-flex flex-column">
+                    <!-- Categoría -->
+                    <div class="mb-2">
+                        <span class="badge bg-primary fs-6">
+                            <i class="bi bi-tag"></i> {{ producto.categoria }}
+                        </span>
+                    </div>
+
+                    <!-- Nombre -->
+                    <h1 class="card-title display-5 fw-bold mb-3">{{ producto.nombre }}</h1>
+
+                    <!-- Precio -->
+                    <div class="mb-3">
+                        <span class="h2 text-primary fw-bold">${{ producto.precio }}</span>
+                    </div>
+
+                    <!-- Rating -->
+                    {% if producto.promedio_calificacion > 0 %}
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="rating-display me-2">
+                                    {% for i in "12345"|make_list %}
+                                        <i class="bi bi-star{% if forloop.counter <= producto.promedio_calificacion|floatformat:0 %}-fill{% endif %} text-warning"></i>
+                                    {% endfor %}
+                                </div>
+                                <span class="fw-bold">{{ producto.promedio_calificacion|floatformat:1 }}</span>
+                                <small class="text-muted ms-1">({{ producto.total_resenas }} {% trans "reseñas" %})</small>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Stock -->
+                    <div class="mb-3">
+                        <small class="{% if producto.en_stock %}text-success{% else %}text-danger{% endif %}">
+                            <i class="bi bi-{% if producto.en_stock %}check-circle-fill{% else %}x-circle-fill{% endif %} me-1"></i>
+                            {% if producto.en_stock %}
+                                {% trans "En stock" %} ({{ producto.stock }} {% trans "unidades disponibles" %})
+                            {% else %}
+                                {% trans "Agotado" %}
+                            {% endif %}
+                        </small>
+                    </div>
+
+                    <!-- Descripción -->
+                    {% if producto.descripcion %}
+                        <div class="mb-4">
+                            <h5 class="fw-bold mb-2">{% trans "Descripción" %}</h5>
+                            <p class="text-muted">{{ producto.descripcion }}</p>
+                        </div>
+                    {% endif %}
+
+                    <!-- Acciones -->
+                    <div class="mt-auto">
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% if producto.en_stock %}
+                                <a href="{% url 'agregar_al_carrito' producto.id %}" class="btn btn-primary btn-lg flex-fill">
+                                    <i class="bi bi-cart-plus me-2"></i>
+                                    {% trans "Agregar al Carrito" %}
+                                </a>
+                                <a href="{% url 'comprar' producto.id %}" class="btn btn-success btn-lg flex-fill">
+                                    <i class="bi bi-lightning me-2"></i>
+                                    {% trans "Comprar Ahora" %}
+                                </a>
+                            {% else %}
+                                <button class="btn btn-secondary btn-lg flex-fill" disabled>
+                                    <i class="bi bi-x-circle me-2"></i>
+                                    {% trans "Producto Agotado" %}
+                                </button>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex gap-2 mt-2">
+                            <a href="{% url 'ver_resenas' producto.id %}" class="btn btn-outline-info">
+                                <i class="bi bi-star-half me-1"></i>
+                                {% trans "Ver Reseñas" %} ({{ producto.total_resenas }})
+                            </a>
+                            {% if puede_reseñar %}
+                                <a href="{% url 'agregar_resena' producto.id %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-pencil me-1"></i>
+                                    {% trans "Escribir Reseña" %}
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Productos relacionados -->
+    {% if productos_relacionados %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="mb-4">
+                    <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                    {% trans "Productos Relacionados" %}
+                </h3>
+            </div>
+        </div>
+        <div class="row g-4">
+            {% for relacionado in productos_relacionados %}
+                <div class="col-lg-3 col-md-6">
+                    <div class="card h-100 border-0 shadow-sm">
+                        {% if relacionado.imagen_url %}
+                            <img src="{{ relacionado.imagen_url }}" class="card-img-top" alt="{{ relacionado.nombre }}"
+                                 style="height: 150px; object-fit: cover;">
+                        {% else %}
+                            <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
+                                 style="height: 150px;">
+                                <i class="bi bi-{{ relacionado.categoria|lower|default:'box' }}-seam text-muted"
+                                   style="font-size: 2rem;"></i>
+                            </div>
+                        {% endif %}
+
+                        <div class="card-body">
+                            <h6 class="card-title fw-bold">{{ relacionado.nombre }}</h6>
+                            <p class="card-text text-primary fw-bold mb-2">${{ relacionado.precio }}</p>
+                            <small class="text-success">
+                                <i class="bi bi-check-circle-fill me-1"></i>
+                                {% trans "En stock" %} ({{ relacionado.stock }})
+                            </small>
+                        </div>
+
+                        <div class="card-footer bg-transparent border-0">
+                            <a href="{% url 'producto_detalle' relacionado.id %}" class="btn btn-outline-primary btn-sm w-100">
+                                <i class="bi bi-eye me-1"></i>
+                                {% trans "Ver Detalle" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Reseñas recientes -->
+    {% if resenas %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="mb-4">
+                    <i class="bi bi-chat-quote text-primary me-2"></i>
+                    {% trans "Reseñas Recientes" %}
+                </h3>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        {% for resena in resenas|slice:":3" %}
+                            <div class="border-bottom pb-3 mb-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <strong class="me-2">{{ resena.usuario.username }}</strong>
+                                            <div class="rating-display">
+                                                {% for i in "12345"|make_list %}
+                                                    <i class="bi bi-star{% if forloop.counter <= resena.calificacion %}-fill{% endif %} text-warning small"></i>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% if resena.comentario %}
+                                            <p class="text-muted mb-1">{{ resena.comentario }}</p>
+                                        {% endif %}
+                                        <small class="text-muted">
+                                            {{ resena.fecha_creacion|date:"d/m/Y H:i" }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+
+                        {% if resenas|length > 3 %}
+                            <div class="text-center mt-3">
+                                <a href="{% url 'ver_resenas' producto.id %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-chevron-right me-1"></i>
+                                    {% trans "Ver todas las reseñas" %} ({{ resenas|length }})
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

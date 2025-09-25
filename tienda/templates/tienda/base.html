@@ -5,34 +5,149 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}E-commerce IA{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        nav { background: #f0f0f0; padding: 10px; }
-        nav a { margin: 0 10px; text-decoration: none; }
-        .container { max-width: 800px; margin: 0 auto; }
-        .producto { border: 1px solid #ddd; padding: 10px; margin: 10px 0; }
-        .btn { background: #007bff; color: white; padding: 10px; text-decoration: none; border-radius: 5px; }
+        .navbar-brand {
+            font-weight: bold;
+            color: #007bff !important;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0;
+            margin-bottom: 40px;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #0056b3, #004085);
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 0;
+            margin-top: 50px;
+        }
     </style>
 </head>
 <body>
-    <nav>
-        <a href="{% url 'home' %}">{% trans "Inicio" %}</a>
-        {% if user.is_authenticated %}
-            <a href="{% url 'productos' %}">{% trans "Productos" %}</a>
-            <a href="{% url 'recomendaciones' %}">{% trans "Recomendaciones" %}</a>
-            <a href="{% url 'logout' %}">{% trans "Cerrar Sesión" %}</a>
-        {% else %}
-            <a href="{% url 'login' %}">{% trans "Iniciar Sesión" %}</a>
-            <a href="{% url 'registro' %}">{% trans "Registrarse" %}</a>
-        {% endif %}
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <i class="bi bi-shop"></i> E-commerce IA
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">
+                            <i class="bi bi-house-door"></i> {% trans "Inicio" %}
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'productos' %}">
+                                <i class="bi bi-grid"></i> {% trans "Productos" %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'cupones_disponibles' %}">
+                                <i class="bi bi-tag-fill"></i> {% trans "Cupones" %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'ver_carrito' %}">
+                                <i class="bi bi-cart3"></i> {% trans "Carrito" %}
+                                {% if carrito_total_productos > 0 %}
+                                    <span class="badge bg-danger">{{ carrito_total_productos }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'recomendaciones' %}">
+                                <i class="bi bi-stars"></i> {% trans "Recomendaciones IA" %}
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-person-circle"></i> {{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'historial_pedidos' %}">
+                                    <i class="bi bi-receipt"></i> {% trans "Mis Pedidos" %}
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'logout' %}">
+                                    <i class="bi bi-box-arrow-right"></i> {% trans "Cerrar Sesión" %}
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}">
+                                <i class="bi bi-box-arrow-in-right"></i> {% trans "Iniciar Sesión" %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'registro' %}">
+                                <i class="bi bi-person-plus"></i> {% trans "Registrarse" %}
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
     </nav>
-    <div class="container">
-        {% if messages %}
+
+    <!-- Messages -->
+    {% if messages %}
+        <div class="container mt-3">
             {% for message in messages %}
-                <div class="alert">{{ message }}</div>
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
             {% endfor %}
-        {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main>
         {% block content %}{% endblock %}
-    </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>E-commerce IA</h5>
+                    <p>{% trans "Sistema de recomendaciones inteligentes para una mejor experiencia de compra." %}</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-0">{% trans "Desarrollado con" %} <i class="bi bi-heart-fill text-danger"></i> {% trans "usando Django & IA" %}</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

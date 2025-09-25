@@ -1,0 +1,248 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Checkout - Dirección de Envío" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <!-- Progress Bar -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-12 col-lg-8">
+            <div class="checkout-progress">
+                <div class="progress mb-3" style="height: 8px;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 50%" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <div class="step completed">
+                        <div class="step-circle">✓</div>
+                        <div class="step-text">{% trans "Carrito" %}</div>
+                    </div>
+                    <div class="step active">
+                        <div class="step-circle">2</div>
+                        <div class="step-text">{% trans "Envío" %}</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-circle">3</div>
+                        <div class="step-text">{% trans "Pago" %}</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-circle">4</div>
+                        <div class="step-text">{% trans "Confirmar" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">
+                        <i class="bi bi-geo-alt me-2"></i>
+                        {% trans "Dirección de Envío" %}
+                    </h2>
+                </div>
+
+                <div class="card-body">
+                    {% if direcciones %}
+                    <!-- Direcciones existentes -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">{% trans "Selecciona una dirección de envío" %}</h5>
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="row">
+                                {% for direccion in direcciones %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card border h-100">
+                                        <div class="card-body">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="direccion_id"
+                                                       value="{{ direccion.id }}" id="direccion{{ direccion.id }}"
+                                                       {% if direccion.es_predeterminada %}checked{% endif %}>
+                                                <label class="form-check-label w-100" for="direccion{{ direccion.id }}">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <div>
+                                                            <strong>{{ direccion.nombre_direccion }}</strong>
+                                                            {% if direccion.es_predeterminada %}
+                                                                <span class="badge bg-primary ms-2">{% trans "Predeterminada" %}</span>
+                                                            {% endif %}
+                                                            <br>
+                                                            <small class="text-muted">
+                                                                {{ direccion.nombre_completo }}<br>
+                                                                {{ direccion.calle }} {{ direccion.numero }}
+                                                                {% if direccion.piso_departamento %} - {{ direccion.piso_departamento }}{% endif %}<br>
+                                                                {{ direccion.ciudad }}, {{ direccion.provincia }}<br>
+                                                                CP: {{ direccion.codigo_postal }}<br>
+                                                                Tel: {{ direccion.telefono }}
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="text-center mt-3">
+                                <button type="submit" name="seleccionar_direccion" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    {% trans "Seleccionar esta dirección" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="text-center mb-4">
+                        <h6 class="text-muted">{% trans "O agrega una nueva dirección" %}</h6>
+                    </div>
+                    {% endif %}
+
+                    <!-- Formulario para nueva dirección -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h5 class="mb-3">
+                                {% if direcciones %}
+                                    {% trans "Agregar nueva dirección" %}
+                                {% else %}
+                                    {% trans "Ingresa tu dirección de envío" %}
+                                {% endif %}
+                            </h5>
+                            <form method="post">
+                                {% csrf_token %}
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.nombre_direccion.id_for_label }}" class="form-label">
+                                            {% trans "Nombre de la dirección" %} *
+                                        </label>
+                                        {{ form.nombre_direccion }}
+                                        {% if form.nombre_direccion.errors %}
+                                            <div class="text-danger small">{{ form.nombre_direccion.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.nombre_completo.id_for_label }}" class="form-label">
+                                            {% trans "Nombre completo" %} *
+                                        </label>
+                                        {{ form.nombre_completo }}
+                                        {% if form.nombre_completo.errors %}
+                                            <div class="text-danger small">{{ form.nombre_completo.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-8 mb-3">
+                                        <label for="{{ form.calle.id_for_label }}" class="form-label">
+                                            {% trans "Calle" %} *
+                                        </label>
+                                        {{ form.calle }}
+                                        {% if form.calle.errors %}
+                                            <div class="text-danger small">{{ form.calle.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.numero.id_for_label }}" class="form-label">
+                                            {% trans "Número" %} *
+                                        </label>
+                                        {{ form.numero }}
+                                        {% if form.numero.errors %}
+                                            <div class="text-danger small">{{ form.numero.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.piso_departamento.id_for_label }}" class="form-label">
+                                            {% trans "Piso/Depto" %}
+                                        </label>
+                                        {{ form.piso_departamento }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.telefono.id_for_label }}" class="form-label">
+                                            {% trans "Teléfono" %} *
+                                        </label>
+                                        {{ form.telefono }}
+                                        {% if form.telefono.errors %}
+                                            <div class="text-danger small">{{ form.telefono.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.ciudad.id_for_label }}" class="form-label">
+                                            {% trans "Ciudad" %} *
+                                        </label>
+                                        {{ form.ciudad }}
+                                        {% if form.ciudad.errors %}
+                                            <div class="text-danger small">{{ form.ciudad.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.provincia.id_for_label }}" class="form-label">
+                                            {% trans "Provincia" %} *
+                                        </label>
+                                        {{ form.provincia }}
+                                        {% if form.provincia.errors %}
+                                            <div class="text-danger small">{{ form.provincia.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.codigo_postal.id_for_label }}" class="form-label">
+                                            {% trans "Código Postal" %} *
+                                        </label>
+                                        {{ form.codigo_postal }}
+                                        {% if form.codigo_postal.errors %}
+                                            <div class="text-danger small">{{ form.codigo_postal.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        {{ form.es_predeterminada }}
+                                        <label class="form-check-label" for="{{ form.es_predeterminada.id_for_label }}">
+                                            {% trans "Establecer como dirección predeterminada" %}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="text-center">
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="bi bi-plus-circle me-1"></i>
+                                        {% trans "Agregar Dirección y Continuar" %}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'checkout' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            {% trans "Volver" %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.checkout-progress .step.completed .step-circle {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+.checkout-progress .step.completed .step-text {
+    color: #28a745;
+}
+</style>
+{% endblock %}

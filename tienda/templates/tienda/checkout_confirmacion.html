@@ -1,0 +1,232 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Checkout - Confirmación" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <!-- Progress Bar -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-12 col-lg-8">
+            <div class="checkout-progress">
+                <div class="progress mb-3" style="height: 8px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <div class="step completed">
+                        <div class="step-circle">✓</div>
+                        <div class="step-text">{% trans "Carrito" %}</div>
+                    </div>
+                    <div class="step completed">
+                        <div class="step-circle">✓</div>
+                        <div class="step-text">{% trans "Envío" %}</div>
+                    </div>
+                    <div class="step completed">
+                        <div class="step-circle">✓</div>
+                        <div class="step-text">{% trans "Pago" %}</div>
+                    </div>
+                    <div class="step active">
+                        <div class="step-circle">4</div>
+                        <div class="step-text">{% trans "Confirmar" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-success text-white">
+                    <h2 class="mb-0">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        {% trans "Confirmar tu Pedido" %}
+                    </h2>
+                </div>
+
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Resumen del pedido -->
+                        <div class="col-lg-8">
+                            <h5 class="mb-3">{% trans "Resumen del Pedido" %}</h5>
+
+                            <!-- Productos -->
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-3">{% trans "Productos" %}</h6>
+                                {% for item in items %}
+                                <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                    <div class="d-flex align-items-center">
+                                        {% if item.producto.imagen_url %}
+                                            <img src="{{ item.producto.imagen_url }}" alt="{{ item.producto.nombre }}"
+                                                 class="rounded me-3" style="width: 50px; height: 50px; object-fit: cover;">
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ item.producto.nombre }}</strong>
+                                            <br>
+                                            <small class="text-muted">${{ item.producto.precio }} x {{ item.cantidad }}</small>
+                                        </div>
+                                    </div>
+                                    <strong>${{ item.subtotal }}</strong>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Dirección de envío -->
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-3">
+                                    <i class="bi bi-geo-alt me-1"></i>
+                                    {% trans "Dirección de Envío" %}
+                                </h6>
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <strong>{{ direccion.nombre_direccion }}</strong>
+                                        <br>
+                                        {{ direccion.nombre_completo }}
+                                        <br>
+                                        {{ direccion.calle }} {{ direccion.numero }}
+                                        {% if direccion.piso_departamento %} - {{ direccion.piso_departamento }}{% endif %}
+                                        <br>
+                                        {{ direccion.ciudad }}, {{ direccion.provincia }}
+                                        <br>
+                                        CP: {{ direccion.codigo_postal }}
+                                        <br>
+                                        Tel: {{ direccion.telefono }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Método de pago -->
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-3">
+                                    <i class="bi bi-credit-card me-1"></i>
+                                    {% trans "Método de Pago" %}
+                                </h6>
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            {% if metodo_pago.tipo == 'tarjeta' %}
+                                                <i class="bi bi-credit-card text-primary me-2" style="font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <strong>{{ metodo_pago.get_tipo_display }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">**** **** **** {{ metodo_pago.numero_tarjeta }}</small>
+                                                </div>
+                                            {% elif metodo_pago.tipo == 'efectivo' %}
+                                                <i class="bi bi-cash text-success me-2" style="font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <strong>{{ metodo_pago.get_tipo_display }}</strong>
+                                                </div>
+                                            {% else %}
+                                                <i class="bi bi-bank text-info me-2" style="font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <strong>{{ metodo_pago.get_tipo_display }}</strong>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Resumen de costos -->
+                        <div class="col-lg-4">
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-receipt me-1"></i>
+                                        {% trans "Resumen de Costos" %}
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>{% trans "Subtotal productos:" %}</span>
+                                        <strong>${{ subtotal }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>{% trans "Envío:" %}</span>
+                                        {% if costo_envio == 0 %}
+                                            <strong class="text-success">{% trans "Gratis" %}</strong>
+                                        {% else %}
+                                            <strong>${{ costo_envio }}</strong>
+                                        {% endif %}
+                                    </div>
+                                    <hr>
+                                    <div class="d-flex justify-content-between mb-3">
+                                        <span class="h5">{% trans "Total a pagar:" %}</span>
+                                        <strong class="h5 text-primary">${{ total }}</strong>
+                                    </div>
+
+                                    <div class="alert alert-warning" role="alert">
+                                        <small>
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            {% trans "Al confirmar, procesaremos tu pago y enviaremos la confirmación por email." %}
+                                        </small>
+                                    </div>
+
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-success btn-lg w-100 mb-2">
+                                            <i class="bi bi-check-circle me-1"></i>
+                                            {% trans "Confirmar y Pagar" %}
+                                        </button>
+                                    </form>
+
+                                    <small class="text-muted text-center d-block">
+                                        {% trans "Al hacer clic, aceptas nuestros términos y condiciones." %}
+                                    </small>
+                                </div>
+                            </div>
+
+                            <!-- Información adicional -->
+                            <div class="alert alert-info mt-3">
+                                <h6 class="alert-heading">
+                                    <i class="bi bi-clock me-1"></i>
+                                    {% trans "Tiempo de entrega" %}
+                                </h6>
+                                <p class="mb-0 small">
+                                    {% trans "Tu pedido será procesado en 1-2 días hábiles y entregado en 3-5 días hábiles." %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'checkout_pago' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            {% trans "Volver" %}
+                        </a>
+                        <small class="text-muted align-self-center">
+                            {% trans "Revisa todos los detalles antes de confirmar" %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.checkout-progress .step.completed .step-circle {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+.checkout-progress .step.completed .step-text {
+    color: #28a745;
+}
+
+.checkout-progress .step.active .step-circle {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.checkout-progress .step.active .step-text {
+    color: #007bff;
+    font-weight: 500;
+}
+</style>
+{% endblock %}

@@ -1,13 +1,141 @@
 {% extends 'tienda/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Registro" %}{% endblock %}
+{% block title %}{% trans "Registro - E-commerce IA" %}{% endblock %}
 
 {% block content %}
-<h1>{% trans "Registro" %}</h1>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn">{% trans "Registrarse" %}</button>
-</form>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow border-0">
+                <div class="card-body p-5">
+                    <!-- Header -->
+                    <div class="text-center mb-4">
+                        <i class="bi bi-person-plus text-success" style="font-size: 3rem;"></i>
+                        <h2 class="card-title mt-3 mb-2">{% trans "Crear Cuenta" %}</h2>
+                        <p class="text-muted">{% trans "Únete a nuestra comunidad y comienza a recibir recomendaciones inteligentes" %}</p>
+                    </div>
+
+                    <!-- Form -->
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Username Field -->
+                        <div class="mb-3">
+                            <label for="{{ form.username.id_for_label }}" class="form-label">
+                                <i class="bi bi-person"></i> {% trans "Nombre de usuario" %}
+                            </label>
+                            {{ form.username }}
+                            {% if form.username.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.username.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Email Field (if exists) -->
+                        {% if form.email %}
+                        <div class="mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                <i class="bi bi-envelope"></i> {% trans "Correo electrónico" %}
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Password1 Field -->
+                        <div class="mb-3">
+                            <label for="{{ form.password1.id_for_label }}" class="form-label">
+                                <i class="bi bi-lock"></i> {% trans "Contraseña" %}
+                            </label>
+                            {{ form.password1 }}
+                            {% if form.password1.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.password1.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                {% trans "La contraseña debe tener al menos 8 caracteres." %}
+                            </div>
+                        </div>
+
+                        <!-- Password2 Field -->
+                        <div class="mb-4">
+                            <label for="{{ form.password2.id_for_label }}" class="form-label">
+                                <i class="bi bi-lock-fill"></i> {% trans "Confirmar contraseña" %}
+                            </label>
+                            {{ form.password2 }}
+                            {% if form.password2.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.password2.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-person-plus"></i> {% trans "Crear Cuenta" %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Login Link -->
+                    <div class="text-center mt-4">
+                        <p class="mb-0 text-muted">
+                            {% trans "¿Ya tienes cuenta?" %}
+                            <a href="{% url 'login' %}" class="text-success fw-bold">
+                                {% trans "Inicia sesión aquí" %}
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Benefits Card -->
+            <div class="card mt-4 border-0 bg-success bg-opacity-10">
+                <div class="card-body text-center">
+                    <i class="bi bi-stars text-success mb-2" style="font-size: 2rem;"></i>
+                    <h6 class="text-success">{% trans "¡Regístrate y obtén:" %}</h6>
+                    <ul class="list-unstyled small text-muted mt-2">
+                        <li><i class="bi bi-check-circle text-success me-1"></i> {% trans "Recomendaciones IA personalizadas" %}</li>
+                        <li><i class="bi bi-check-circle text-success me-1"></i> {% trans "Historial completo de compras" %}</li>
+                        <li><i class="bi bi-check-circle text-success me-1"></i> {% trans "Interfaz adaptada a tus gustos" %}</li>
+                        <li><i class="bi bi-check-circle text-success me-1"></i> {% trans "Acceso gratuito ilimitado" %}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card input[type="text"],
+    .card input[type="email"],
+    .card input[type="password"] {
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        padding: 0.75rem;
+        font-size: 1rem;
+    }
+    .card input[type="text"]:focus,
+    .card input[type="email"]:focus,
+    .card input[type="password"]:focus {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+    }
+</style>
 {% endblock %}

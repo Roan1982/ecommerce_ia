@@ -1,0 +1,210 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Reseñar Producto" %} - {{ producto.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <!-- Header -->
+            <div class="hero-section text-center mb-5">
+                <h1 class="display-4 fw-bold text-primary mb-3">
+                    <i class="bi bi-star-half me-3"></i>{% trans "Reseñar Producto" %}
+                </h1>
+                <p class="lead text-muted">{% trans "Comparte tu experiencia con otros compradores" %}</p>
+            </div>
+
+            <!-- Product Info -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 text-center">
+                            {% if producto.imagen_url %}
+                                <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}"
+                                     class="img-fluid rounded" style="max-height: 120px;">
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center mx-auto"
+                                     style="width: 120px; height: 120px;">
+                                    <i class="bi bi-{{ producto.categoria|lower|default:'box' }}-seam text-muted" style="font-size: 3rem;"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <h4 class="card-title">{{ producto.nombre }}</h4>
+                            <p class="card-text text-muted">{{ producto.descripcion|truncatechars:150 }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="h5 text-success fw-bold mb-0">${{ producto.precio }}</span>
+                                <span class="badge bg-{% if producto.categoria == 'Tecnología' %}primary{% elif producto.categoria == 'Libros' %}success{% else %}info{% endif %}">
+                                    {{ producto.categoria }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Review Form -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-pencil-square me-2"></i>
+                        {% if resena_existente %}{% trans "Editar Reseña" %}{% else %}{% trans "Escribir Reseña" %}{% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Rating -->
+                        <div class="mb-4">
+                            <label for="{{ form.calificacion.id_for_label }}" class="form-label fw-bold">
+                                <i class="bi bi-star-fill text-warning me-1"></i>{% trans "Calificación" %}
+                            </label>
+                            <div class="rating-stars mb-2">
+                                <div class="stars" data-rating="0">
+                                    <i class="bi bi-star" data-value="1"></i>
+                                    <i class="bi bi-star" data-value="2"></i>
+                                    <i class="bi bi-star" data-value="3"></i>
+                                    <i class="bi bi-star" data-value="4"></i>
+                                    <i class="bi bi-star" data-value="5"></i>
+                                </div>
+                            </div>
+                            {{ form.calificacion }}
+                            {% if form.calificacion.errors %}
+                                <div class="text-danger small">{{ form.calificacion.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Comment -->
+                        <div class="mb-4">
+                            <label for="{{ form.comentario.id_for_label }}" class="form-label fw-bold">
+                                <i class="bi bi-chat-quote me-1"></i>{% trans "Comentario" %}
+                            </label>
+                            {{ form.comentario }}
+                            {% if form.comentario.errors %}
+                                <div class="text-danger small">{{ form.comentario.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">{% trans "Comparte detalles sobre tu experiencia con este producto." %}</div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'comprar' producto.id %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>{% trans "Volver" %}
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-1"></i>
+                                {% if resena_existente %}{% trans "Actualizar Reseña" %}{% else %}{% trans "Publicar Reseña" %}{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Guidelines -->
+            <div class="alert alert-info border-0 mt-4">
+                <h6 class="alert-heading">
+                    <i class="bi bi-info-circle me-2"></i>{% trans "Consejos para una buena reseña:" %}
+                </h6>
+                <ul class="mb-0 small">
+                    <li>{% trans "Sé honesto y específico sobre tu experiencia" %}</li>
+                    <li>{% trans "Menciona aspectos positivos y áreas de mejora" %}</li>
+                    <li>{% trans "Ayuda a otros compradores a tomar decisiones informadas" %}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 3rem 2rem;
+    border-radius: 15px;
+    margin-bottom: 2rem;
+}
+
+.rating-stars {
+    font-size: 1.5rem;
+}
+
+.rating-stars .stars {
+    display: inline-block;
+}
+
+.rating-stars .stars i {
+    color: #ddd;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.rating-stars .stars i:hover,
+.rating-stars .stars i.active {
+    color: #ffc107;
+}
+
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+}
+</style>
+
+<script>
+// Star rating functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const stars = document.querySelectorAll('.rating-stars .stars i');
+    const ratingInput = document.getElementById('{{ form.calificacion.id_for_label }}');
+
+    // Set initial rating if exists
+    const currentRating = {{ resena_existente.calificacion|default:0 }};
+    if (currentRating > 0) {
+        updateStars(currentRating);
+    }
+
+    stars.forEach(star => {
+        star.addEventListener('click', function() {
+            const rating = parseInt(this.getAttribute('data-value'));
+            ratingInput.value = rating;
+            updateStars(rating);
+        });
+
+        star.addEventListener('mouseover', function() {
+            const rating = parseInt(this.getAttribute('data-value'));
+            highlightStars(rating);
+        });
+    });
+
+    document.querySelector('.rating-stars .stars').addEventListener('mouseleave', function() {
+        const currentRating = parseInt(ratingInput.value) || 0;
+        updateStars(currentRating);
+    });
+
+    function updateStars(rating) {
+        stars.forEach((star, index) => {
+            if (index < rating) {
+                star.classList.add('active');
+            } else {
+                star.classList.remove('active');
+            }
+        });
+    }
+
+    function highlightStars(rating) {
+        stars.forEach((star, index) => {
+            if (index < rating) {
+                star.classList.add('active');
+            } else {
+                star.classList.remove('active');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
