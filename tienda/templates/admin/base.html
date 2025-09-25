@@ -159,7 +159,7 @@
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'admin:index' %}">
                 <i class="bi bi-shield-check me-2"></i>
-                {% block branding %}{% if title %}{{ title }}{% else %}Administración E-commerce IA{% endif %}{% endblock %}
+                {% block branding %}Panel de Administración{% endblock %}
             </a>
 
             <div class="d-flex align-items-center">
@@ -182,19 +182,67 @@
                 <div class="admin-sidebar">
                     <nav class="nav flex-column">
                         {% block nav-sidebar %}
-                        <a class="nav-link" href="{% url 'admin:index' %}">
+                        <a class="nav-link{% if request.resolver_match.url_name == 'index' %} active{% endif %}" href="{% url 'admin:index' %}">
                             <i class="bi bi-house-door me-2"></i>
                             Inicio
                         </a>
 
-                        {% for app in app_list %}
+                        <a class="nav-link{% if 'dashboard' in request.path %} active{% endif %}" href="{% url 'admin:dashboard' %}">
+                            <i class="bi bi-graph-up me-2"></i>
+                            📊 Dashboard
+                        </a>
+
+                        <a class="nav-link{% if 'usuarios' in request.path %} active{% endif %}" href="{% url 'admin:usuarios' %}">
+                            <i class="bi bi-people me-2"></i>
+                            👥 Gestión de Usuarios
+                        </a>
+
+                        <a class="nav-link{% if 'inventario' in request.path %} active{% endif %}" href="{% url 'admin:inventario' %}">
+                            <i class="bi bi-box-seam me-2"></i>
+                            📦 Inventario
+                        </a>
+
+                        <a class="nav-link{% if 'pedidos' in request.path %} active{% endif %}" href="{% url 'admin:pedidos' %}">
+                            <i class="bi bi-receipt me-2"></i>
+                            📦 Gestión de Pedidos
+                        </a>
+
+                        <a class="nav-link{% if 'cupones' in request.path %} active{% endif %}" href="{% url 'admin:cupones' %}">
+                            <i class="bi bi-ticket-perforated me-2"></i>
+                            🎫 Cupones
+                        </a>
+
+                        <a class="nav-link{% if 'config' in request.path %} active{% endif %}" href="{% url 'admin:config' %}">
+                            <i class="bi bi-gear me-2"></i>
+                            ⚙️ Configuración
+                        </a>
+
                         <div class="nav-item">
-                            <a class="nav-link{% if app.app_label == current_app %} active{% endif %}"
-                               href="{{ app.app_url }}">
-                                {{ app.name }}
-                            </a>
+                            <div class="nav-link disabled text-muted">
+                                <i class="bi bi-shield-lock me-2"></i>
+                                🔐 Autenticación y Usuarios
+                            </div>
+                            <div class="ms-3">
+                                <a class="nav-link{% if 'auth/user' in request.path %} active{% endif %}" href="{% url 'admin:auth_user_changelist' %}">
+                                    <i class="bi bi-person me-2"></i>
+                                    Usuarios
+                                </a>
+                                <a class="nav-link{% if 'auth/group' in request.path %} active{% endif %}" href="{% url 'admin:auth_group_changelist' %}">
+                                    <i class="bi bi-people me-2"></i>
+                                    Grupos
+                                </a>
+                            </div>
                         </div>
-                        {% endfor %}
+
+                        <a class="nav-link{% if 'sessions' in request.path %} active{% endif %}" href="{% url 'admin:sessions_session_changelist' %}">
+                            <i class="bi bi-clock-history me-2"></i>
+                            🕒 Sesiones
+                        </a>
+
+                        <a class="nav-link{% if 'contenttypes' in request.path %} active{% endif %}" href="{% url 'admin:contenttypes_contenttype_changelist' %}">
+                            <i class="bi bi-file-earmark-text me-2"></i>
+                            📋 Tipos de Contenido
+                        </a>
                         {% endblock %}
                     </nav>
                 </div>
