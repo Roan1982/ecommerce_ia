@@ -1,5 +1,5 @@
 from django import forms
-from .models import Producto, Cupon
+from .models import Producto, Cupon, Profile
 
 
 class ProductoAdminForm(forms.ModelForm):
@@ -116,3 +116,27 @@ class CuponForm(forms.ModelForm):
             raise forms.ValidationError('El descuento porcentual no puede ser mayor al 100%.')
 
         return cleaned_data
+
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ['telefono', 'fecha_nacimiento', 'genero', 'biografia']
+        widgets = {
+            'telefono': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Número de teléfono'
+            }),
+            'fecha_nacimiento': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'genero': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'biografia': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Cuéntanos un poco sobre ti...'
+            }),
+        }

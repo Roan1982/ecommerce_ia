@@ -425,3 +425,21 @@ class ConfiguracionSistema(models.Model):
     class Meta:
         verbose_name = "Configuración del Sistema"
         verbose_name_plural = "Configuración del Sistema"
+
+
+class Profile(models.Model):
+    """Modelo para perfil de usuario extendido"""
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    telefono = models.CharField(max_length=20, blank=True, null=True, help_text="Número de teléfono")
+    fecha_nacimiento = models.DateField(blank=True, null=True, help_text="Fecha de nacimiento")
+    genero = models.CharField(max_length=10, choices=[('M', 'Masculino'), ('F', 'Femenino'), ('O', 'Otro')], blank=True, null=True)
+    biografia = models.TextField(blank=True, null=True, help_text="Biografía del usuario")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Perfil de {self.usuario.username}"
+
+    class Meta:
+        verbose_name = "Perfil"
+        verbose_name_plural = "Perfiles"

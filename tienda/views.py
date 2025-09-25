@@ -3,8 +3,8 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, UserChangeForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema
-from .forms import ProductoForm, CuponForm
+from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile
+from .forms import ProductoForm, CuponForm, ProfileForm
 from .recomendador import RecomendadorIA
 from django.utils.translation import gettext_lazy as _
 from django.db import models, transaction
@@ -809,6 +809,46 @@ def historial_pedidos(request):
 
     return render(request, 'tienda/historial_pedidos.html', {
         'pedidos': pedidos
+    })
+
+@login_required
+def perfil_usuario(request):
+    """Vista para mostrar y editar el perfil del usuario"""
+    profile, created = Profile.objects.get_or_create(usuario=request.user)
+
+    if request.method == 'POST':
+        form = ProfileForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _('Perfil actualizado exitosamente.'))
+            return redirect('perfil_usuario')
+    else:
+        form = ProfileForm(instance=profile)
+
+    return render(request, 'tienda/perfil.html', {
+        'form': form,
+        'profile': profile
+    })
+
+@login_required
+def cambiar_password(request):
+    """Vista para cambiar la contraseña del usuario"""
+    from django.contrib.auth.forms import PasswordChangeForm
+
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Actualizar la sesión para evitar logout
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(request, user)
+            messages.success(request, _('Tu contraseña ha sido cambiada exitosamente.'))
+            return redirect('perfil_usuario')
+    else:
+        form = PasswordChangeForm(request.user)
+
+    return render(request, 'tienda/cambiar_password.html', {
+        'form': form
     })
 
 def cupones_disponibles(request):

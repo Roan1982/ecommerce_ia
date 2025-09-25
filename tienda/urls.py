@@ -23,6 +23,8 @@ urlpatterns = [
     path('checkout/procesar/', views.procesar_pedido, name='procesar_pedido'),
     path('pedido/<int:pedido_id>/', views.pedido_detalle, name='pedido_detalle'),
     path('historial-pedidos/', views.historial_pedidos, name='historial_pedidos'),
+    path('perfil/', views.perfil_usuario, name='perfil_usuario'),
+    path('cambiar-password/', views.cambiar_password, name='cambiar_password'),
     # Reseñas
     path('producto/<int:producto_id>/resena/', views.agregar_resena, name='agregar_resena'),
     path('producto/<int:producto_id>/resenas/', views.ver_resenas, name='ver_resenas'),

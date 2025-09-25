@@ -95,6 +95,9 @@
                                     </a></li>
                                     <li><hr class="dropdown-divider"></li>
                                 {% endif %}
+                                <li><a class="dropdown-item" href="{% url 'perfil_usuario' %}">
+                                    <i class="bi bi-person-circle"></i> {% trans "Mi Perfil" %}
+                                </a></li>
                                 <li><a class="dropdown-item" href="{% url 'historial_pedidos' %}">
                                     <i class="bi bi-receipt"></i> {% trans "Mis Pedidos" %}
                                 </a></li>
