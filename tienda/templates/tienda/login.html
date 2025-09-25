@@ -1,0 +1,13 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Iniciar Sesión" %}{% endblock %}
+
+{% block content %}
+<h1>{% trans "Iniciar Sesión" %}</h1>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn">{% trans "Iniciar Sesión" %}</button>
+</form>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Recomendaciones" %}{% endblock %}
+
+{% block content %}
+<h1>{% trans "Recomendaciones para ti" %}</h1>
+<p>{% trans "Basado en tus compras anteriores:" %}</p>
+{% for rec in recomendaciones %}
+    <div class="producto">
+        <h3>{{ rec.nombre }}</h3>
+        <p>{% trans "Precio" %}: ${{ rec.precio }}</p>
+        <p>{% trans "Categoría" %}: {{ rec.categoria }}</p>
+        <a href="{% url 'comprar' rec.id %}" class="btn">{% trans "Comprar" %}</a>
+    </div>
+{% empty %}
+    <p>{% trans "No hay recomendaciones disponibles. Realiza algunas compras primero." %}</p>
+{% endfor %}
+{% endblock %}

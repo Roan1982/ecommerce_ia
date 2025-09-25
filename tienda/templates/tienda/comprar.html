@@ -1,0 +1,14 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Comprar Producto" %}{% endblock %}
+
+{% block content %}
+<h1>{% trans "Comprar" %} {{ producto.nombre }}</h1>
+<p>{% trans "Precio" %}: ${{ producto.precio }}</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn">{% trans "Confirmar Compra" %}</button>
+    <a href="{% url 'productos' %}">{% trans "Cancelar" %}</a>
+</form>
+{% endblock %}

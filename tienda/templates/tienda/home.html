@@ -1,0 +1,14 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Inicio" %}{% endblock %}
+
+{% block content %}
+<h1>{% trans "Bienvenido al E-commerce con IA" %}</h1>
+<p>{% trans "Sistema de recomendaciones inteligentes basadas en tus compras previas." %}</p>
+{% if user.is_authenticated %}
+    <p>{% trans "Hola" %}, {{ user.username }}! <a href="{% url 'productos' %}" class="btn">{% trans "Ver Productos" %}</a></p>
+{% else %}
+    <p><a href="{% url 'registro' %}" class="btn">{% trans "Registrarse" %}</a> <a href="{% url 'login' %}" class="btn">{% trans "Iniciar Sesión" %}</a></p>
+{% endif %}
+{% endblock %}

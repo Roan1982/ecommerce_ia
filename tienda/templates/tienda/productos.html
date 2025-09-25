@@ -1,0 +1,16 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Productos" %}{% endblock %}
+
+{% block content %}
+<h1>{% trans "Productos Disponibles" %}</h1>
+{% for producto in productos %}
+    <div class="producto">
+        <h3>{{ producto.nombre }}</h3>
+        <p>{% trans "Precio" %}: ${{ producto.precio }}</p>
+        <p>{% trans "Categoría" %}: {{ producto.categoria }}</p>
+        <a href="{% url 'comprar' producto.id %}" class="btn">{% trans "Comprar" %}</a>
+    </div>
+{% endfor %}
+{% endblock %}

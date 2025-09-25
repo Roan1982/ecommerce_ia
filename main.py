@@ -1,5 +1,5 @@
 from modelos import Usuario, Producto, Compra, Carrito
-from recomendador import RecomendadorIA
+from tienda.recomendador import RecomendadorIA
 
 # Datos simulados
 usuarios = []

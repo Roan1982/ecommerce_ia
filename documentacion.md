@@ -162,3 +162,13 @@ El módulo de IA implementa un sistema de recomendación simple basado en filtra
 - Recomienda productos de usuarios similares no comprados por el usuario actual.
 
 **Herramientas**: Python con pandas y scikit-learn. Dataset simulado en el código.
+
+## 6. Frontend Web con Django
+Se agregó un frontend web usando Django para una mejor experiencia de usuario:
+
+- **Tecnologías**: Django 5.2.6, HTML/CSS básico.
+- **Funcionalidades**:
+  - Páginas: Inicio, Registro, Login, Productos, Compras, Recomendaciones.
+  - Autenticación de usuarios.
+  - Interfaz responsive básica.
+- **Cómo ejecutar**: `python manage.py runserver` y acceder a http://127.0.0.1:8000.
