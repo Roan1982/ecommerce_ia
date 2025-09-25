@@ -1,0 +1,115 @@
+{% extends 'tienda/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Movimientos de Inventario" %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="mb-0">
+                            <i class="bi bi-clock-history me-2"></i>
+                            {% trans "Movimientos de Inventario" %}
+                        </h2>
+                        <a href="{% url 'admin_inventario' %}" class="btn btn-outline-light btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            {% trans "Volver al Inventario" %}
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {% trans "Mostrando los últimos 100 movimientos de inventario. Los movimientos incluyen ventas, ajustes manuales y otros cambios de stock." %}
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{% trans "Fecha" %}</th>
+                                    <th>{% trans "Producto" %}</th>
+                                    <th>{% trans "Tipo" %}</th>
+                                    <th class="text-center">{% trans "Cantidad" %}</th>
+                                    <th>{% trans "Descripción" %}</th>
+                                    <th>{% trans "Usuario" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for movimiento in movimientos %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">{{ movimiento.fecha|date:"d/m/Y H:i" }}</small>
+                                    </td>
+                                    <td>
+                                        <strong>{{ movimiento.producto.nombre }}</strong>
+                                        {% if movimiento.producto.sku %}
+                                            <br><small class="text-muted">SKU: {{ movimiento.producto.sku }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if movimiento.tipo == 'entrada' %}bg-success{% elif movimiento.tipo == 'salida' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                            {% if movimiento.tipo == 'entrada' %}
+                                                <i class="bi bi-plus-circle me-1"></i>
+                                                {% trans "Entrada" %}
+                                            {% elif movimiento.tipo == 'salida' %}
+                                                <i class="bi bi-dash-circle me-1"></i>
+                                                {% trans "Salida" %}
+                                            {% else %}
+                                                <i class="bi bi-gear me-1"></i>
+                                                {% trans "Ajuste" %}
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="{% if movimiento.cantidad > 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                            {% if movimiento.cantidad > 0 %}+{% endif %}{{ movimiento.cantidad }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ movimiento.descripcion }}
+                                    </td>
+                                    <td>
+                                        {% if movimiento.usuario %}
+                                            {{ movimiento.usuario.username }}
+                                        {% else %}
+                                            <span class="text-muted">{% trans "Sistema" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+                                        <p class="text-muted mt-2">{% trans "No hay movimientos de inventario registrados." %}</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if movimientos %}
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            {% trans "Mostrando" %} {{ movimientos|length }} {% trans "movimientos de inventario" %}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.badge {
+    font-size: 0.75rem;
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,225 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Perfil de {{ usuario.get_full_name|default:usuario.username }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Perfil de Usuario</h1>
+                <p class="text-muted">{{ usuario.get_full_name|default:usuario.username }}</p>
+            </div>
+            <div>
+                <a href="{% url 'admin_usuarios' %}" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Volver a Usuarios
+                </a>
+                <a href="{% url 'admin_editar_usuario' usuario.id %}" class="btn btn-primary">
+                    <i class="bi bi-pencil me-2"></i>
+                    Editar Usuario
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Información del usuario -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-person-circle me-2"></i>
+                    Información Personal
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre de Usuario</label>
+                            <p class="mb-0">{{ usuario.username }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre Completo</label>
+                            <p class="mb-0">{{ usuario.get_full_name|default:"-" }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Email</label>
+                            <p class="mb-0">{{ usuario.email }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Estado de la Cuenta</label>
+                            <p class="mb-0">
+                                <span class="badge {% if usuario.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if usuario.is_active %}Activa{% else %}Inactiva{% endif %}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Rol</label>
+                            <p class="mb-0">
+                                {% if usuario.is_superuser %}
+                                    <span class="badge bg-danger">Superusuario</span>
+                                {% elif usuario.is_staff %}
+                                    <span class="badge bg-warning text-dark">Staff</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Usuario</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fecha de Registro</label>
+                            <p class="mb-0">{{ usuario.date_joined|date:"d/m/Y H:i" }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Último Login</label>
+                            <p class="mb-0">
+                                {% if usuario.last_login %}
+                                    {{ usuario.last_login|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    <span class="text-muted">Nunca</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    Estadísticas
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="stat-card-small">
+                            <div class="stat-number">{{ stats.total_pedidos }}</div>
+                            <div class="stat-label">Total Pedidos</div>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stat-card-small">
+                            <div class="stat-number">{{ stats.pedidos_completados }}</div>
+                            <div class="stat-label">Completados</div>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <div class="stat-card-small">
+                            <div class="stat-number">${{ stats.total_gastado|floatformat:0 }}</div>
+                            <div class="stat-label">Total Gastado</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pedidos recientes -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-receipt me-2"></i>
+                    Pedidos Recientes ({{ pedidos_recientes|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if pedidos_recientes %}
+                <div class="table-responsive">
+                    <table class="table table-admin table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Fecha</th>
+                                <th>Productos</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pedido in pedidos_recientes %}
+                            <tr>
+                                <td><strong>#{{ pedido.id }}</strong></td>
+                                <td>{{ pedido.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ pedido.pedidoproducto_set.count }} productos</span>
+                                </td>
+                                <td>
+                                    <strong>${{ pedido.total_pedido|floatformat:0 }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge {% if pedido.estado == 'completado' %}bg-success{% elif pedido.estado == 'procesando' %}bg-warning text-dark{% elif pedido.estado == 'pendiente' %}bg-info{% else %}bg-danger{% endif %}">
+                                        {{ pedido.get_estado_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'admin_detalle_pedido' pedido.id %}"
+                                       class="btn btn-sm btn-outline-info" title="Ver Detalle">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if stats.total_pedidos > 5 %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'admin_pedidos' %}?usuario={{ usuario.username }}" class="btn btn-outline-primary">
+                        Ver todos los pedidos de este usuario
+                    </a>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-receipt-x display-1 text-muted mb-3"></i>
+                    <h5 class="text-muted">Este usuario no tiene pedidos</h5>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.stat-card-small {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid #e9ecef;
+}
+
+.stat-card-small .stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #007bff;
+    margin-bottom: 5px;
+}
+
+.stat-card-small .stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+}
+</style>
+{% endblock %}

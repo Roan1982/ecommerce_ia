@@ -1,0 +1,332 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Gestión de Pedidos{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Gestión de Pedidos</h1>
+                <p class="text-muted">Administrar pedidos del sistema</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total_pedidos }}</h3>
+                <p class="stat-label">Total Pedidos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-clock"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.pendientes }}</h3>
+                <p class="stat-label">Pendientes</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-gear"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.procesando }}</h3>
+                <p class="stat-label">Procesando</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">${{ stats.total_ingresos|floatformat:0 }}</h3>
+                <p class="stat-label">Total Ingresos</p>
+                <small class="text-success">{{ stats.completados }} completados</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="estado" class="form-label">Estado</label>
+                <select name="estado" id="estado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="pendiente" {% if filtros.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="procesando" {% if filtros.estado == 'procesando' %}selected{% endif %}>Procesando</option>
+                    <option value="completado" {% if filtros.estado == 'completado' %}selected{% endif %}>Completado</option>
+                    <option value="cancelado" {% if filtros.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="usuario" class="form-label">Usuario</label>
+                <input type="text" name="usuario" id="usuario" class="form-control"
+                       placeholder="Nombre de usuario o email" value="{{ filtros.usuario }}">
+            </div>
+            <div class="col-md-3">
+                <label for="fecha" class="form-label">Fecha</label>
+                <select name="fecha" id="fecha" class="form-select">
+                    <option value="">Todas las fechas</option>
+                    <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
+                    <option value="semana" {% if filtros.fecha == 'semana' %}selected{% endif %}>Esta semana</option>
+                    <option value="mes" {% if filtros.fecha == 'mes' %}selected{% endif %}>Este mes</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-admin me-2">
+                    <i class="bi bi-search me-1"></i>
+                    Filtrar
+                </button>
+                <a href="{% url 'admin_pedidos' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de pedidos -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-list-ul me-2"></i>
+            Lista de Pedidos ({{ pedidos|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if pedidos %}
+        <div class="table-responsive">
+            <table class="table table-admin table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Usuario</th>
+                        <th>Productos</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pedido in pedidos %}
+                    <tr>
+                        <td><strong>#{{ pedido.id }}</strong></td>
+                        <td>
+                            <div>
+                                <strong>{{ pedido.usuario.get_full_name|default:pedido.usuario.username }}</strong>
+                                <br><small class="text-muted">{{ pedido.usuario.email }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ pedido.pedidoproducto_set.count }} productos</span>
+                        </td>
+                        <td>
+                            <strong>${{ pedido.total_pedido|floatformat:0 }}</strong>
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm estado-select"
+                                    data-pedido-id="{{ pedido.id }}"
+                                    style="width: auto;">
+                                <option value="pendiente" {% if pedido.estado == 'pendiente' %}selected{% endif %}>
+                                    Pendiente
+                                </option>
+                                <option value="procesando" {% if pedido.estado == 'procesando' %}selected{% endif %}>
+                                    Procesando
+                                </option>
+                                <option value="completado" {% if pedido.estado == 'completado' %}selected{% endif %}>
+                                    Completado
+                                </option>
+                                <option value="cancelado" {% if pedido.estado == 'cancelado' %}selected{% endif %}>
+                                    Cancelado
+                                </option>
+                            </select>
+                        </td>
+                        <td>{{ pedido.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-info"
+                                        onclick="verDetallePedido({{ pedido.id }})" title="Ver Detalle">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                {% if pedido.estado == 'completado' %}
+                                <a href="#" class="btn btn-sm btn-outline-success" title="Factura">
+                                    <i class="bi bi-receipt"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if pedidos.has_other_pages %}
+        <nav aria-label="Paginación de pedidos" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if pedidos.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ pedidos.previous_page_number }}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.usuario %}&usuario={{ filtros.usuario }}{% endif %}">
+                        Anterior
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for num in pedidos.paginator.page_range %}
+                {% if pedidos.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > pedidos.number|add:'-3' and num < pedidos.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.usuario %}&usuario={{ filtros.usuario }}{% endif %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if pedidos.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ pedidos.next_page_number }}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.usuario %}&usuario={{ filtros.usuario }}{% endif %}">
+                        Siguiente
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox display-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No se encontraron pedidos</h5>
+            <p class="text-muted">Intenta cambiar los filtros de búsqueda</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para detalle de pedido -->
+<div class="modal fade" id="pedidoModal" tabindex="-1" aria-labelledby="pedidoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pedidoModalLabel">Detalle del Pedido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="pedidoModalBody">
+                <!-- Contenido se carga dinámicamente -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Cambiar estado de pedido
+    document.querySelectorAll('.estado-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const pedidoId = this.dataset.pedidoId;
+            const nuevoEstado = this.value;
+
+            if (confirm(`¿Cambiar el estado del pedido #${pedidoId} a "${nuevoEstado}"?`)) {
+                cambiarEstadoPedido(pedidoId, nuevoEstado);
+            } else {
+                // Revertir selección
+                this.value = this.dataset.originalValue || this.value;
+            }
+        });
+
+        // Guardar valor original
+        select.dataset.originalValue = select.value;
+    });
+});
+
+function cambiarEstadoPedido(pedidoId, nuevoEstado) {
+    fetch(`/admin/cambiar-estado-pedido/${pedidoId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `estado=${nuevoEstado}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar el badge visualmente
+            const select = document.querySelector(`[data-pedido-id="${pedidoId}"]`);
+            const row = select.closest('tr');
+            const estadoCell = row.querySelector('td:nth-child(5)');
+
+            // Actualizar clases del select
+            select.className = `form-select form-select-sm estado-select ${data.estado_class}`;
+            select.dataset.originalValue = nuevoEstado;
+
+            // Mostrar mensaje de éxito
+            mostrarMensaje('Estado actualizado correctamente', 'success');
+        } else {
+            mostrarMensaje(data.error || 'Error al actualizar estado', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarMensaje('Error de conexión', 'danger');
+    });
+}
+
+function verDetallePedido(pedidoId) {
+    window.location.href = `/admin/pedidos/${pedidoId}/`;
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de alerta
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alert);
+
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Auto-submit de filtros al cambiar estado
+document.getElementById('estado').addEventListener('change', function() {
+    this.form.submit();
+});
+</script>
+{% endblock %}

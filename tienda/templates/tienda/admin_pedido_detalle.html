@@ -1,0 +1,356 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Detalle del Pedido #{{ pedido.id }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Pedido #{{ pedido.id }}</h1>
+                <p class="text-muted">Detalle completo del pedido</p>
+            </div>
+            <div>
+                <a href="{% url 'admin_pedidos' %}" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Volver a Pedidos
+                </a>
+                {% if pedido.estado == 'completado' %}
+                <button type="button" class="btn btn-success" onclick="generarFactura({{ pedido.id }})">
+                    <i class="bi bi-receipt me-2"></i>
+                    Generar Factura
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Información del pedido -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información del Pedido
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">ID del Pedido</label>
+                            <p class="mb-0">#{{ pedido.id }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fecha de Creación</label>
+                            <p class="mb-0">{{ pedido.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Estado</label>
+                            <p class="mb-0">
+                                <span class="badge {% if pedido.estado == 'completado' %}bg-success{% elif pedido.estado == 'procesando' %}bg-warning text-dark{% elif pedido.estado == 'pendiente' %}bg-info{% else %}bg-danger{% endif %}">
+                                    {{ pedido.get_estado_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Cliente</label>
+                            <p class="mb-0">
+                                <strong>{{ pedido.usuario.get_full_name|default:pedido.usuario.username }}</strong><br>
+                                <small class="text-muted">{{ pedido.usuario.email }}</small>
+                            </p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Total del Pedido</label>
+                            <p class="mb-0 fs-5 fw-bold text-primary">${{ pedido.total_pedido|floatformat:0 }}</p>
+                        </div>
+                        {% if pedido.cupon %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Cupón Aplicado</label>
+                            <p class="mb-0">
+                                <span class="badge bg-success">{{ pedido.cupon.codigo }}</span>
+                                {% if pedido.cupon.tipo_descuento == 'porcentaje' %}
+                                    ({{ pedido.cupon.valor_descuento }}% de descuento)
+                                {% else %}
+                                    (${{ pedido.cupon.valor_descuento|floatformat:0 }} de descuento)
+                                {% endif %}
+                            </p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-truck me-2"></i>
+                    Información de Envío
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Dirección</label>
+                    <p class="mb-0">{{ info_envio.direccion }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Ciudad</label>
+                    <p class="mb-0">{{ info_envio.ciudad }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Código Postal</label>
+                    <p class="mb-0">{{ info_envio.codigo_postal }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Teléfono</label>
+                    <p class="mb-0">{{ info_envio.telefono }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Productos del pedido -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-cart me-2"></i>
+                    Productos del Pedido ({{ productos_pedido|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if productos_pedido %}
+                <div class="table-responsive">
+                    <table class="table table-admin table-hover">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unitario</th>
+                                <th>Subtotal</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in productos_pedido %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if item.producto.imagen %}
+                                        <img src="{{ item.producto.imagen.url }}" alt="{{ item.producto.nombre }}"
+                                             class="rounded me-3" style="width: 50px; height: 50px; object-fit: cover;">
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ item.producto.nombre }}</strong>
+                                            {% if item.producto.sku %}
+                                            <br><small class="text-muted">SKU: {{ item.producto.sku }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ item.cantidad }}</span>
+                                </td>
+                                <td>${{ item.precio_unitario|floatformat:0 }}</td>
+                                <td>
+                                    <strong>${{ item.get_subtotal|floatformat:0 }}</strong>
+                                </td>
+                                <td>
+                                    <a href="{% url 'producto_detalle' item.producto.id %}"
+                                       class="btn btn-sm btn-outline-info" title="Ver Producto" target="_blank">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <td colspan="3" class="text-end fw-bold">Subtotal:</td>
+                                <td class="fw-bold">${{ subtotal|floatformat:0 }}</td>
+                                <td></td>
+                            </tr>
+                            {% if pedido.cupon %}
+                            <tr class="table-light">
+                                <td colspan="3" class="text-end">
+                                    Descuento ({{ pedido.cupon.codigo }}):
+                                </td>
+                                <td class="text-success">
+                                    {% if pedido.cupon.tipo_descuento == 'porcentaje' %}
+                                        -${{ pedido.cupon.get_descuento_amount|floatformat:0 }}
+                                    {% else %}
+                                        -${{ pedido.cupon.valor_descuento|floatformat:0 }}
+                                    {% endif %}
+                                </td>
+                                <td></td>
+                            </tr>
+                            {% endif %}
+                            <tr class="table-dark">
+                                <td colspan="3" class="text-end fw-bold fs-5">Total:</td>
+                                <td class="fw-bold fs-5 text-primary">${{ pedido.total_pedido|floatformat:0 }}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-cart-x display-1 text-muted mb-3"></i>
+                    <h5 class="text-muted">No hay productos en este pedido</h5>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historial de cambios de estado (simulado) -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Historial de Estados
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-info"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Pedido Creado</h6>
+                            <p class="timeline-text">{{ pedido.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                    {% if pedido.estado == 'procesando' %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-warning"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Pedido en Procesamiento</h6>
+                            <p class="timeline-text">El pedido está siendo preparado</p>
+                        </div>
+                    </div>
+                    {% elif pedido.estado == 'completado' %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-warning"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Pedido en Procesamiento</h6>
+                            <p class="timeline-text">El pedido fue procesado</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-success"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Pedido Completado</h6>
+                            <p class="timeline-text">El pedido fue entregado exitosamente</p>
+                        </div>
+                    </div>
+                    {% elif pedido.estado == 'cancelado' %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-danger"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Pedido Cancelado</h6>
+                            <p class="timeline-text">El pedido fue cancelado</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 5px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #e9ecef;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.timeline-title {
+    margin: 0 0 5px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.timeline-text {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function generarFactura(pedidoId) {
+    // Aquí iría la lógica para generar la factura
+    mostrarMensaje('Funcionalidad de generación de factura en desarrollo', 'info');
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de alerta
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alert);
+
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}

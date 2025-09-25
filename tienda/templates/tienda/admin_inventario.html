@@ -1,0 +1,462 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Control de Inventario{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Control de Inventario</h1>
+                <p class="text-muted">Gestión de stock y movimientos</p>
+            </div>
+            <div>
+                <a href="{% url 'movimientos_inventario' %}" class="btn btn-outline-primary me-2">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Ver Movimientos
+                </a>
+                <a href="#" class="btn btn-admin">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Nuevo Movimiento
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas de inventario -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-boxes"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total_productos }}</h3>
+                <p class="stat-label">Total Productos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.productos_activos }}</h3>
+                <p class="stat-label">Productos Activos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-stack"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total_unidades }}</h3>
+                <p class="stat-label">Total Unidades</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-cash"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">${{ stats.valor_inventario|floatformat:0 }}</h3>
+                <p class="stat-label">Valor Inventario</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas de inventario -->
+<div class="row mb-4">
+    <div class="col-xl-6 mb-4">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Stock Bajo ({{ stats.productos_stock_bajo }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if productos|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Stock</th>
+                                <th>Mínimo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for producto in productos %}
+                            {% if producto.stock_bajo %}
+                            <tr>
+                                <td>{{ producto.nombre|truncatechars:25 }}</td>
+                                <td><span class="badge bg-warning text-dark">{{ producto.stock }}</span></td>
+                                <td>{{ producto.stock_minimo }}</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center mb-0">No hay productos con stock bajo</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6 mb-4">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-x-circle me-2"></i>
+                    Productos Agotados ({{ stats.productos_agotados }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if productos|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for producto in productos %}
+                            {% if producto.agotado %}
+                            <tr>
+                                <td>{{ producto.nombre|truncatechars:25 }}</td>
+                                <td><span class="badge bg-danger">Agotado</span></td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center mb-0">No hay productos agotados</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="categoria" class="form-label">Categoría</label>
+                <select name="categoria" id="categoria" class="form-select">
+                    <option value="">Todas las categorías</option>
+                    {% for categoria in categorias %}
+                    <option value="{{ categoria }}" {% if filtros.categoria == categoria %}selected{% endif %}>
+                        {{ categoria }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="stock" class="form-label">Estado de Stock</label>
+                <select name="stock" id="stock" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="disponible" {% if filtros.stock == 'disponible' %}selected{% endif %}>Disponible</option>
+                    <option value="bajo" {% if filtros.stock == 'bajo' %}selected{% endif %}>Stock Bajo</option>
+                    <option value="agotado" {% if filtros.stock == 'agotado' %}selected{% endif %}>Agotado</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-admin me-2">
+                    <i class="bi bi-search me-1"></i>
+                    Filtrar
+                </button>
+                <a href="{% url 'admin_inventario' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de inventario -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-list-ul me-2"></i>
+            Inventario de Productos ({{ productos|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if productos %}
+        <div class="table-responsive">
+            <table class="table table-admin table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Stock Actual</th>
+                        <th>Stock Mínimo</th>
+                        <th>Precio</th>
+                        <th>Valor Total</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in productos %}
+                    <tr class="{% if producto.agotado %}table-danger{% elif producto.stock_bajo %}table-warning{% endif %}">
+                        <td><strong>#{{ producto.id }}</strong></td>
+                        <td>
+                            <div>
+                                <strong>{{ producto.nombre }}</strong>
+                                {% if producto.sku %}
+                                <br><small class="text-muted">SKU: {{ producto.sku }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>{{ producto.categoria|default:"Sin categoría" }}</td>
+                        <td>
+                            <span class="badge {% if producto.agotado %}bg-danger{% elif producto.stock_bajo %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                {{ producto.stock }}
+                            </span>
+                        </td>
+                        <td>{{ producto.stock_minimo }}</td>
+                        <td>${{ producto.precio|floatformat:0 }}</td>
+                        <td>${{ producto.valor_total|floatformat:0 }}</td>
+                        <td>
+                            <span class="badge {% if producto.estado == 'activo' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ producto.get_estado_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-info"
+                                        onclick="actualizarStock({{ producto.id }}, {{ producto.stock }})"
+                                        title="Actualizar Stock">
+                                    <i class="bi bi-box-seam"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        onclick="verMovimientos({{ producto.id }})"
+                                        title="Ver Movimientos">
+                                    <i class="bi bi-clock-history"></i>
+                                </button>
+                                <a href="{% url 'producto_detalle' producto.id %}"
+                                   class="btn btn-sm btn-outline-secondary" title="Ver Producto" target="_blank">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if productos.has_other_pages %}
+        <nav aria-label="Paginación de inventario" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if productos.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ productos.previous_page_number }}{% if filtros.categoria %}&categoria={{ filtros.categoria }}{% endif %}{% if filtros.stock %}&stock={{ filtros.stock }}{% endif %}">
+                        Anterior
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for num in productos.paginator.page_range %}
+                {% if productos.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > productos.number|add:'-3' and num < productos.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if filtros.categoria %}&categoria={{ filtros.categoria }}{% endif %}{% if filtros.stock %}&stock={{ filtros.stock }}{% endif %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if productos.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ productos.next_page_number }}{% if filtros.categoria %}&categoria={{ filtros.categoria }}{% endif %}{% if filtros.stock %}&stock={{ filtros.stock }}{% endif %}">
+                        Siguiente
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-box-seam display-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No se encontraron productos en el inventario</h5>
+            <p class="text-muted">Intenta cambiar los filtros de búsqueda</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Movimientos recientes -->
+{% if movimientos_recientes %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-clock-history me-2"></i>
+            Movimientos Recientes
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-admin table-sm">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Tipo</th>
+                        <th>Cantidad</th>
+                        <th>Usuario</th>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movimiento in movimientos_recientes %}
+                    <tr>
+                        <td>{{ movimiento.producto.nombre|truncatechars:25 }}</td>
+                        <td>
+                            <span class="badge bg-{% if movimiento.tipo == 'entrada' %}success{% else %}danger{% endif %}">
+                                {{ movimiento.get_tipo_display }}
+                            </span>
+                        </td>
+                        <td>{{ movimiento.cantidad }}</td>
+                        <td>{{ movimiento.usuario.username }}</td>
+                        <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ movimiento.descripcion|truncatechars:30 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="text-center mt-3">
+            <a href="{% url 'movimientos_inventario' %}" class="btn btn-outline-primary btn-sm">
+                Ver todos los movimientos
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal para actualizar stock -->
+<div class="modal fade" id="stockModal" tabindex="-1" aria-labelledby="stockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="stockModalLabel">Actualizar Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="stockForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="productoId" name="producto_id">
+                    <div class="mb-3">
+                        <label for="nuevoStock" class="form-label">Nuevo Stock</label>
+                        <input type="number" class="form-control" id="nuevoStock" name="stock" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label">Descripción del movimiento</label>
+                        <textarea class="form-control" id="descripcion" name="descripcion" rows="3"
+                                  placeholder="Ej: Ajuste manual, recepción de mercancía, etc." required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-admin" onclick="guardarStock()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function actualizarStock(productoId, stockActual) {
+    document.getElementById('productoId').value = productoId;
+    document.getElementById('nuevoStock').value = stockActual;
+    document.getElementById('descripcion').value = 'Ajuste manual desde admin';
+
+    new bootstrap.Modal(document.getElementById('stockModal')).show();
+}
+
+function guardarStock() {
+    const form = document.getElementById('stockForm');
+    const formData = new FormData(form);
+    const productoId = formData.get('producto_id');
+
+    fetch(`/admin/actualizar-stock/${productoId}/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('stockModal')).hide();
+            mostrarMensaje('Stock actualizado correctamente', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            mostrarMensaje(data.error || 'Error al actualizar stock', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarMensaje('Error de conexión', 'danger');
+    });
+}
+
+function verMovimientos(productoId) {
+    // Aquí iría la lógica para ver movimientos del producto
+    mostrarMensaje('Funcionalidad en desarrollo', 'info');
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de alerta
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alert);
+
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Auto-submit de filtros al cambiar
+document.getElementById('categoria').addEventListener('change', function() {
+    this.form.submit();
+});
+document.getElementById('stock').addEventListener('change', function() {
+    this.form.submit();
+});
+</script>
+{% endblock %}

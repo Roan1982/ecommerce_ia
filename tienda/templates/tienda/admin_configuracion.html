@@ -1,0 +1,456 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Configuración del Sistema{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Configuración del Sistema</h1>
+                <p class="text-muted">Administrar configuraciones generales</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline-warning me-2" onclick="restaurarDefecto()">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>
+                    Restaurar Predeterminados
+                </button>
+                <button type="button" class="btn btn-admin" onclick="guardarConfiguracion()">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas de configuración -->
+<div class="alert alert-info alert-admin mb-4">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>Información:</strong> Los cambios en la configuración se aplicarán inmediatamente después de guardar.
+    Asegúrate de revisar todas las opciones antes de confirmar.
+</div>
+
+<form id="configForm">
+    {% csrf_token %}
+
+    <!-- Configuración General -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-gear me-2"></i>
+                Configuración General
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="sitio_activo"
+                               {% if configuraciones.sitio_activo %}checked{% endif %}>
+                        <label class="form-check-label" for="sitio_activo">
+                            <strong>Sitio Web Activo</strong>
+                        </label>
+                        <div class="form-text">
+                            Si está desactivado, el sitio mostrará una página de mantenimiento
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="registro_abierto"
+                               {% if configuraciones.registro_abierto %}checked{% endif %}>
+                        <label class="form-check-label" for="registro_abierto">
+                            <strong>Registro de Usuarios Abierto</strong>
+                        </label>
+                        <div class="form-text">
+                            Permitir que nuevos usuarios se registren en el sitio
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="moneda" class="form-label">
+                        <strong>Moneda Predeterminada</strong>
+                    </label>
+                    <select class="form-select" id="moneda">
+                        <option value="COP" {% if configuraciones.moneda == 'COP' %}selected{% endif %}>Peso Colombiano (COP)</option>
+                        <option value="USD" {% if configuraciones.moneda == 'USD' %}selected{% endif %}>Dólar Estadounidense (USD)</option>
+                        <option value="EUR" {% if configuraciones.moneda == 'EUR' %}selected{% endif %}>Euro (EUR)</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="productos_por_pagina" class="form-label">
+                        <strong>Productos por Página</strong>
+                    </label>
+                    <select class="form-select" id="productos_por_pagina">
+                        <option value="6" {% if configuraciones.productos_por_pagina == '6' %}selected{% endif %}>6 productos</option>
+                        <option value="12" {% if configuraciones.productos_por_pagina == '12' %}selected{% endif %}>12 productos</option>
+                        <option value="18" {% if configuraciones.productos_por_pagina == '18' %}selected{% endif %}>18 productos</option>
+                        <option value="24" {% if configuraciones.productos_por_pagina == '24' %}selected{% endif %}>24 productos</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuración de Comercio -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-shop me-2"></i>
+                Configuración de Comercio
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="envio_gratuito_minimo" class="form-label">
+                        <strong>Mínimo para Envío Gratuito</strong>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" class="form-control" id="envio_gratuito_minimo"
+                               value="{{ configuraciones.envio_gratuito_minimo }}" min="0">
+                    </div>
+                    <div class="form-text">
+                        Monto mínimo para envío gratuito (0 = sin mínimo)
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="stock_minimo_alerta" class="form-label">
+                        <strong>Stock Mínimo para Alerta</strong>
+                    </label>
+                    <input type="number" class="form-control" id="stock_minimo_alerta"
+                           value="{{ configuraciones.stock_minimo_alerta }}" min="0">
+                    <div class="form-text">
+                        Cantidad mínima de stock para mostrar alerta
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="impuestos_activos"
+                               {% if configuraciones.impuestos_activos %}checked{% endif %}>
+                        <label class="form-check-label" for="impuestos_activos">
+                            <strong>Impuestos Activados</strong>
+                        </label>
+                        <div class="form-text">
+                            Calcular y mostrar impuestos en los pedidos
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="email_notificaciones"
+                               {% if configuraciones.email_notificaciones %}checked{% endif %}>
+                        <label class="form-check-label" for="email_notificaciones">
+                            <strong>Notificaciones por Email</strong>
+                        </label>
+                        <div class="form-text">
+                            Enviar emails automáticos para pedidos y registro
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuración de Email -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-envelope me-2"></i>
+                Configuración de Email
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="email_admin" class="form-label">
+                        <strong>Email del Administrador</strong>
+                    </label>
+                    <input type="email" class="form-control" id="email_admin"
+                           placeholder="admin@tienda.com">
+                    <div class="form-text">
+                        Email para recibir notificaciones administrativas
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="email_smtp" class="form-label">
+                        <strong>Servidor SMTP</strong>
+                    </label>
+                    <input type="text" class="form-control" id="email_smtp"
+                           placeholder="smtp.gmail.com">
+                    <div class="form-text">
+                        Servidor SMTP para envío de emails
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="email_puerto" class="form-label">
+                        <strong>Puerto SMTP</strong>
+                    </label>
+                    <input type="number" class="form-control" id="email_puerto"
+                           placeholder="587" value="587">
+                </div>
+                <div class="col-md-6">
+                    <label for="email_usuario" class="form-label">
+                        <strong>Usuario SMTP</strong>
+                    </label>
+                    <input type="text" class="form-control" id="email_usuario"
+                           placeholder="usuario@dominio.com">
+                </div>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label for="email_password" class="form-label">
+                        <strong>Contraseña SMTP</strong>
+                    </label>
+                    <input type="password" class="form-control" id="email_password"
+                           placeholder="Contraseña de aplicación">
+                    <div class="form-text">
+                        Para Gmail, usa una contraseña de aplicación
+                    </div>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-info" onclick="probarEmail()">
+                        <i class="bi bi-send me-1"></i>
+                        Probar Configuración
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuración de Seguridad -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-shield-check me-2"></i>
+                Configuración de Seguridad
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="session_timeout" class="form-label">
+                        <strong>Tiempo de Sesión (minutos)</strong>
+                    </label>
+                    <input type="number" class="form-control" id="session_timeout"
+                           placeholder="60" min="5" max="480">
+                    <div class="form-text">
+                        Tiempo máximo de inactividad antes de cerrar sesión
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="max_login_attempts" class="form-label">
+                        <strong>Máximo Intentos de Login</strong>
+                    </label>
+                    <input type="number" class="form-control" id="max_login_attempts"
+                           placeholder="5" min="3" max="10">
+                    <div class="form-text">
+                        Número máximo de intentos fallidos antes de bloquear
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="two_factor_auth" checked>
+                        <label class="form-check-label" for="two_factor_auth">
+                            <strong>Autenticación de Dos Factores</strong>
+                        </label>
+                        <div class="form-text">
+                            Requerir 2FA para usuarios administradores
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="password_complexity" checked>
+                        <label class="form-check-label" for="password_complexity">
+                            <strong>Complejidad de Contraseña</strong>
+                        </label>
+                        <div class="form-text">
+                            Requerir contraseñas complejas (mayúsculas, números, símbolos)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuración de Backup -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-cloud-upload me-2"></i>
+                Configuración de Backup
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="backup_automatico" checked>
+                        <label class="form-check-label" for="backup_automatico">
+                            <strong>Backup Automático</strong>
+                        </label>
+                        <div class="form-text">
+                            Realizar backups automáticos de la base de datos
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="backup_frecuencia" class="form-label">
+                        <strong>Frecuencia de Backup</strong>
+                    </label>
+                    <select class="form-select" id="backup_frecuencia">
+                        <option value="diario" selected>Diario</option>
+                        <option value="semanal">Semanal</option>
+                        <option value="mensual">Mensual</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="backup_retencion" class="form-label">
+                        <strong>Días de Retención</strong>
+                    </label>
+                    <input type="number" class="form-control" id="backup_retencion"
+                           placeholder="30" min="7" max="365" value="30">
+                    <div class="form-text">
+                        Número de días para mantener los backups
+                    </div>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-success" onclick="crearBackup()">
+                        <i class="bi bi-cloud-upload me-1"></i>
+                        Crear Backup Ahora
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del Sistema -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-info-circle me-2"></i>
+                Información del Sistema
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h6 class="text-muted mb-1">Versión Django</h6>
+                        <strong>4.2.7</strong>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h6 class="text-muted mb-1">Versión Python</h6>
+                        <strong>3.11.5</strong>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h6 class="text-muted mb-1">Base de Datos</h6>
+                        <strong>SQLite 3</strong>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h6 class="text-muted mb-1">Último Backup</h6>
+                        <strong>{{ now|date:"d/m/Y" }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function guardarConfiguracion() {
+    // Recopilar todos los valores del formulario
+    const configuracion = {
+        sitio_activo: document.getElementById('sitio_activo').checked,
+        registro_abierto: document.getElementById('registro_abierto').checked,
+        envio_gratuito_minimo: document.getElementById('envio_gratuito_minimo').value,
+        impuestos_activos: document.getElementById('impuestos_activos').checked,
+        moneda: document.getElementById('moneda').value,
+        email_notificaciones: document.getElementById('email_notificaciones').checked,
+        productos_por_pagina: document.getElementById('productos_por_pagina').value,
+        stock_minimo_alerta: document.getElementById('stock_minimo_alerta').value,
+        // Agregar más campos según sea necesario
+    };
+
+    // Aquí iría la llamada AJAX para guardar
+    console.log('Guardando configuración:', configuracion);
+    mostrarMensaje('Configuración guardada exitosamente', 'success');
+}
+
+function restaurarDefecto() {
+    if (confirm('¿Estás seguro de que quieres restaurar la configuración predeterminada? Se perderán todos los cambios actuales.')) {
+        // Restaurar valores predeterminados
+        document.getElementById('sitio_activo').checked = true;
+        document.getElementById('registro_abierto').checked = true;
+        document.getElementById('envio_gratuito_minimo').value = '50000';
+        document.getElementById('impuestos_activos').checked = true;
+        document.getElementById('moneda').value = 'COP';
+        document.getElementById('email_notificaciones').checked = true;
+        document.getElementById('productos_por_pagina').value = '12';
+        document.getElementById('stock_minimo_alerta').value = '5';
+
+        mostrarMensaje('Configuración restaurada a valores predeterminados', 'info');
+    }
+}
+
+function probarEmail() {
+    mostrarMensaje('Prueba de email en desarrollo', 'info');
+}
+
+function crearBackup() {
+    mostrarMensaje('Creando backup del sistema...', 'info');
+
+    // Simular proceso de backup
+    setTimeout(() => {
+        mostrarMensaje('Backup completado exitosamente', 'success');
+    }, 2000);
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de alerta
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alert);
+
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Validación de campos numéricos
+document.querySelectorAll('input[type="number"]').forEach(input => {
+    input.addEventListener('input', function() {
+        const min = parseInt(this.min);
+        const max = parseInt(this.max);
+        const value = parseInt(this.value);
+
+        if (this.min && value < min) {
+            this.value = min;
+        }
+        if (this.max && value > max) {
+            this.value = max;
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,278 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">{{ titulo }}</h1>
+                <p class="text-muted">Complete el formulario para {{ accion|lower }} el producto</p>
+            </div>
+            <div>
+                <a href="{% url 'admin_productos' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Volver a Productos
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-pencil-square me-2"></i>
+                    Información del Producto
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.nombre.id_for_label }}" class="form-label">
+                                {{ form.nombre.label }}{% if form.nombre.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}
+                                <div class="text-danger small">{{ form.nombre.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.sku.id_for_label }}" class="form-label">
+                                {{ form.sku.label }}
+                            </label>
+                            {{ form.sku }}
+                            {% if form.sku.errors %}
+                                <div class="text-danger small">{{ form.sku.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.descripcion.id_for_label }}" class="form-label">
+                            {{ form.descripcion.label }}{% if form.descripcion.field.required %} <span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {{ form.descripcion }}
+                        {% if form.descripcion.errors %}
+                            <div class="text-danger small">{{ form.descripcion.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.precio.id_for_label }}" class="form-label">
+                                {{ form.precio.label }}{% if form.precio.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form.precio }}
+                            </div>
+                            {% if form.precio.errors %}
+                                <div class="text-danger small">{{ form.precio.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.categoria.id_for_label }}" class="form-label">
+                                {{ form.categoria.label }}{% if form.categoria.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.categoria }}
+                            {% if form.categoria.errors %}
+                                <div class="text-danger small">{{ form.categoria.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.estado.id_for_label }}" class="form-label">
+                                {{ form.estado.label }}{% if form.estado.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.estado }}
+                            {% if form.estado.errors %}
+                                <div class="text-danger small">{{ form.estado.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.stock.id_for_label }}" class="form-label">
+                                {{ form.stock.label }}{% if form.stock.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.stock }}
+                            {% if form.stock.errors %}
+                                <div class="text-danger small">{{ form.stock.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.stock_minimo.id_for_label }}" class="form-label">
+                                {{ form.stock_minimo.label }}{% if form.stock_minimo.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.stock_minimo }}
+                            {% if form.stock_minimo.errors %}
+                                <div class="text-danger small">{{ form.stock_minimo.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.peso.id_for_label }}" class="form-label">
+                                {{ form.peso.label }}
+                            </label>
+                            <div class="input-group">
+                                {{ form.peso }}
+                                <span class="input-group-text">kg</span>
+                            </div>
+                            {% if form.peso.errors %}
+                                <div class="text-danger small">{{ form.peso.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.dimensiones.id_for_label }}" class="form-label">
+                            {{ form.dimensiones.label }}
+                        </label>
+                        {{ form.dimensiones }}
+                        {% if form.dimensiones.errors %}
+                            <div class="text-danger small">{{ form.dimensiones.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.imagen.id_for_label }}" class="form-label">
+                            {{ form.imagen.label }}
+                        </label>
+                        {{ form.imagen }}
+                        {% if form.imagen.errors %}
+                            <div class="text-danger small">{{ form.imagen.errors.0 }}</div>
+                        {% endif %}
+                        {% if producto and producto.imagen %}
+                        <div class="mt-2">
+                            <img src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}"
+                                 class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                            <p class="text-muted small mt-1">Imagen actual</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-admin">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {{ accion }} Producto
+                        </button>
+                        <a href="{% url 'admin_productos' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-lightbulb me-2"></i>Consejos para el formulario:</h6>
+                    <ul class="mb-0 small">
+                        <li>Los campos marcados con <span class="text-danger">*</span> son obligatorios</li>
+                        <li>El SKU debe ser único para cada producto</li>
+                        <li>El stock mínimo se usa para alertas de inventario bajo</li>
+                        <li>Las imágenes deben ser en formato JPG, PNG o GIF</li>
+                        <li>El peso se usa para cálculos de envío</li>
+                    </ul>
+                </div>
+
+                {% if producto %}
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>Editando producto existente</h6>
+                    <p class="mb-0 small">Los cambios se aplicarán inmediatamente al guardar.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación del formulario
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const precio = document.getElementById('id_precio');
+        const stock = document.getElementById('id_stock');
+        const stockMinimo = document.getElementById('id_stock_minimo');
+
+        let isValid = true;
+
+        // Validar precio positivo
+        if (precio.value && parseFloat(precio.value) <= 0) {
+            mostrarError(precio, 'El precio debe ser mayor a 0');
+            isValid = false;
+        }
+
+        // Validar stock no negativo
+        if (stock.value && parseInt(stock.value) < 0) {
+            mostrarError(stock, 'El stock no puede ser negativo');
+            isValid = false;
+        }
+
+        // Validar stock mínimo no negativo
+        if (stockMinimo.value && parseInt(stockMinimo.value) < 0) {
+            mostrarError(stockMinimo, 'El stock mínimo no puede ser negativo');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+        }
+    });
+
+    function mostrarError(elemento, mensaje) {
+        // Remover errores previos
+        const errorExistente = elemento.parentNode.querySelector('.text-danger');
+        if (errorExistente) {
+            errorExistente.remove();
+        }
+
+        // Agregar nuevo error
+        const error = document.createElement('div');
+        error.className = 'text-danger small';
+        error.textContent = mensaje;
+        elemento.parentNode.appendChild(error);
+
+        // Resaltar campo
+        elemento.classList.add('is-invalid');
+    }
+
+    // Limpiar errores al cambiar valor
+    document.querySelectorAll('input, select, textarea').forEach(elemento => {
+        elemento.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+            const error = this.parentNode.querySelector('.text-danger');
+            if (error) {
+                error.remove();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

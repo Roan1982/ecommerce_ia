@@ -1,0 +1,396 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Gestión de Cupones{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Gestión de Cupones</h1>
+                <p class="text-muted">Administrar cupones de descuento</p>
+            </div>
+            <div>
+                <a href="{% url 'admin_agregar_cupon' %}" class="btn btn-admin">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Crear Cupón
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-tags"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total }}</h3>
+                <p class="stat-label">Total Cupones</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.activos }}</h3>
+                <p class="stat-label">Activos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-calendar-x"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.expirados }}</h3>
+                <p class="stat-label">Expirados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-x-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.usados }}</h3>
+                <p class="stat-label">Usados</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="estado" class="form-label">Estado</label>
+                <select name="estado" id="estado" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="activos" {% if filtros.estado == 'activos' %}selected{% endif %}>Activos</option>
+                    <option value="expirados" {% if filtros.estado == 'expirados' %}selected{% endif %}>Expirados</option>
+                    <option value="inactivos" {% if filtros.estado == 'inactivos' %}selected{% endif %}>Inactivos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="tipo" class="form-label">Tipo de Descuento</label>
+                <select name="tipo" id="tipo" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="porcentaje" {% if filtros.tipo == 'porcentaje' %}selected{% endif %}>Porcentaje</option>
+                    <option value="fijo" {% if filtros.tipo == 'fijo' %}selected{% endif %}>Monto Fijo</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-admin me-2">
+                    <i class="bi bi-search me-1"></i>
+                    Filtrar
+                </button>
+                <a href="{% url 'admin_cupones' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de cupones -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-list-ul me-2"></i>
+            Lista de Cupones ({{ cupones|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if cupones %}
+        <div class="table-responsive">
+            <table class="table table-admin table-hover">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción</th>
+                        <th>Tipo</th>
+                        <th>Valor</th>
+                        <th>Uso Máximo</th>
+                        <th>Usos</th>
+                        <th>Estado</th>
+                        <th>Expiración</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cupon in cupones %}
+                    <tr>
+                        <td>
+                            <strong>{{ cupon.codigo }}</strong>
+                        </td>
+                        <td>{{ cupon.descripcion|truncatechars:30 }}</td>
+                        <td>
+                            {% if cupon.tipo_descuento == 'porcentaje' %}
+                                <span class="badge bg-info">Porcentaje</span>
+                            {% else %}
+                                <span class="badge bg-success">Monto Fijo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cupon.tipo_descuento == 'porcentaje' %}
+                                {{ cupon.valor_descuento }}%
+                            {% else %}
+                                ${{ cupon.valor_descuento|floatformat:0 }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cupon.uso_maximo %}
+                                {{ cupon.uso_maximo }}
+                            {% else %}
+                                <span class="text-muted">Ilimitado</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ cupon.usos_actuales }}</td>
+                        <td>
+                            {% if cupon.activo and cupon.fecha_expiracion >= now.date %}
+                                <select class="form-select form-select-sm estado-cupon-select"
+                                        data-cupon-id="{{ cupon.id }}"
+                                        style="width: auto;">
+                                    <option value="activo" selected>Activo</option>
+                                    <option value="inactivo">Inactivo</option>
+                                </select>
+                            {% elif not cupon.activo %}
+                                <span class="badge bg-secondary">Inactivo</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Expirado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cupon.fecha_expiracion %}
+                                {{ cupon.fecha_expiracion|date:"d/m/Y" }}
+                                {% if cupon.fecha_expiracion < now.date %}
+                                    <br><small class="text-danger">Expirado</small>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">Sin límite</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-info"
+                                        onclick="verDetalleCupon({{ cupon.id }})" title="Ver Detalle">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        onclick="editarCupon({{ cupon.id }})" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        onclick="eliminarCupon({{ cupon.id }})" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if cupones.has_other_pages %}
+        <nav aria-label="Paginación de cupones" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if cupones.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ cupones.previous_page_number }}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}">
+                        Anterior
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for num in cupones.paginator.page_range %}
+                {% if cupones.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > cupones.number|add:'-3' and num < cupones.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if cupones.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ cupones.next_page_number }}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}">
+                        Siguiente
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-tags display-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No se encontraron cupones</h5>
+            <p class="text-muted">Intenta cambiar los filtros de búsqueda</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para detalle de cupón -->
+<div class="modal fade" id="cuponModal" tabindex="-1" aria-labelledby="cuponModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cuponModalLabel">Detalle del Cupón</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="cuponModalBody">
+                <!-- Contenido se carga dinámicamente -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Cambiar estado de cupón
+    document.querySelectorAll('.estado-cupon-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const cuponId = this.dataset.cuponId;
+            const nuevoEstado = this.value;
+
+            if (confirm(`¿${nuevoEstado === 'activo' ? 'Activar' : 'Desactivar'} el cupón #${cuponId}?`)) {
+                cambiarEstadoCupon(cuponId, nuevoEstado);
+            } else {
+                // Revertir selección
+                this.value = this.dataset.originalValue || this.value;
+            }
+        });
+
+        // Guardar valor original
+        select.dataset.originalValue = select.value;
+    });
+});
+
+function cambiarEstadoCupon(cuponId, nuevoEstado) {
+    fetch(`/admin/cambiar-estado-cupon/${cuponId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `estado=${nuevoEstado}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar el badge visualmente
+            const select = document.querySelector(`[data-cupon-id="${cuponId}"]`);
+            const row = select.closest('tr');
+            const estadoCell = row.querySelector('td:nth-child(7)');
+
+            // Actualizar clases del select
+            select.className = `form-select form-select-sm estado-cupon-select ${data.estado_class}`;
+            select.dataset.originalValue = nuevoEstado;
+
+            // Mostrar mensaje de éxito
+            mostrarMensaje('Estado del cupón actualizado correctamente', 'success');
+        } else {
+            mostrarMensaje(data.error || 'Error al actualizar estado', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarMensaje('Error de conexión', 'danger');
+    });
+}
+
+function verDetalleCupon(cuponId) {
+    // Aquí iría la lógica para cargar el detalle del cupón
+    document.getElementById('cuponModalBody').innerHTML = `
+        <div class="text-center">
+            <i class="bi bi-tag display-1 text-muted mb-3"></i>
+            <h5>Detalle del Cupón #${cuponId}</h5>
+            <p class="text-muted">Funcionalidad en desarrollo</p>
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('cuponModal')).show();
+}
+
+function editarCupon(cuponId) {
+    window.location.href = `/admin/cupones/editar/${cuponId}/`;
+}
+
+function eliminarCupon(cuponId) {
+    if (confirm('¿Estás seguro de que quieres eliminar este cupón?\n\nEsta acción no se puede deshacer.')) {
+        fetch(`/admin/cupones/eliminar/${cuponId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarMensaje(data.mensaje, 'success');
+                // Recargar la página después de 1 segundo
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                mostrarMensaje(data.error || 'Error al eliminar el cupón', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarMensaje('Error de conexión', 'danger');
+        });
+    }
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de alerta
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alert);
+
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Auto-submit de filtros al cambiar
+document.getElementById('estado').addEventListener('change', function() {
+    this.form.submit();
+});
+document.getElementById('tipo').addEventListener('change', function() {
+    this.form.submit();
+});
+</script>
+{% endblock %}

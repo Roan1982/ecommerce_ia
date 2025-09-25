@@ -1,0 +1,205 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Advertencia de uso avanzado -->
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <h4 class="alert-heading">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            ⚠️ Función Avanzada - Solo para Administradores
+        </h4>
+        <p class="mb-2">
+            <strong>Los ContentTypes normalmente se crean automáticamente por Django</strong> cuando defines modelos en tu código.
+            Crear ContentTypes manualmente puede causar problemas en el sistema si no se hace correctamente.
+        </p>
+        <hr>
+        <p class="mb-0">
+            <strong>Usa esta función solo si:</strong>
+        </p>
+        <ul class="mb-2">
+            <li>Sabes exactamente lo que estás haciendo</li>
+            <li>El ContentType fue eliminado accidentalmente</li>
+            <li>Estás migrando datos de otro sistema</li>
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
+    <!-- Información técnica -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0">
+                <i class="bi bi-info-circle me-2"></i>
+                Información Técnica
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Campos requeridos:</h6>
+                    <ul>
+                        <li><code>app_label</code>: Nombre de la aplicación (ej: 'tienda', 'auth')</li>
+                        <li><code>model</code>: Nombre del modelo en minúsculas (ej: 'producto', 'user')</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Campos generados automáticamente:</h6>
+                    <ul>
+                        <li><code>name</code>: Nombre legible del modelo (generado automáticamente)</li>
+                        <li><code>id</code>: Identificador único (generado automáticamente)</li>
+                    </ul>
+                    <h6>Consideraciones:</h6>
+                    <ul>
+                        <li>El modelo debe existir en el código Python</li>
+                        <li>Los permisos se crean automáticamente</li>
+                        <li>No modifiques ContentTypes existentes</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario de agregar -->
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0">
+                <i class="bi bi-plus-circle me-2"></i>
+                Crear Nuevo ContentType
+            </h6>
+        </div>
+        <div class="card-body">
+            <form action="" method="post" id="contenttype_form" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="{{ form.app_label.id_for_label }}" class="form-label">
+                                <strong>Aplicación (app_label)</strong>
+                            </label>
+                            {{ form.app_label }}
+                            {% if form.app_label.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.app_label.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Nombre de la aplicación Django (ej: tienda, auth, contenttypes)
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="{{ form.model.id_for_label }}" class="form-label">
+                                <strong>Modelo (model)</strong>
+                            </label>
+                            {{ form.model }}
+                            {% if form.model.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.model.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Nombre del modelo en minúsculas (ej: producto, user, permission)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Nota:</strong> El campo "Nombre" se generará automáticamente basado en el modelo especificado.
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Crear ContentType
+                    </button>
+                    <a href="{% url 'admin:contenttypes_contenttype_changelist' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.form-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-control {
+    border-radius: 0.5rem;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.alert-warning {
+    border-left: 4px solid #ffc107;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+}
+
+.card {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 1rem 1rem 0 0 !important;
+}
+
+.btn {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+}
+
+.btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0.5rem 1rem rgba(40, 167, 69, 0.5);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    border: none;
+}
+
+.btn-secondary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0.5rem 1rem rgba(108, 117, 125, 0.5);
+}
+</style>
+{% endblock %}

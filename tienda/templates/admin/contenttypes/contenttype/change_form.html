@@ -1,0 +1,319 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}{% if title %}{{ title }}{% else %}{% blocktrans with name=opts.verbose_name|capfirst %}Change {{ name }}{% endblocktrans %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                {% if add %}
+                    <i class="bi bi-plus-circle me-2"></i>
+                    {% blocktrans with name=opts.verbose_name %}Add {{ name }}{% endblocktrans %}
+                {% else %}
+                    <i class="bi bi-pencil me-2"></i>
+                    {% blocktrans with name=opts.verbose_name|capfirst %}Change {{ name }}{% endblocktrans %}
+                {% endif %}
+            </h1>
+            <p class="text-muted mb-0">
+                {% if add %}
+                    Crear nuevo {{ opts.verbose_name }}
+                {% else %}
+                    Editando: {{ object|truncatewords:"18" }}
+                {% endif %}
+            </p>
+        </div>
+        {% if not add %}
+        <div>
+            <a href="{% url opts|admin_urlname:'changelist' %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left me-2"></i>
+                {% trans 'Back to list' %}
+            </a>
+            {% if has_delete_permission %}
+            <a href="{% url opts|admin_urlname:'delete' object_id %}" class="btn btn-outline-danger">
+                <i class="bi bi-trash me-2"></i>
+                {% trans 'Delete' %}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Información del Content Type (solo en edición) -->
+{% if not add %}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-database fs-1 mb-2"></i>
+                <div class="stat-number">{{ object_count }}</div>
+                <div class="stat-label">Objetos en BD</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-shield fs-1 mb-2"></i>
+                <div class="stat-number">{{ permissions_count }}</div>
+                <div class="stat-label">Permisos</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-app fs-1 mb-2"></i>
+                <div class="stat-number">{{ object.pk }}</div>
+                <div class="stat-label">ID del Content Type</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-diagram-3 fs-1 mb-2"></i>
+                <div class="stat-number">{{ related_models|length }}</div>
+                <div class="stat-label">Modelos Relacionados</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información del Content Type
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">
+                            {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.help_text %}
+                        <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% if field.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ field.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {% if add %}{% trans 'Add' %}{% else %}{% trans 'Save' %}{% endif %}
+                        </button>
+                        <a href="{% url opts|admin_urlname:'changelist' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>
+                            {% trans 'Cancel' %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Información Adicional -->
+        {% if not add %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Detalles del Modelo
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Aplicación:</strong><br>
+                    <span class="badge bg-secondary">{{ object.app_label }}</span>
+                </div>
+                <div class="mb-3">
+                    <strong>Modelo:</strong><br>
+                    <code class="text-primary">{{ object.model }}</code>
+                </div>
+                <div class="mb-3">
+                    <strong>Nombre:</strong><br>
+                    {{ object.name }}
+                </div>
+                <div class="mb-3">
+                    <strong>Clase del Modelo:</strong><br>
+                    {% if model_class %}
+                        <code class="text-success">{{ model_module }}.{{ model_name }}</code>
+                    {% else %}
+                        <span class="text-muted">Modelo no encontrado</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Permisos Asociados -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-shield me-2"></i>
+                    Permisos Asociados
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if permissions %}
+                    {% for permission in permissions %}
+                    <div class="mb-2">
+                        <code class="text-info">{{ permission.codename }}</code>
+                        <br><small class="text-muted">{{ permission.name }}</small>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">No hay permisos asociados</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Modelos Relacionados -->
+        {% if related_models %}
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-diagram-3 me-2"></i>
+                    Modelos Relacionados
+                </h6>
+            </div>
+            <div class="card-body">
+                {% for related in related_models %}
+                <div class="mb-2">
+                    <code class="text-warning">{{ related.app_label }}.{{ related.model }}</code>
+                    <br><small class="text-muted">{{ related.name }}</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.stats-card {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.stats-card:hover {
+    transform: translateY(-0.25rem);
+    box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.15);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-control {
+    border-radius: 0.5rem;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.form-control[readonly] {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.btn {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0.5rem 1rem rgba(102, 126, 234, 0.5);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stats-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.stats-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.stats-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.stats-card:nth-child(4) {
+    animation-delay: 0.3s;
+}
+</style>
+{% endblock %}

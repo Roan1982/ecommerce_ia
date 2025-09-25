@@ -1,0 +1,206 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}{% if title %}{{ title }}{% else %}{% blocktrans with name=opts.verbose_name %}Delete {{ name }}{% endblocktrans %}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                {% blocktrans with name=opts.verbose_name %}Delete {{ name }}{% endblocktrans %}
+            </h1>
+            <p class="text-muted mb-0">
+                ¿Está seguro de que desea eliminar este {{ opts.verbose_name }}?
+            </p>
+        </div>
+        <div>
+            <a href="{% url opts|admin_urlname:'change' object_id %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left me-2"></i>
+                {% trans 'Cancel' %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Confirmación de Eliminación
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="lead">
+                    Está a punto de eliminar el siguiente {{ opts.verbose_name }}:
+                </p>
+
+                <div class="alert alert-danger">
+                    <strong>{{ object }}</strong>
+                </div>
+
+                <!-- Información del Content Type -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-app fs-2 mb-2 text-primary"></i>
+                                <div class="h4 mb-1">{{ object.app_label }}</div>
+                                <small class="text-muted">Aplicación</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-diagram-3 fs-2 mb-2 text-primary"></i>
+                                <div class="h4 mb-1">{{ object.model }}</div>
+                                <small class="text-muted">Modelo</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estadísticas del Content Type -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <i class="bi bi-database fs-2 mb-2"></i>
+                                <div class="h4 mb-1">{{ object_count }}</div>
+                                <small>Objetos en BD</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <i class="bi bi-shield fs-2 mb-2"></i>
+                                <div class="h4 mb-1">{{ permissions_count }}</div>
+                                <small>Permisos asociados</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body text-center">
+                                <i class="bi bi-diagram-3 fs-2 mb-2"></i>
+                                <div class="h4 mb-1">{{ related_models|length }}</div>
+                                <small>Modelos relacionados</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if object_count > 0 %}
+                <div class="alert alert-danger">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>¡Advertencia crítica!</h6>
+                    <p class="mb-0">
+                        Este Content Type tiene <strong>{{ object_count }}</strong> objeto{{ object_count|pluralize }} en la base de datos.
+                        Al eliminar el Content Type, se eliminarán <strong>TODOS</strong> {{ object_count|pluralize:"este objeto,estos objetos" }} permanentemente.
+                        Esta acción <strong>NO SE PUEDE DESHACER</strong>.
+                    </p>
+                </div>
+                {% endif %}
+
+                {% if permissions_count > 0 %}
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-shield-exclamation me-2"></i>Permisos afectados</h6>
+                    <p class="mb-0">
+                        Se eliminarán <strong>{{ permissions_count }}</strong> permiso{{ permissions_count|pluralize }} asociado{{ permissions_count|pluralize }} a este Content Type.
+                        Los usuarios que tenían estos permisos los perderán automáticamente.
+                    </p>
+                </div>
+                {% endif %}
+
+                {% if related_models %}
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-diagram-3 me-2"></i>Modelos relacionados</h6>
+                    <p class="mb-2">
+                        Los siguientes modelos hacen referencia a este Content Type y podrían verse afectados:
+                    </p>
+                    <ul class="mb-0">
+                        {% for related in related_models %}
+                        <li><code>{{ related.app_label }}.{{ related.model }}</code> - {{ related.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="post" value="yes">
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            <i class="bi bi-trash me-2"></i>
+                            {% trans 'Yes, I\'m sure - Delete Everything' %}
+                        </button>
+                        <a href="{% url opts|admin_urlname:'change' object_id %}" class="btn btn-secondary btn-lg">
+                            <i class="bi bi-x-circle me-2"></i>
+                            {% trans 'Cancel' %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información del Content Type
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>ID:</strong> {{ object.pk }}<br>
+                    <strong>Aplicación:</strong> {{ object.app_label }}<br>
+                    <strong>Modelo:</strong> {{ object.model }}<br>
+                    <strong>Nombre:</strong> {{ object.name }}
+                </div>
+
+                {% if model_class %}
+                <div class="mb-3">
+                    <strong>Clase del Modelo:</strong><br>
+                    <code class="text-success">{{ model_module }}.{{ model_name }}</code>
+                </div>
+                {% endif %}
+
+                <div class="alert alert-danger small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>Esta acción es irreversible</strong><br>
+                    No hay forma de recuperar los datos eliminados.
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Permisos (si existen) -->
+        {% if permissions %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-shield me-2"></i>
+                    Permisos que se eliminarán
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for permission in permissions %}
+                    <div class="list-group-item px-0">
+                        <code class="text-danger">{{ permission.codename }}</code>
+                        <br><small class="text-muted">{{ permission.name }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

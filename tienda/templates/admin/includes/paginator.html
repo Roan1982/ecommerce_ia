@@ -1,0 +1,53 @@
+{% load i18n admin_list %}
+
+{% if cl.paginator.num_pages > 1 %}
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <div class="text-muted small">
+        {% blocktrans with cl.result_count as count %}Total: {{ count }} {{ cl.opts.verbose_name_plural }}{% endblocktrans %}
+    </div>
+
+    <nav aria-label="Paginación">
+        <ul class="pagination pagination-sm mb-0">
+            {% if cl.page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if cl.page_var %}{{ cl.page_var }}={{ cl.page_obj.previous_page_number }}{% endif %}{% for key, value in request.GET.items %}{% if key != cl.page_var %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                </li>
+            {% endif %}
+
+            {% for i in cl.paginator.page_range %}
+                {% if cl.page_obj.number == i %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ i }}</span>
+                    </li>
+                {% elif i > cl.page_obj.number|add:'-3' and i < cl.page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if cl.page_var %}{{ cl.page_var }}={{ i }}{% endif %}{% for key, value in request.GET.items %}{% if key != cl.page_var %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+                    </li>
+                {% elif i == cl.page_obj.number|add:'-4' or i == cl.page_obj.number|add:'4' %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if cl.page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if cl.page_var %}{{ cl.page_var }}={{ cl.page_obj.next_page_number }}{% endif %}{% for key, value in request.GET.items %}{% if key != cl.page_var %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}

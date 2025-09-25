@@ -1,0 +1,207 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}Panel de Administración - E-commerce IA{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-house-door me-2"></i>
+                Panel de Administración
+            </h1>
+            <p class="text-muted mb-0">Bienvenido al sistema de administración E-commerce IA</p>
+        </div>
+        <div>
+            <small class="text-muted">
+                <i class="bi bi-clock me-1"></i>
+                {{ "now"|date:"d/m/Y H:i" }}
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Accesos Rápidos -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-4">
+        <div class="card card-admin h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Dashboard y Estadísticas
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">Accede al dashboard completo con estadísticas detalladas del sistema.</p>
+                <a href="{% url 'admin:dashboard' %}" class="btn btn-admin">
+                    <i class="bi bi-bar-chart-line me-2"></i>
+                    Ver Dashboard Completo
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card card-admin h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-box-seam me-2"></i>
+                    Gestión de Inventario
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">Administra productos, stock y movimientos de inventario.</p>
+                <a href="{% url 'admin:inventario' %}" class="btn btn-admin">
+                    <i class="bi bi-box-seam me-2"></i>
+                    Gestionar Inventario
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card card-admin h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-people me-2"></i>
+                    Gestión de Usuarios
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">Administra usuarios, permisos y perfiles del sistema.</p>
+                <a href="{% url 'admin:usuarios' %}" class="btn btn-admin">
+                    <i class="bi bi-people me-2"></i>
+                    Gestionar Usuarios
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card card-admin h-100">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-receipt me-2"></i>
+                    Gestión de Pedidos
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">Revisa y administra pedidos, estados y entregas.</p>
+                <a href="{% url 'admin:pedidos' %}" class="btn btn-admin">
+                    <i class="bi bi-receipt me-2"></i>
+                    Gestionar Pedidos
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Información del Sistema -->
+<div class="row">
+    <div class="col-12">
+        <div class="card card-admin">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información del Sistema
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class="bi bi-code-slash fs-1 text-primary mb-2"></i>
+                            <h6>Django</h6>
+                            <small class="text-muted">v5.2.6</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class="bi bi-database fs-1 text-success mb-2"></i>
+                            <h6>Base de Datos</h6>
+                            <small class="text-muted">SQLite3</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class="bi bi-bootstrap fs-1 text-info mb-2"></i>
+                            <h6>Frontend</h6>
+                            <small class="text-muted">Bootstrap 5</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class="bi bi-shield-check fs-1 text-warning mb-2"></i>
+                            <h6>Estado</h6>
+                            <small class="text-success">Sistema Activo</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enlaces Rápidos -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card card-admin">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning me-2"></i>
+                    Enlaces Rápidos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'admin:tienda_producto_changelist' %}" class="text-decoration-none">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-box-seam fs-2 text-primary mb-2"></i>
+                                    <h6 class="card-title">Productos</h6>
+                                    <small class="text-muted">Gestionar catálogo</small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'admin:tienda_cupon_changelist' %}" class="text-decoration-none">
+                            <div class="card h-100 border-success">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-ticket-perforated fs-2 text-success mb-2"></i>
+                                    <h6 class="card-title">Cupones</h6>
+                                    <small class="text-muted">Descuentos y promociones</small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'admin:reportes' %}" class="text-decoration-none">
+                            <div class="card h-100 border-info">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-bar-chart-line fs-2 text-info mb-2"></i>
+                                    <h6 class="card-title">Reportes</h6>
+                                    <small class="text-muted">Análisis de ventas</small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'admin:config' %}" class="text-decoration-none">
+                            <div class="card h-100 border-warning">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-gear fs-2 text-warning mb-2"></i>
+                                    <h6 class="card-title">Configuración</h6>
+                                    <small class="text-muted">Ajustes del sistema</small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -35,6 +35,7 @@
                                         <th scope="col">{% trans "Producto" %}</th>
                                         <th scope="col" class="text-center">{% trans "Precio Unitario" %}</th>
                                         <th scope="col" class="text-center">{% trans "Cantidad" %}</th>
+                                        <th scope="col" class="text-center">{% trans "Disponibilidad" %}</th>
                                         <th scope="col" class="text-center">{% trans "Subtotal" %}</th>
                                         <th scope="col" class="text-center">{% trans "Acciones" %}</th>
                                     </tr>
@@ -83,6 +84,20 @@
                                             </div>
                                             <input type="hidden" id="cantidad-{{ item.id }}" value="{{ item.cantidad }}"
                                                    data-max="{{ item.producto.stock }}">
+                                        </td>
+                                        <td class="text-center align-middle">
+                                            <small class="{% if item.producto.en_stock %}text-success{% else %}text-danger{% endif %}">
+                                                <i class="bi bi-{% if item.producto.en_stock %}check-circle-fill{% else %}x-circle-fill{% endif %}"></i>
+                                                {% if item.producto.en_stock %}
+                                                    {% if item.producto.stock_bajo %}
+                                                        {% trans "Stock bajo" %} ({{ item.producto.stock }})
+                                                    {% else %}
+                                                        {{ item.producto.stock }} {% trans "disponibles" %}
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% trans "Agotado" %}
+                                                {% endif %}
+                                            </small>
                                         </td>
                                         <td class="text-center align-middle">
                                             <strong class="text-primary subtotal-item" data-item-id="{{ item.id }}">${{ item.subtotal }}</strong>

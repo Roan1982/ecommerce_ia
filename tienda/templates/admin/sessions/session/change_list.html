@@ -1,0 +1,587 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}{% if title %}{{ title }}{% else %}{% blocktrans with name=opts.verbose_name_plural %}Select {{ name }} to view{% endblocktrans %}{% endif %}{% endblock %}
+
+{% block object-tools %}
+{% if has_add_permission %}
+<div class="object-tools">
+    <a href="{% url opts|admin_urlname:'add' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>
+        {% blocktrans with name=opts.verbose_name %}Add {{ name }}{% endblocktrans %}
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-clock-history me-2"></i>
+                {% blocktrans with name=opts.verbose_name_plural %}Select {{ name }} to view{% endblocktrans %}
+            </h1>
+            <p class="text-muted mb-0">
+                Gestión de sesiones activas del sistema
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Información sobre Sesiones -->
+<div class="alert alert-info alert-dismissible fade show" role="alert">
+    <h6 class="alert-heading mb-2">
+        <i class="bi bi-info-circle me-2"></i>
+        Acerca de las Sesiones
+    </h6>
+    <p class="mb-1">
+        Las <strong>sesiones</strong> almacenan datos temporales de usuario durante su navegación.
+        Incluyen información de autenticación, preferencias y datos de carrito de compras.
+    </p>
+    <hr>
+    <p class="mb-0">
+        <strong>Nota:</strong> Las sesiones expiradas se eliminan automáticamente.
+        Manipular sesiones puede afectar la experiencia de usuario.
+    </p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+
+<!-- Estadísticas de Sesiones -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-clock fs-1 mb-2"></i>
+                <div class="stat-number">{{ sessions|length }}</div>
+                <div class="stat-label">Sesiones Totales</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-check-circle fs-1 mb-2"></i>
+                <div class="stat-number">{{ active_sessions }}</div>
+                <div class="stat-label">Sesiones Activas</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-x-circle fs-1 mb-2"></i>
+                <div class="stat-number">{{ expired_sessions }}</div>
+                <div class="stat-label">Sesiones Expiradas</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-person-check fs-1 mb-2"></i>
+                <div class="stat-number">{{ authenticated_sessions }}</div>
+                <div class="stat-label">Usuarios Autenticados</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros y Búsqueda -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="mb-0">
+            <i class="bi bi-funnel me-2"></i>
+            Filtros y Búsqueda
+        </h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="status_filter" class="form-label">Estado</label>
+                <select name="status" id="status_filter" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Activas</option>
+                    <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Expiradas</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="auth_filter" class="form-label">Autenticación</label>
+                <select name="auth" id="auth_filter" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="authenticated" {% if request.GET.auth == 'authenticated' %}selected{% endif %}>Autenticados</option>
+                    <option value="anonymous" {% if request.GET.auth == 'anonymous' %}selected{% endif %}>Anónimos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="q" class="form-label">Buscar</label>
+                <input type="text" name="q" id="q" value="{{ request.GET.q }}" class="form-control" placeholder="Buscar por clave de sesión...">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="bi bi-search me-2"></i>
+                    Buscar
+                </button>
+                <a href="{% url opts|admin_urlname:'changelist' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle me-2"></i>
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de Sesiones -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+            <i class="bi bi-list me-2"></i>
+            Sesiones del Sistema
+        </h6>
+        <span class="badge bg-primary">{{ sessions|length }} sesiones</span>
+    </div>
+    <div class="card-body p-0">
+        {% if sessions %}
+        <!-- Acciones en lote (arriba) -->
+        {% if actions_on_top %}
+        <div class="p-3 bg-light border-bottom">
+            <form method="post" class="d-flex align-items-center gap-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="">
+                {% for field in action_form %}
+                {% if field.is_hidden %}
+                {{ field }}
+                {% endif %}
+                {% endfor %}
+
+                <div class="d-flex align-items-center gap-2">
+                    <select name="action" class="form-select form-select-sm" style="width: auto;">
+                        <option value="" selected>---------</option>
+                        {% for action_name, action_display in actions %}
+                        <option value="{{ action_name }}">{{ action_display }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-play me-1"></i>
+                        Ejecutar
+                    </button>
+                </div>
+
+                <div class="text-muted small ms-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Selecciona elementos para aplicar acciones
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        {% if actions_on_top or actions_on_bottom %}
+                        <th scope="col" class="text-center">
+                            <input type="checkbox" id="action-toggle" class="form-check-input">
+                        </th>
+                        {% endif %}
+                        <th scope="col">
+                            <i class="bi bi-key me-1"></i>
+                            Clave de Sesión
+                        </th>
+                        <th scope="col">
+                            <i class="bi bi-person me-1"></i>
+                            Usuario
+                        </th>
+                        <th scope="col">
+                            <i class="bi bi-clock me-1"></i>
+                            Estado
+                        </th>
+                        <th scope="col">
+                            <i class="bi bi-calendar me-1"></i>
+                            Fecha de Expiración
+                        </th>
+                        <th scope="col">
+                            <i class="bi bi-database me-1"></i>
+                            Datos de Sesión
+                        </th>
+                        <th scope="col" class="text-center">
+                            <i class="bi bi-gear me-1"></i>
+                            Acciones
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr class="{% if session.is_expired %}table-secondary{% endif %}">
+                        {% if actions_on_top or actions_on_bottom %}
+                        <td class="text-center">
+                            <input type="checkbox" class="action-select form-check-input" name="_selected_action" value="{{ session.pk }}">
+                        </td>
+                        {% endif %}
+                        <td>
+                            <code class="text-primary small">{{ session.session_key|truncatechars:20 }}</code>
+                        </td>
+                        <td>
+                            {% if session.user_id %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-person-check me-1"></i>
+                                    Usuario {{ session.user_id }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-person-x me-1"></i>
+                                    Anónimo
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if session.is_expired %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-x-circle me-1"></i>
+                                    Expirada
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Activa
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="small text-muted">
+                                {{ session.expire_date|date:"d M Y H:i" }}
+                            </span>
+                            {% if session.is_expired %}
+                                <br><small class="text-danger">Expiró hace {{ session.expire_date|timesince }}</small>
+                            {% else %}
+                                <br><small class="text-success">Expira en {{ session.expire_date|timeuntil }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="session-data-preview">
+                                {% if session.session_data_preview %}
+                                    <pre class="small text-muted mb-0">{{ session.session_data_preview|truncatechars:150 }}</pre>
+                                {% else %}
+                                    <span class="text-muted small">Sin datos</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            {% if has_change_permission %}
+                            <a href="{% url opts|admin_urlname:'change' session.pk %}" class="btn btn-sm btn-outline-primary me-1" title="Ver detalles">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            {% endif %}
+                            {% if has_delete_permission %}
+                            <a href="{% url opts|admin_urlname:'delete' session.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar sesión">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="Navegación de páginas">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.auth %}auth={{ request.GET.auth }}&{% endif %}{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <a class="page-link" href="#">{{ num }}</a>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.auth %}auth={{ request.GET.auth }}&{% endif %}{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.auth %}auth={{ request.GET.auth }}&{% endif %}{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        <!-- Acciones en lote (abajo) -->
+        {% if sessions and actions_on_bottom %}
+        <div class="card-footer bg-light">
+            <form method="post" class="d-flex align-items-center gap-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="">
+                {% for field in action_form %}
+                {% if field.is_hidden %}
+                {{ field }}
+                {% endif %}
+                {% endfor %}
+
+                <div class="d-flex align-items-center gap-2">
+                    <select name="action" class="form-select form-select-sm" style="width: auto;">
+                        <option value="" selected>---------</option>
+                        {% for action_name, action_display in actions %}
+                        <option value="{{ action_name }}">{{ action_display }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-play me-1"></i>
+                        Ejecutar
+                    </button>
+                </div>
+
+                <div class="text-muted small ms-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    {{ sessions|length }} sesiones seleccionadas
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="card-body text-center py-5">
+            <i class="bi bi-info-circle fs-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No se encontraron sesiones</h5>
+            <p class="text-muted">No hay sesiones que coincidan con los criterios de búsqueda.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Información del Sistema -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información del Sistema de Sesiones
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-primary mb-1">{{ sessions|length }}</div>
+                            <small class="text-muted">Sesiones almacenadas</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-success mb-1">{{ active_sessions }}</div>
+                            <small class="text-muted">Sesiones activas</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-warning mb-1">{{ expired_sessions }}</div>
+                            <small class="text-muted">Sesiones expiradas</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-info mb-1">{{ authenticated_sessions }}</div>
+                            <small class="text-muted">Usuarios con sesión</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.stats-card {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.stats-card:hover {
+    transform: translateY(-0.25rem);
+    box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.15);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stats-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.stats-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.stats-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.stats-card:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.table tbody tr:nth-child(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.table tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+}
+
+.table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table-secondary {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+}
+
+.session-data-preview pre {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Estilos para acciones en lote */
+.action-select {
+    margin: 0;
+}
+
+#action-toggle {
+    margin: 0;
+}
+</style>
+
+<script>
+// Funcionalidad para seleccionar/deseleccionar todos los elementos
+document.addEventListener('DOMContentLoaded', function() {
+    const actionToggle = document.getElementById('action-toggle');
+    const actionSelects = document.querySelectorAll('.action-select');
+
+    if (actionToggle && actionSelects.length > 0) {
+        // Función para actualizar el estado del checkbox principal
+        function updateToggleState() {
+            const checkedCount = document.querySelectorAll('.action-select:checked').length;
+            const totalCount = actionSelects.length;
+
+            actionToggle.checked = checkedCount === totalCount;
+            actionToggle.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+        }
+
+        // Evento para el checkbox principal
+        actionToggle.addEventListener('change', function() {
+            actionSelects.forEach(checkbox => {
+                checkbox.checked = actionToggle.checked;
+            });
+            updateToggleState();
+        });
+
+        // Eventos para los checkboxes individuales
+        actionSelects.forEach(checkbox => {
+            checkbox.addEventListener('change', updateToggleState);
+        });
+
+        // Estado inicial
+        updateToggleState();
+    }
+
+    // Mejorar la experiencia de usuario en los formularios de acciones
+    const actionForms = document.querySelectorAll('form[action*="action="]');
+    actionForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const selectedAction = form.querySelector('select[name="action"]').value;
+            const selectedItems = form.querySelectorAll('input[name="_selected_action"]:checked');
+
+            if (!selectedAction) {
+                e.preventDefault();
+                alert('Por favor selecciona una acción a ejecutar.');
+                return;
+            }
+
+            if (selectedItems.length === 0) {
+                e.preventDefault();
+                alert('Por favor selecciona al menos una sesión.');
+                return;
+            }
+
+            // Confirmación especial para eliminación
+            if (selectedAction.includes('delete')) {
+                const confirmMessage = `¿Estás seguro de que quieres eliminar ${selectedItems.length} sesión(es)?\n\nEsta acción puede desconectar usuarios activos del sistema.`;
+                if (!confirm(confirmMessage)) {
+                    e.preventDefault();
+                    return;
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,486 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Panel de Administración - E-commerce IA{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+            color: #ffffff !important;
+        }
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            height: 56px;
+        }
+        .admin-sidebar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: calc(100vh - 56px);
+            color: white;
+            position: fixed;
+            top: 56px;
+            left: 0;
+            width: 250px;
+            z-index: 1020;
+            transition: transform 0.3s ease;
+            overflow: hidden;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            transform: translateX(0); /* Visible por defecto en desktop */
+        }
+        .admin-sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        .admin-sidebar .navbar-nav {
+            padding: 15px 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .nav-section {
+            margin-bottom: 15px;
+        }
+        .nav-section:last-child {
+            margin-bottom: 0;
+            margin-top: auto;
+            padding-top: 15px;
+        }
+        .nav-section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .admin-sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 10px 20px;
+            margin: 1px 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .admin-sidebar .nav-link:hover,
+        .admin-sidebar .nav-link.active {
+            color: white;
+            background: rgba(255,255,255,0.2);
+            text-decoration: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transform: translateX(5px);
+        }
+        .admin-sidebar .nav-link i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+        .admin-sidebar .nav-link span {
+            flex: 1;
+        }
+        .admin-content {
+            background-color: #f8f9fa;
+            min-height: calc(100vh - 56px);
+            margin-left: 250px;
+            margin-top: 56px;
+            padding: 20px;
+            transition: margin-left 0.3s ease;
+        }
+        .sidebar-toggle {
+            display: block;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            font-size: 1.2rem;
+            padding: 8px 12px;
+            margin-right: 10px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .sidebar-toggle:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.3);
+        }
+        @media (max-width: 768px) {
+            .admin-sidebar {
+                transform: translateX(-100%);
+                z-index: 1040;
+                box-shadow: 2px 0 20px rgba(0,0,0,0.3);
+            }
+            .admin-sidebar.show {
+                transform: translateX(0);
+            }
+            .admin-content {
+                margin-left: 0;
+                padding: 15px;
+                margin-top: 56px;
+            }
+            .sidebar-toggle {
+                display: block;
+            }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 56px;
+                left: 0;
+                width: 100%;
+                height: calc(100vh - 56px);
+                background: rgba(0,0,0,0.5);
+                z-index: 1035;
+                backdrop-filter: blur(2px);
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+        }
+        @media (max-width: 576px) {
+            .admin-sidebar {
+                width: 280px;
+            }
+            .admin-content {
+                padding: 10px;
+            }
+            .sidebar-toggle {
+                font-size: 1.4rem;
+                padding: 8px;
+            }
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: none;
+            transition: transform 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }
+        .stat-card .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-card .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        .btn-admin {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-admin:hover {
+            background: linear-gradient(45deg, #218838, #1aa085);
+            transform: translateY(-2px);
+            color: white;
+        }
+        .btn-danger-admin {
+            background: linear-gradient(45deg, #dc3545, #fd7e14);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-danger-admin:hover {
+            background: linear-gradient(45deg, #c82333, #e8680d);
+            transform: translateY(-2px);
+            color: white;
+        }
+        .table-admin {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .table-admin thead {
+            background: linear-gradient(45deg, #007bff, #6610f2);
+            color: white;
+        }
+        .badge-admin {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        .alert-admin {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .card-admin {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: none;
+        }
+        .form-admin .form-control {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 12px 15px;
+        }
+        .form-admin .form-control:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+        }
+        .breadcrumb-admin {
+            background: transparent;
+            padding: 0;
+        }
+        .breadcrumb-admin .breadcrumb-item a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar Superior -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <button class="sidebar-toggle" onclick="toggleSidebar()">
+                <i class="bi bi-list"></i>
+            </button>
+            <a class="navbar-brand ms-2" href="{% url 'admin_dashboard' %}">
+                <i class="bi bi-shield-check"></i> Panel Admin
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="adminNavbar">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">
+                            <i class="bi bi-house-door"></i> Ver Sitio
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'logout' %}">
+                                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar Overlay para móviles -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <div class="admin-sidebar" id="adminSidebar">
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container-fluid flex-column">
+                <div class="navbar-nav w-100">
+                    <div class="nav-section mb-3">
+                        <div class="nav-section-title px-3 mb-2">
+                            <small class="text-white-50 fw-bold">PANEL PRINCIPAL</small>
+                        </div>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}" href="{% url 'admin_dashboard' %}">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </div>
+
+                    <div class="nav-section mb-3">
+                        <div class="nav-section-title px-3 mb-2">
+                            <small class="text-white-50 fw-bold">GESTIÓN</small>
+                        </div>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_productos' %}active{% endif %}" href="{% url 'admin_productos' %}">
+                            <i class="bi bi-box-seam"></i>
+                            <span>Productos</span>
+                        </a>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_pedidos' %}active{% endif %}" href="{% url 'admin_pedidos' %}">
+                            <i class="bi bi-receipt"></i>
+                            <span>Pedidos</span>
+                        </a>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_usuarios' %}active{% endif %}" href="{% url 'admin_usuarios' %}">
+                            <i class="bi bi-people"></i>
+                            <span>Usuarios</span>
+                        </a>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_cupones' %}active{% endif %}" href="{% url 'admin_cupones' %}">
+                            <i class="bi bi-tag"></i>
+                            <span>Cupones</span>
+                        </a>
+                    </div>
+
+                    <div class="nav-section mb-3">
+                        <div class="nav-section-title px-3 mb-2">
+                            <small class="text-white-50 fw-bold">INVENTARIO</small>
+                        </div>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_inventario' %}active{% endif %}" href="{% url 'admin_inventario' %}">
+                            <i class="bi bi-diagram-3"></i>
+                            <span>Inventario</span>
+                        </a>
+                    </div>
+
+                    <div class="nav-section">
+                        <div class="nav-section-title px-3 mb-2">
+                            <small class="text-white-50 fw-bold">SISTEMA</small>
+                        </div>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_reportes' %}active{% endif %}" href="{% url 'admin_reportes' %}">
+                            <i class="bi bi-graph-up"></i>
+                            <span>Reportes</span>
+                        </a>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_configuracion' %}active{% endif %}" href="{% url 'admin_configuracion' %}">
+                            <i class="bi bi-gear"></i>
+                            <span>Configuración</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="admin-content" id="adminContent">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb breadcrumb-admin">
+                <li class="breadcrumb-item">
+                    <a href="{% url 'admin_dashboard' %}">Panel Admin</a>
+                </li>
+                {% block breadcrumb %}{% endblock %}
+            </ol>
+        </nav>
+
+        <!-- Título de la Página -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="{% block page_icon %}bi bi-house-door{% endblock %}"></i>
+                {% block page_title %}Panel de Administración{% endblock %}
+            </h1>
+            <div>
+                {% block page_actions %}{% endblock %}
+            </div>
+        </div>
+
+        <!-- Mensajes -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-admin alert-dismissible fade show mb-4" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Contenido de la Página -->
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Scripts personalizados -->
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('adminSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const content = document.getElementById('adminContent');
+
+            if (window.innerWidth <= 768) {
+                // En móviles: mostrar/ocultar con overlay
+                sidebar.classList.toggle('show');
+                overlay.classList.toggle('show');
+            } else {
+                // En desktop: colapsar/expandir
+                sidebar.classList.toggle('collapsed');
+                if (sidebar.classList.contains('collapsed')) {
+                    content.style.marginLeft = '0';
+                } else {
+                    content.style.marginLeft = '250px';
+                }
+            }
+        }
+
+        // Inicializar sidebar al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('adminSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const content = document.getElementById('adminContent');
+
+            // Configurar estado inicial según el tamaño de pantalla
+            if (window.innerWidth <= 768) {
+                // Móvil: sidebar oculto, contenido sin margen izquierdo
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+                content.style.marginLeft = '0';
+            } else {
+                // Desktop: sidebar visible, contenido con margen
+                sidebar.classList.remove('collapsed');
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+                content.style.marginLeft = '250px';
+            }
+
+            // Cerrar sidebar al redimensionar la ventana
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768) {
+                    // Cambiar a desktop
+                    sidebar.classList.remove('show');
+                    overlay.classList.remove('show');
+                    sidebar.classList.remove('collapsed');
+                    content.style.marginLeft = '250px';
+                } else {
+                    // Cambiar a móvil
+                    sidebar.classList.remove('show');
+                    overlay.classList.remove('show');
+                    content.style.marginLeft = '0';
+                }
+            });
+
+            // Cerrar sidebar al hacer clic en un enlace en móviles
+            const navLinks = sidebar.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('show');
+                        overlay.classList.remove('show');
+                    }
+                });
+            });
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,198 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}{% blocktrans with name=object|truncatewords:"18" %}Delete {{ name }}{% endblocktrans %} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'change' object_id %}">{{ object|truncatewords:"18" }}</a>
+&rsaquo; {% trans 'Delete' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                {% blocktrans with name=object|truncatewords:"18" %}Delete {{ name }}{% endblocktrans %}
+            </h1>
+            <p class="text-muted mb-0">
+                ¿Está seguro de que desea eliminar este {{ opts.verbose_name }}?
+            </p>
+        </div>
+        <div>
+            <a href="{% url opts|admin_urlname:'change' object_id %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left me-2"></i>
+                {% trans 'Cancel' %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Confirmación de Eliminación
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="lead">
+                    Está a punto de eliminar el siguiente {{ opts.verbose_name }}:
+                </p>
+
+                <div class="alert alert-danger">
+                    <strong>{{ object }}</strong>
+                </div>
+
+                {% if opts.model_name == 'group' %}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-people fs-2 mb-2 text-primary"></i>
+                                <div class="h4 mb-1">{{ object.user_set.count }}</div>
+                                <small class="text-muted">Usuarios afectados</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-shield fs-2 mb-2 text-primary"></i>
+                                <div class="h4 mb-1">{{ object.permissions.count }}</div>
+                                <small class="text-muted">Permisos asociados</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if object.user_set.count > 0 %}
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>Advertencia</h6>
+                    <p class="mb-0">
+                        Este grupo tiene <strong>{{ object.user_set.count }}</strong> usuario{{ object.user_set.count|pluralize }} asignado{{ object.user_set.count|pluralize }}.
+                        Al eliminar el grupo, {{ object.user_set.count|pluralize:"se removerá,se removerán" }} {{ object.user_set.count|pluralize:"esta asignación,estas asignaciones" }} de {{ object.user_set.count|pluralize:"este usuario,estos usuarios" }}.
+                    </p>
+                </div>
+                {% endif %}
+                {% endif %}
+
+                {% if deleted_objects %}
+                    <p class="mb-3">
+                        {% blocktrans %}
+                            Deleting the {{ object_name }} '{{ object }}' would result in deleting related objects, but your account doesn't have permission to delete the following types of objects:
+                        {% endblocktrans %}
+                    </p>
+
+                    <ul class="list-group mb-3">
+                        {% for delete_obj in deleted_objects %}
+                            <li class="list-group-item">
+                                {{ delete_obj.object }}: {{ delete_obj.object_repr }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                {% if protected %}
+                    <div class="alert alert-warning">
+                        <h6>{% trans 'Protected related objects' %}</h6>
+                        <p>{% trans 'The following protected related objects would also be deleted:' %}</p>
+                        <ul>
+                            {% for obj in protected %}
+                                <li>{{ obj }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                <form action="" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="post" value="yes">
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-2"></i>
+                            {% trans 'Yes, I\'m sure' %}
+                        </button>
+                        <a href="{% url opts|admin_urlname:'change' object_id %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>
+                            {% trans 'Cancel' %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    Esta acción no se puede deshacer. Una vez eliminado, no podrá recuperar este {{ opts.verbose_name }}.
+                </p>
+
+                {% if opts.model_name == 'group' %}
+                <div class="mb-3">
+                    <strong>Grupo:</strong> {{ object.name }}<br>
+                    <strong>ID:</strong> {{ object.pk }}<br>
+                    <strong>Permisos:</strong> {{ object.permissions.count }}<br>
+                    <strong>Usuarios:</strong> {{ object.user_set.count }}
+                </div>
+                {% endif %}
+
+                <div class="alert alert-info small">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Considere reasignar los usuarios a otro grupo antes de eliminar este.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.card-admin {
+    border-radius: 12px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+}
+
+.card-admin.border-danger {
+    border-color: #dc3545 !important;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+.list-group-item {
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+</style>
+{% endblock %}

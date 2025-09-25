@@ -1,0 +1,261 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">{{ titulo }}</h1>
+                <p class="text-muted">Complete el formulario para {{ accion|lower }} el usuario</p>
+            </div>
+            <div>
+                <a href="{% url 'admin_usuarios' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Volver a Usuarios
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-person me-2"></i>
+                    Información del Usuario
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.username.id_for_label }}" class="form-label">
+                                {{ form.username.label }}{% if form.username.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.username }}
+                            {% if form.username.errors %}
+                                <div class="text-danger small">{{ form.username.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Nombre de usuario único en el sistema</div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                {{ form.email.label }}{% if form.email.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small">{{ form.email.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if accion == 'Agregar' %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="id_password1" class="form-label">
+                                Contraseña <span class="text-danger">*</span>
+                            </label>
+                            <input type="password" name="password1" id="id_password1" class="form-control"
+                                   placeholder="Contraseña segura" required>
+                            <div class="form-text">Mínimo 8 caracteres</div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="id_password2" class="form-label">
+                                Confirmar Contraseña <span class="text-danger">*</span>
+                            </label>
+                            <input type="password" name="password2" id="id_password2" class="form-control"
+                                   placeholder="Repite la contraseña" required>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                {{ form.first_name.label }}
+                            </label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}
+                                <div class="text-danger small">{{ form.first_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                {{ form.last_name.label }}
+                            </label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}
+                                <div class="text-danger small">{{ form.last_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if usuario %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Estado de la Cuenta</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="id_is_active"
+                                       name="is_active" {% if usuario.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="id_is_active">
+                                    {% if usuario.is_active %}Cuenta Activa{% else %}Cuenta Inactiva{% endif %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Permisos de Administrador</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="id_is_staff"
+                                       name="is_staff" {% if usuario.is_staff %}checked{% endif %}
+                                       {% if usuario.is_superuser %}disabled{% endif %}>
+                                <label class="form-check-label" for="id_is_staff">
+                                    {% if usuario.is_superuser %}Superusuario (no modificable){% else %}Staff{% endif %}
+                                </label>
+                            </div>
+                            {% if usuario.is_superuser %}
+                            <div class="form-text text-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Los permisos de superusuario no se pueden modificar desde aquí.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-admin">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {{ accion }} Usuario
+                        </button>
+                        <a href="{% url 'admin_usuarios' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-lightbulb me-2"></i>Consejos para el formulario:</h6>
+                    <ul class="mb-0 small">
+                        <li>Los campos marcados con <span class="text-danger">*</span> son obligatorios</li>
+                        <li>El nombre de usuario debe ser único</li>
+                        <li>La contraseña debe tener al menos 8 caracteres</li>
+                        <li>Los usuarios staff pueden acceder al panel de administración</li>
+                        <li>Los superusuarios tienen todos los permisos del sistema</li>
+                    </ul>
+                </div>
+
+                {% if usuario %}
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>Editando usuario existente</h6>
+                    <p class="mb-0 small">
+                        Fecha de registro: <strong>{{ usuario.date_joined|date:"d/m/Y" }}</strong><br>
+                        Último login: <strong>{% if usuario.last_login %}{{ usuario.last_login|date:"d/m/Y H:i" }}{% else %}Nunca{% endif %}</strong>
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación del formulario
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const username = document.getElementById('id_username');
+        const email = document.getElementById('id_email');
+
+        let isValid = true;
+
+        // Validar nombre de usuario
+        if (username.value.trim().length < 3) {
+            mostrarError(username, 'El nombre de usuario debe tener al menos 3 caracteres');
+            isValid = false;
+        }
+
+        // Validar email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.value.trim())) {
+            mostrarError(email, 'Ingresa un email válido');
+            isValid = false;
+        }
+
+        {% if accion == 'Agregar' %}
+        // Validar contraseñas
+        const password1 = document.getElementById('id_password1');
+        const password2 = document.getElementById('id_password2');
+
+        if (password1.value.length < 8) {
+            mostrarError(password1, 'La contraseña debe tener al menos 8 caracteres');
+            isValid = false;
+        }
+
+        if (password1.value !== password2.value) {
+            mostrarError(password2, 'Las contraseñas no coinciden');
+            isValid = false;
+        }
+        {% endif %}
+
+        if (!isValid) {
+            e.preventDefault();
+        }
+    });
+
+    function mostrarError(elemento, mensaje) {
+        // Remover errores previos
+        const errorExistente = elemento.parentNode.querySelector('.text-danger');
+        if (errorExistente) {
+            errorExistente.remove();
+        }
+
+        // Agregar nuevo error
+        const error = document.createElement('div');
+        error.className = 'text-danger small';
+        error.textContent = mensaje;
+        elemento.parentNode.appendChild(error);
+
+        // Resaltar campo
+        elemento.classList.add('is-invalid');
+    }
+
+    // Limpiar errores al cambiar valor
+    document.querySelectorAll('input').forEach(elemento => {
+        elemento.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+            const error = this.parentNode.querySelector('.text-danger');
+            if (error) {
+                error.remove();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

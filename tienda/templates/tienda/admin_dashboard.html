@@ -1,0 +1,252 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Dashboard Administrativo{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Dashboard Administrativo</h1>
+                <p class="text-muted">Resumen general del sistema</p>
+            </div>
+            <div class="text-end">
+                <small class="text-muted">{{ now|date:"l, d F Y" }}</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas -->
+{% if alertas %}
+<div class="row mb-4">
+    <div class="col-12">
+        {% for alerta in alertas %}
+        <div class="alert alert-{{ alerta.tipo }} alert-admin d-flex align-items-center" role="alert">
+            <i class="bi {{ alerta.icono }} me-2"></i>
+            <div>
+                <strong>{{ alerta.titulo }}</strong>
+                <div>{{ alerta.mensaje }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Estadísticas principales -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total_usuarios }}</h3>
+                <p class="stat-label">Total Usuarios</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total_productos }}</h3>
+                <p class="stat-label">Total Productos</p>
+                <small class="text-success">{{ stats.productos_activos }} activos</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total_pedidos }}</h3>
+                <p class="stat-label">Total Pedidos</p>
+                <small class="text-warning">{{ stats.pedidos_pendientes }} pendientes</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-cash"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">${{ stats.total_ingresos|floatformat:0 }}</h3>
+                <p class="stat-label">Total Ingresos</p>
+                <small class="text-success">{{ stats.pedidos_completados }} completados</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas de inventario -->
+<div class="row mb-4">
+    <div class="col-xl-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                    Alertas de Inventario
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <h4 class="text-warning">{{ stats.productos_stock_bajo }}</h4>
+                            <p class="text-muted mb-0">Stock Bajo</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <h4 class="text-danger">{{ stats.productos_agotados }}</h4>
+                            <p class="text-muted mb-0">Agotados</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-graph-up text-success me-2"></i>
+                    Estado de Pedidos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-4">
+                        <div class="text-center">
+                            <h4 class="text-warning">{{ stats.pedidos_pendientes }}</h4>
+                            <p class="text-muted mb-0">Pendientes</p>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-center">
+                            <h4 class="text-info">{{ stats.pedidos_completados }}</h4>
+                            <p class="text-muted mb-0">Completados</p>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-center">
+                            <h4 class="text-secondary">{{ stats.total_pedidos }}</h4>
+                            <p class="text-muted mb-0">Total</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pedidos recientes y productos populares -->
+<div class="row">
+    <div class="col-xl-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Pedidos Recientes
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if pedidos_recientes %}
+                <div class="table-responsive">
+                    <table class="table table-admin table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuario</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pedido in pedidos_recientes %}
+                            <tr>
+                                <td><strong>#{{ pedido.id }}</strong></td>
+                                <td>{{ pedido.usuario.username }}</td>
+                                <td>${{ pedido.total_pedido|floatformat:0 }}</td>
+                                <td>
+                                    <span class="badge badge-{{ pedido.estado|lower }}">
+                                        {{ pedido.get_estado_display }}
+                                    </span>
+                                </td>
+                                <td>{{ pedido.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center mb-0">No hay pedidos recientes</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-star me-2"></i>
+                    Productos Populares
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if productos_populares %}
+                <div class="table-responsive">
+                    <table class="table table-admin table-hover">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Stock</th>
+                                <th>Precio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for producto in productos_populares %}
+                            <tr>
+                                <td>{{ producto.nombre }}</td>
+                                <td>
+                                    {% if producto.stock_bajo %}
+                                        <span class="text-warning">{{ producto.stock }}</span>
+                                    {% elif producto.agotado %}
+                                        <span class="text-danger">{{ producto.stock }}</span>
+                                    {% else %}
+                                        {{ producto.stock }}
+                                    {% endif %}
+                                </td>
+                                <td>${{ producto.precio|floatformat:0 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center mb-0">No hay productos disponibles</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Actualizar dashboard cada 5 minutos
+setInterval(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}

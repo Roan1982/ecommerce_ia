@@ -1,0 +1,219 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block title %}{% if subtitle %}{{ subtitle|escape }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=cl.opts.app_label %}">{{ cl.opts.app_config.verbose_name }}</a>
+&rsaquo; {{ cl.opts.verbose_name_plural|capfirst }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-people-fill me-2"></i>
+                {{ cl.opts.verbose_name_plural|capfirst }}
+            </h1>
+            <p class="text-muted mb-0">{{ cl.opts.app_config.verbose_name }}</p>
+        </div>
+        {% if has_add_permission %}
+        <div>
+            <a href="{% url cl.opts|admin_urlname:'add' %}" class="btn btn-admin">
+                <i class="bi bi-plus-circle me-2"></i>
+                {% blocktrans with name=cl.opts.verbose_name %}Add {{ name }}{% endblocktrans %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Estadísticas de Grupos -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-people-fill fs-1 mb-2"></i>
+                <div class="stat-number">{{ cl.result_count }}</div>
+                <div class="stat-label">Grupos Totales</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-person-check fs-1 mb-2"></i>
+                <div class="stat-number">
+                    {% for obj in cl.result_list %}
+                        {{ obj.user_set.count|add:"0" }}
+                    {% empty %}
+                        0
+                    {% endfor %}
+                </div>
+                <div class="stat-label">Usuarios en Grupos</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-shield-check fs-1 mb-2"></i>
+                <div class="stat-number">
+                    {% for obj in cl.result_list %}
+                        {{ obj.permissions.count|add:"0" }}
+                    {% empty %}
+                        0
+                    {% endfor %}
+                </div>
+                <div class="stat-label">Permisos Asignados</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="module{% if cl.has_filters %} filtered{% endif %}" id="changelist">
+  <div class="changelist-form-container">
+{% block search %}
+{% if cl.search_fields %}
+<div class="card card-admin mb-4">
+    <div class="card-body">
+        <form method="get">
+            <div class="input-group">
+                <input class="form-control"
+                       type="text"
+                       name="{{ search_var }}"
+                       value="{{ cl.query }}"
+                       placeholder="Buscar grupos por nombre...">
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block filters %}
+{% if cl.has_filters %}
+<div class="card card-admin mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-funnel me-2"></i>
+            {% trans 'Filters' %}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% for spec in cl.filter_specs %}
+            {% admin_list_filter cl spec %}
+        {% endfor %}
+        {% if cl.has_active_filters %}
+        <div class="mt-3">
+            <a href="{{ cl.get_query_string|cut:'e' }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-x-circle me-1"></i>
+                {% trans 'Clear all filters' %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+  </div>
+
+  {% block result_list %}
+    {% if cl.formset or action_form %}
+      <div class="results">
+        {% admin_actions %}
+        {% result_list cl %}
+        {% if cl.formset and cl.result_count %}
+          {% if cl.paginator.num_pages > 1 %}
+          <div class="d-flex justify-content-center mt-3">
+            <nav aria-label="Paginación">
+              <ul class="pagination">
+                {% if cl.page_obj.has_previous %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ cl.page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                      <i class="bi bi-chevron-left"></i> Anterior
+                    </a>
+                  </li>
+                {% endif %}
+
+                {% for num in cl.paginator.page_range %}
+                  {% if num >= cl.page_obj.number|add:'-2' and num <= cl.page_obj.number|add:'2' %}
+                    {% if cl.page_obj.number == num %}
+                      <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                      </li>
+                    {% else %}
+                      <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                      </li>
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+
+                {% if cl.page_obj.has_next %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ cl.page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                      Siguiente <i class="bi bi-chevron-right"></i>
+                    </a>
+                  </li>
+                {% endif %}
+              </ul>
+            </nav>
+          </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="results">
+        {% result_list cl %}
+        {% if cl.result_count %}
+          {% if cl.paginator.num_pages > 1 %}
+          <div class="d-flex justify-content-center mt-3">
+            <nav aria-label="Paginación">
+              <ul class="pagination">
+                {% if cl.page_obj.has_previous %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ cl.page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                      <i class="bi bi-chevron-left"></i> Anterior
+                    </a>
+                  </li>
+                {% endif %}
+
+                {% for num in cl.paginator.page_range %}
+                  {% if num >= cl.page_obj.number|add:'-2' and num <= cl.page_obj.number|add:'2' %}
+                    {% if cl.page_obj.number == num %}
+                      <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                      </li>
+                    {% else %}
+                      <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                      </li>
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+
+                {% if cl.page_obj.has_next %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ cl.page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                      Siguiente <i class="bi bi-chevron-right"></i>
+                    </a>
+                  </li>
+                {% endif %}
+              </ul>
+            </nav>
+          </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endblock %}
+</div>
+{% endblock %}

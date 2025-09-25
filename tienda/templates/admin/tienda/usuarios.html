@@ -1,0 +1,306 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-people-fill me-2"></i>
+                Gestión de Usuarios
+            </h1>
+            <p class="text-muted mb-0">Administrar usuarios del sistema E-commerce IA</p>
+        </div>
+        <div>
+            <a href="{% url 'admin:agregar_usuario' %}" class="btn btn-admin">
+                <i class="bi bi-person-plus me-2"></i>
+                Agregar Usuario
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number">{{ stats.total }}</div>
+                    <div class="stat-label">Total Usuarios</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-people-fill fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-white">{{ stats.activos }}</div>
+                    <div class="stat-label text-white">Activos</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-check-circle-fill fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-white">{{ stats.staff }}</div>
+                    <div class="stat-label text-white">Staff</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-person-badge fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-white">{{ stats.superuser }}</div>
+                    <div class="stat-label text-white">Superusuarios</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-shield-check fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card card-admin mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="bi bi-funnel me-2"></i>
+            Filtros de Búsqueda
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="q" class="form-label fw-bold">
+                    <i class="bi bi-search me-1"></i>
+                    Buscar Usuario
+                </label>
+                <input type="text" name="q" id="q" class="form-control"
+                       placeholder="Nombre, usuario, email..." value="{{ filtros.q }}">
+            </div>
+            <div class="col-md-3">
+                <label for="estado" class="form-label fw-bold">
+                    <i class="bi bi-toggle-on me-1"></i>
+                    Estado
+                </label>
+                <select name="estado" id="estado" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="activos" {% if filtros.estado == 'activos' %}selected{% endif %}>Activos</option>
+                    <option value="inactivos" {% if filtros.estado == 'inactivos' %}selected{% endif %}>Inactivos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="rol" class="form-label fw-bold">
+                    <i class="bi bi-person-lines-fill me-1"></i>
+                    Rol
+                </label>
+                <select name="rol" id="rol" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="staff" {% if filtros.rol == 'staff' %}selected{% endif %}>Staff</option>
+                    <option value="superuser" {% if filtros.rol == 'superuser' %}selected{% endif %}>Superusuario</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-admin">
+                        <i class="bi bi-search me-1"></i>
+                        Filtrar
+                    </button>
+                    <a href="{% url 'admin:usuarios' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-circle me-1"></i>
+                        Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de usuarios -->
+<div class="card card-admin">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-table me-2"></i>
+            Lista de Usuarios
+        </h5>
+        <small class="text-muted">{{ usuarios|length }} usuarios encontrados</small>
+    </div>
+    <div class="card-body p-0">
+        {% if usuarios %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Usuario</th>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Estado</th>
+                        <th>Rol</th>
+                        <th>Registro</th>
+                        <th>Último Login</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-secondary">#{{ usuario.id }}</span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
+                                     style="width: 35px; height: 35px; font-weight: bold;">
+                                    {{ usuario.username|first|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ usuario.username }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ usuario.get_full_name|default:"-" }}</td>
+                        <td>
+                            {% if usuario.email %}
+                            <a href="mailto:{{ usuario.email }}" class="text-decoration-none">
+                                {{ usuario.email }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if usuario.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                <i class="bi bi-{% if usuario.is_active %}check-circle{% else %}x-circle{% endif %} me-1"></i>
+                                {% if usuario.is_active %}Activo{% else %}Inactivo{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if usuario.is_superuser %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-shield-check me-1"></i>
+                                    Superusuario
+                                </span>
+                            {% elif usuario.is_staff %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-person-badge me-1"></i>
+                                    Staff
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-person me-1"></i>
+                                    Usuario
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ usuario.date_joined|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if usuario.last_login %}
+                                <small class="text-muted">{{ usuario.last_login|date:"d/m/Y" }}</small>
+                                <br>
+                                <small class="text-muted">{{ usuario.last_login|date:"H:i" }}</small>
+                            {% else %}
+                                <span class="text-muted">
+                                    <i class="bi bi-dash-circle"></i>
+                                    Nunca
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'admin:detalle_usuario' usuario.id %}"
+                                   class="btn btn-outline-info btn-sm" title="Ver Perfil">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'admin:editar_usuario' usuario.id %}"
+                                   class="btn btn-outline-primary btn-sm" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if usuarios.has_other_pages %}
+        <div class="card-footer bg-light">
+            <nav aria-label="Paginación de usuarios">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if usuarios.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ usuarios.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.rol %}&rol={{ filtros.rol }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in usuarios.paginator.page_range %}
+                    {% if usuarios.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > usuarios.number|add:'-3' and num < usuarios.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.rol %}&rol={{ filtros.rol }}{% endif %}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if usuarios.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ usuarios.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.rol %}&rol={{ filtros.rol }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="card-body text-center py-5">
+            <i class="bi bi-people fs-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No se encontraron usuarios</h5>
+            <p class="text-muted">Intenta cambiar los filtros de búsqueda</p>
+            <a href="{% url 'admin:agregar_usuario' %}" class="btn btn-admin mt-3">
+                <i class="bi bi-person-plus me-2"></i>
+                Agregar Primer Usuario
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+</style>
+{% endblock %}

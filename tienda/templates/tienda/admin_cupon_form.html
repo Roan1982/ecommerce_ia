@@ -1,0 +1,274 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">{{ titulo }}</h1>
+                <p class="text-muted">Complete el formulario para {{ accion|lower }} el cupón</p>
+            </div>
+            <div>
+                <a href="{% url 'admin_cupones' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Volver a Cupones
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-tag me-2"></i>
+                    Información del Cupón
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.codigo.id_for_label }}" class="form-label">
+                                {{ form.codigo.label }}{% if form.codigo.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.codigo }}
+                            {% if form.codigo.errors %}
+                                <div class="text-danger small">{{ form.codigo.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Código único que usarán los clientes</div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.activo.id_for_label }}" class="form-label">
+                                {{ form.activo.label }}
+                            </label>
+                            <div class="form-check form-switch">
+                                {{ form.activo }}
+                                <label class="form-check-label" for="{{ form.activo.id_for_label }}">
+                                    {% if form.activo.value %}Activo{% else %}Inactivo{% endif %}
+                                </label>
+                            </div>
+                            {% if form.activo.errors %}
+                                <div class="text-danger small">{{ form.activo.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.descripcion.id_for_label }}" class="form-label">
+                            {{ form.descripcion.label }}{% if form.descripcion.field.required %} <span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {{ form.descripcion }}
+                        {% if form.descripcion.errors %}
+                            <div class="text-danger small">{{ form.descripcion.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.tipo_descuento.id_for_label }}" class="form-label">
+                                {{ form.tipo_descuento.label }}{% if form.tipo_descuento.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            {{ form.tipo_descuento }}
+                            {% if form.tipo_descuento.errors %}
+                                <div class="text-danger small">{{ form.tipo_descuento.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.valor_descuento.id_for_label }}" class="form-label">
+                                {{ form.valor_descuento.label }}{% if form.valor_descuento.field.required %} <span class="text-danger">*</span>{% endif %}
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text" id="valor-simbolo">$</span>
+                                {{ form.valor_descuento }}
+                                <span class="input-group-text" id="valor-unidad">%</span>
+                            </div>
+                            {% if form.valor_descuento.errors %}
+                                <div class="text-danger small">{{ form.valor_descuento.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.fecha_expiracion.id_for_label }}" class="form-label">
+                                {{ form.fecha_expiracion.label }}
+                            </label>
+                            {{ form.fecha_expiracion }}
+                            {% if form.fecha_expiracion.errors %}
+                                <div class="text-danger small">{{ form.fecha_expiracion.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Dejar vacío para cupón sin expiración</div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.uso_maximo.id_for_label }}" class="form-label">
+                                {{ form.uso_maximo.label }}
+                            </label>
+                            {{ form.uso_maximo }}
+                            {% if form.uso_maximo.errors %}
+                                <div class="text-danger small">{{ form.uso_maximo.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Dejar vacío para uso ilimitado</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-admin">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {{ accion }} Cupón
+                        </button>
+                        <a href="{% url 'admin_cupones' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Información
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-lightbulb me-2"></i>Consejos para el formulario:</h6>
+                    <ul class="mb-0 small">
+                        <li>Los campos marcados con <span class="text-danger">*</span> son obligatorios</li>
+                        <li>El código debe ser único y se convertirá automáticamente a mayúsculas</li>
+                        <li>Para descuentos porcentuales, el valor máximo es 100%</li>
+                        <li>Los cupones sin fecha de expiración no caducan</li>
+                        <li>Los cupones sin uso máximo pueden usarse indefinidamente</li>
+                    </ul>
+                </div>
+
+                {% if cupon %}
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>Editando cupón existente</h6>
+                    <p class="mb-0 small">
+                        Usos actuales: <strong>{{ cupon.usos_actuales }}</strong><br>
+                        Los cambios se aplicarán inmediatamente al guardar.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoDescuento = document.getElementById('id_tipo_descuento');
+    const valorSimbolo = document.getElementById('valor-simbolo');
+    const valorUnidad = document.getElementById('valor-unidad');
+
+    // Función para actualizar los indicadores del valor
+    function actualizarIndicadores() {
+        if (tipoDescuento.value === 'porcentaje') {
+            valorSimbolo.textContent = '';
+            valorUnidad.textContent = '%';
+            document.getElementById('id_valor_descuento').max = 100;
+        } else {
+            valorSimbolo.textContent = '$';
+            valorUnidad.textContent = '';
+            document.getElementById('id_valor_descuento').removeAttribute('max');
+        }
+    }
+
+    // Actualizar indicadores al cargar la página
+    actualizarIndicadores();
+
+    // Actualizar indicadores al cambiar el tipo
+    tipoDescuento.addEventListener('change', actualizarIndicadores);
+
+    // Validación del formulario
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const codigo = document.getElementById('id_codigo');
+        const valorDescuento = document.getElementById('id_valor_descuento');
+        const usoMaximo = document.getElementById('id_uso_maximo');
+
+        let isValid = true;
+
+        // Validar código único (básico)
+        if (codigo.value.trim() === '') {
+            mostrarError(codigo, 'El código del cupón es obligatorio');
+            isValid = false;
+        }
+
+        // Validar valor de descuento
+        if (valorDescuento.value && parseFloat(valorDescuento.value) <= 0) {
+            mostrarError(valorDescuento, 'El valor del descuento debe ser mayor a 0');
+            isValid = false;
+        }
+
+        // Validar porcentaje máximo
+        if (tipoDescuento.value === 'porcentaje' && valorDescuento.value && parseFloat(valorDescuento.value) > 100) {
+            mostrarError(valorDescuento, 'El descuento porcentual no puede ser mayor al 100%');
+            isValid = false;
+        }
+
+        // Validar uso máximo
+        if (usoMaximo.value && parseInt(usoMaximo.value) < 1) {
+            mostrarError(usoMaximo, 'El uso máximo debe ser al menos 1');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+        }
+    });
+
+    function mostrarError(elemento, mensaje) {
+        // Remover errores previos
+        const errorExistente = elemento.parentNode.querySelector('.text-danger');
+        if (errorExistente) {
+            errorExistente.remove();
+        }
+
+        // Agregar nuevo error
+        const error = document.createElement('div');
+        error.className = 'text-danger small';
+        error.textContent = mensaje;
+        elemento.parentNode.appendChild(error);
+
+        // Resaltar campo
+        elemento.classList.add('is-invalid');
+    }
+
+    // Limpiar errores al cambiar valor
+    document.querySelectorAll('input, select, textarea').forEach(elemento => {
+        elemento.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+            const error = this.parentNode.querySelector('.text-danger');
+            if (error) {
+                error.remove();
+            }
+        });
+    });
+
+    // Convertir código a mayúsculas automáticamente
+    document.getElementById('id_codigo').addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,359 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Gestión de Usuarios</h1>
+                <p class="text-muted">Administrar usuarios del sistema</p>
+            </div>
+            <div>
+                <a href="{% url 'admin_agregar_usuario' %}" class="btn btn-admin">
+                    <i class="bi bi-person-plus me-2"></i>
+                    Agregar Usuario
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total }}</h3>
+                <p class="stat-label">Total Usuarios</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.activos }}</h3>
+                <p class="stat-label">Activos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.staff }}</h3>
+                <p class="stat-label">Staff</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-star"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.superuser }}</h3>
+                <p class="stat-label">Superusuarios</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="q" class="form-label">Buscar</label>
+                <input type="text" name="q" id="q" class="form-control"
+                       placeholder="Nombre, usuario, email..." value="{{ filtros.q }}">
+            </div>
+            <div class="col-md-2">
+                <label for="estado" class="form-label">Estado</label>
+                <select name="estado" id="estado" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="activos" {% if filtros.estado == 'activos' %}selected{% endif %}>Activos</option>
+                    <option value="inactivos" {% if filtros.estado == 'inactivos' %}selected{% endif %}>Inactivos</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="rol" class="form-label">Rol</label>
+                <select name="rol" id="rol" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="staff" {% if filtros.rol == 'staff' %}selected{% endif %}>Staff</option>
+                    <option value="superuser" {% if filtros.rol == 'superuser' %}selected{% endif %}>Superusuario</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-admin me-2">
+                    <i class="bi bi-search me-1"></i>
+                    Filtrar
+                </button>
+                <a href="{% url 'admin_usuarios' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de usuarios -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-list-ul me-2"></i>
+            Lista de Usuarios ({{ usuarios|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if usuarios %}
+        <div class="table-responsive">
+            <table class="table table-admin table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Usuario</th>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Estado</th>
+                        <th>Rol</th>
+                        <th>Registro</th>
+                        <th>Último Login</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                        <td><strong>#{{ usuario.id }}</strong></td>
+                        <td>
+                            <div>
+                                <strong>{{ usuario.username }}</strong>
+                            </div>
+                        </td>
+                        <td>{{ usuario.get_full_name|default:"-" }}</td>
+                        <td>{{ usuario.email }}</td>
+                        <td>
+                            <select class="form-select form-select-sm estado-usuario-select"
+                                    data-usuario-id="{{ usuario.id }}"
+                                    style="width: auto;">
+                                <option value="activo" {% if usuario.is_active %}selected{% endif %}>
+                                    Activo
+                                </option>
+                                <option value="inactivo" {% if not usuario.is_active %}selected{% endif %}>
+                                    Inactivo
+                                </option>
+                            </select>
+                        </td>
+                        <td>
+                            {% if usuario.is_superuser %}
+                                <span class="badge bg-danger">Superusuario</span>
+                            {% elif usuario.is_staff %}
+                                <span class="badge bg-warning text-dark">Staff</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Usuario</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ usuario.date_joined|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if usuario.last_login %}
+                                {{ usuario.last_login|date:"d/m/Y H:i" }}
+                            {% else %}
+                                <span class="text-muted">Nunca</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-info"
+                                        onclick="verPerfilUsuario({{ usuario.id }})" title="Ver Perfil">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        onclick="editarUsuario({{ usuario.id }})" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                {% if not usuario.is_superuser %}
+                                <button type="button" class="btn btn-sm btn-outline-warning"
+                                        onclick="cambiarPermisos({{ usuario.id }})" title="Permisos">
+                                    <i class="bi bi-shield"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if usuarios.has_other_pages %}
+        <nav aria-label="Paginación de usuarios" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if usuarios.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ usuarios.previous_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.rol %}&rol={{ filtros.rol }}{% endif %}">
+                        Anterior
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for num in usuarios.paginator.page_range %}
+                {% if usuarios.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > usuarios.number|add:'-3' and num < usuarios.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.rol %}&rol={{ filtros.rol }}{% endif %}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if usuarios.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ usuarios.next_page_number }}{% if filtros.q %}&q={{ filtros.q }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}{% if filtros.rol %}&rol={{ filtros.rol }}{% endif %}">
+                        Siguiente
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-people display-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No se encontraron usuarios</h5>
+            <p class="text-muted">Intenta cambiar los filtros de búsqueda</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para perfil de usuario -->
+<div class="modal fade" id="usuarioModal" tabindex="-1" aria-labelledby="usuarioModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="usuarioModalLabel">Perfil de Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="usuarioModalBody">
+                <!-- Contenido se carga dinámicamente -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Cambiar estado de usuario
+    document.querySelectorAll('.estado-usuario-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const usuarioId = this.dataset.usuarioId;
+            const nuevoEstado = this.value;
+
+            if (confirm(`¿${nuevoEstado === 'activo' ? 'Activar' : 'Desactivar'} al usuario #${usuarioId}?`)) {
+                cambiarEstadoUsuario(usuarioId, nuevoEstado);
+            } else {
+                // Revertir selección
+                this.value = this.dataset.originalValue || this.value;
+            }
+        });
+
+        // Guardar valor original
+        select.dataset.originalValue = select.value;
+    });
+});
+
+function cambiarEstadoUsuario(usuarioId, nuevoEstado) {
+    fetch(`/admin/cambiar-estado-usuario/${usuarioId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `estado=${nuevoEstado}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar el badge visualmente
+            const select = document.querySelector(`[data-usuario-id="${usuarioId}"]`);
+            const row = select.closest('tr');
+            const estadoCell = row.querySelector('td:nth-child(5)');
+
+            // Actualizar clases del select
+            select.className = `form-select form-select-sm estado-usuario-select ${data.estado_class}`;
+            select.dataset.originalValue = nuevoEstado;
+
+            // Mostrar mensaje de éxito
+            mostrarMensaje('Estado de usuario actualizado correctamente', 'success');
+        } else {
+            mostrarMensaje(data.error || 'Error al actualizar estado', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarMensaje('Error de conexión', 'danger');
+    });
+}
+
+function verPerfilUsuario(usuarioId) {
+    window.location.href = `/admin/usuarios/${usuarioId}/`;
+}
+
+function editarUsuario(usuarioId) {
+    window.location.href = `/admin/usuarios/editar/${usuarioId}/`;
+}
+
+function cambiarPermisos(usuarioId) {
+    // Esta función podría abrir un modal o redirigir a una página específica
+    // Por ahora, redirigimos a editar usuario que incluye permisos
+    window.location.href = `/admin/usuarios/editar/${usuarioId}/`;
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de alerta
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alert);
+
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Auto-submit de filtros al cambiar
+document.getElementById('estado').addEventListener('change', function() {
+    this.form.submit();
+});
+document.getElementById('rol').addEventListener('change', function() {
+    this.form.submit();
+});
+</script>
+{% endblock %}

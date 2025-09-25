@@ -1,0 +1,69 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-gear me-2"></i>
+                Configuración del Sistema
+            </h1>
+            <p class="text-muted mb-0">Configuraciones y ajustes del sistema E-commerce IA</p>
+        </div>
+    </div>
+</div>
+
+<!-- Configuraciones Disponibles -->
+<div class="row">
+    {% for config in configuraciones %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card card-admin h-100">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <span style="font-size: 3rem;">{{ config.icono }}</span>
+                </div>
+                <h5 class="card-title">{{ config.titulo }}</h5>
+                <p class="card-text text-muted">{{ config.descripcion }}</p>
+                <a href="{{ config.url }}" class="btn btn-admin">
+                    <i class="bi bi-arrow-right-circle me-2"></i>
+                    Configurar
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Información del Sistema -->
+<div class="card card-admin mt-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="bi bi-info-circle me-2"></i>
+            Información del Sistema
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Versión de Django</h6>
+                <p class="text-muted">5.2.6</p>
+            </div>
+            <div class="col-md-6">
+                <h6>Base de Datos</h6>
+                <p class="text-muted">PostgreSQL</p>
+            </div>
+            <div class="col-md-6">
+                <h6>Servidor Web</h6>
+                <p class="text-muted">Django Development Server</p>
+            </div>
+            <div class="col-md-6">
+                <h6>Última Actualización</h6>
+                <p class="text-muted">{{ "now"|date:"d/m/Y H:i" }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

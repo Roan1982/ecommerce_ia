@@ -3,17 +3,89 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 class Producto(models.Model):
+    ESTADO_CHOICES = [
+        ('activo', 'Activo'),
+        ('inactivo', 'Inactivo'),
+        ('agotado', 'Agotado'),
+    ]
+
     nombre = models.CharField(max_length=100)
     precio = models.DecimalField(max_digits=10, decimal_places=2)
     categoria = models.CharField(max_length=50)
     descripcion = models.TextField(blank=True, null=True)
     imagen_url = models.URLField(blank=True, null=True)
-    stock = models.IntegerField(default=10)
+
+    # Campos de inventario mejorados
+    stock = models.IntegerField(default=10, help_text="Cantidad actual en inventario")
+    stock_minimo = models.IntegerField(default=5, help_text="Stock mínimo para alertas")
+    sku = models.CharField(max_length=50, unique=True, blank=True, null=True, help_text="Código SKU del producto")
+    peso = models.DecimalField(max_digits=6, decimal_places=2, default=0, help_text="Peso en kg para cálculo de envío")
+    dimensiones = models.CharField(max_length=50, blank=True, null=True, help_text="Dimensiones (ej: 10x20x5 cm)")
+
+    # Estado del producto
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo')
+    fecha_creacion = models.DateTimeField(default=timezone.now, help_text="Fecha de creación del producto")
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.nombre} (SKU: {self.sku or 'N/A'})"
 
     @property
     def en_stock(self):
         """Verifica si el producto está disponible en stock"""
-        return self.stock > 0
+        return self.stock > 0 and self.estado == 'activo'
+
+    @property
+    def stock_bajo(self):
+        """Verifica si el stock está por debajo del mínimo"""
+        return self.stock <= self.stock_minimo and self.stock > 0
+
+    @property
+    def agotado(self):
+        """Verifica si el producto está agotado"""
+        return self.stock == 0 or self.estado == 'agotado'
+
+    def reducir_stock(self, cantidad, usuario=None, pedido=None):
+        """Reduce el stock del producto"""
+        if cantidad > self.stock:
+            raise ValueError(f"No hay suficiente stock. Disponible: {self.stock}, Solicitado: {cantidad}")
+        self.stock -= cantidad
+        self.save()
+        # Crear registro de movimiento de inventario
+        descripcion = f"Venta - Reducción de stock por pedido #{pedido.id}" if pedido else "Venta - Reducción de stock por pedido"
+        MovimientoInventario.objects.create(
+            producto=self,
+            tipo='salida',
+            cantidad=-cantidad,  # Negativo para indicar salida
+            descripcion=descripcion,
+            usuario=usuario
+        )
+
+    def aumentar_stock(self, cantidad, usuario=None, pedido=None):
+        """Aumenta el stock del producto"""
+        self.stock += cantidad
+        self.save()
+        # Crear registro de movimiento de inventario
+        descripcion = f"Devolución - Aumento de stock por pedido #{pedido.id}" if pedido else "Ajuste - Aumento de stock"
+        MovimientoInventario.objects.create(
+            producto=self,
+            tipo='entrada',
+            cantidad=cantidad,  # Positivo para indicar entrada
+            descripcion=descripcion,
+            usuario=usuario
+        )
+
+    def aumentar_stock(self, cantidad, descripcion="Ajuste manual"):
+        """Aumenta el stock del producto"""
+        self.stock += cantidad
+        self.save()
+        # Crear registro de movimiento de inventario
+        MovimientoInventario.objects.create(
+            producto=self,
+            tipo='entrada',
+            cantidad=cantidad,
+            descripcion=descripcion
+        )
 
     @property
     def promedio_calificacion(self):
@@ -51,6 +123,36 @@ class Producto(models.Model):
         ).exists()
 
         return productos_pedidos or compras_directas
+
+    class Meta:
+        verbose_name = "Producto"
+        verbose_name_plural = "Productos"
+        ordering = ['-fecha_creacion']
+
+
+class MovimientoInventario(models.Model):
+    """Modelo para tracking de movimientos de inventario"""
+    TIPO_CHOICES = [
+        ('entrada', 'Entrada'),
+        ('salida', 'Salida'),
+        ('ajuste', 'Ajuste'),
+    ]
+
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    cantidad = models.IntegerField(help_text="Cantidad del movimiento")
+    descripcion = models.CharField(max_length=200, help_text="Descripción del movimiento")
+    fecha = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                               help_text="Usuario que realizó el movimiento")
+
+    def __str__(self):
+        return f"{self.tipo} - {self.producto.nombre} - {self.cantidad} unidades"
+
+    class Meta:
+        verbose_name = "Movimiento de Inventario"
+        verbose_name_plural = "Movimientos de Inventario"
+        ordering = ['-fecha']
 
 class Carrito(models.Model):
     usuario = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -272,3 +374,54 @@ class Cupon(models.Model):
     class Meta:
         verbose_name = "Cupón"
         verbose_name_plural = "Cupones"
+
+class ConfiguracionSistema(models.Model):
+    """Modelo para configuraciones del sistema"""
+    # Configuración general
+    sitio_activo = models.BooleanField(default=True, help_text="Si el sitio web está activo")
+    registro_abierto = models.BooleanField(default=True, help_text="Permitir registro de nuevos usuarios")
+    moneda = models.CharField(max_length=3, default='COP', help_text="Moneda predeterminada (COP, USD, EUR)")
+
+    # Configuración de comercio
+    envio_gratuito_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=50000,
+                                               help_text="Monto mínimo para envío gratuito")
+    stock_minimo_alerta = models.PositiveIntegerField(default=5, help_text="Stock mínimo para mostrar alerta")
+    productos_por_pagina = models.PositiveIntegerField(default=12, help_text="Productos por página en catálogo")
+    impuestos_activos = models.BooleanField(default=True, help_text="Calcular y mostrar impuestos")
+
+    # Configuración de email
+    email_notificaciones = models.BooleanField(default=True, help_text="Enviar notificaciones por email")
+    email_admin = models.EmailField(blank=True, help_text="Email del administrador")
+    email_smtp = models.CharField(max_length=100, blank=True, help_text="Servidor SMTP")
+    email_puerto = models.PositiveIntegerField(default=587, help_text="Puerto SMTP")
+    email_usuario = models.CharField(max_length=100, blank=True, help_text="Usuario SMTP")
+    email_password = models.CharField(max_length=200, blank=True, help_text="Contraseña SMTP")
+
+    # Configuración de seguridad
+    session_timeout = models.PositiveIntegerField(default=60, help_text="Tiempo de sesión en minutos")
+    max_login_attempts = models.PositiveIntegerField(default=5, help_text="Máximo intentos de login")
+    two_factor_auth = models.BooleanField(default=False, help_text="Autenticación de dos factores para admin")
+    password_complexity = models.BooleanField(default=True, help_text="Requerir contraseñas complejas")
+
+    # Configuración de backup
+    backup_automatico = models.BooleanField(default=True, help_text="Realizar backups automáticos")
+    backup_frecuencia = models.CharField(max_length=20, default='diario',
+                                        choices=[('diario', 'Diario'), ('semanal', 'Semanal'), ('mensual', 'Mensual')])
+    backup_retencion = models.PositiveIntegerField(default=30, help_text="Días para retener backups")
+
+    # Metadata
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Configuración del Sistema - Actualizada: {self.fecha_actualizacion}"
+
+    @classmethod
+    def get_configuracion(cls):
+        """Obtiene la configuración actual del sistema, crea una si no existe"""
+        config, created = cls.objects.get_or_create(id=1, defaults={})
+        return config
+
+    class Meta:
+        verbose_name = "Configuración del Sistema"
+        verbose_name_plural = "Configuración del Sistema"

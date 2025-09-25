@@ -1,0 +1,215 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Inicio</a>
+    &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h2>{{ title }}</h2>
+
+    <!-- Filtros -->
+    <div class="filters" style="margin-bottom: 20px;">
+        <form method="get" style="display: inline-block;">
+            <label for="periodo">Período:</label>
+            <select name="periodo" id="periodo" onchange="this.form.submit()">
+                <option value="mes" {% if periodo == 'mes' %}selected{% endif %}>Por Mes</option>
+                <option value="dia" {% if periodo == 'dia' %}selected{% endif %}>Por Día</option>
+            </select>
+        </form>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <!-- Gráfico de ventas -->
+        <div class="module">
+            <h3>Ventas por {{ periodo|title }}</h3>
+            <div id="ventas-chart" style="height: 300px;">
+                <canvas id="ventasCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Productos más vendidos -->
+        <div class="module">
+            <h3>Productos Más Vendidos</h3>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad Vendida</th>
+                        <th>Ingresos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in productos_mas_vendidos %}
+                    <tr>
+                        <td>{{ producto.producto__nombre }}</td>
+                        <td>{{ producto.total_vendido }}</td>
+                        <td>${{ producto.ingresos|floatformat:0 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">No hay datos de ventas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tabla detallada de ventas -->
+    <div class="module" style="margin-top: 20px;">
+        <h3>Detalle de Ventas</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>{{ periodo|title }}</th>
+                    <th>Cantidad de Pedidos</th>
+                    <th>Total Ventas</th>
+                    <th>Promedio por Pedido</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas %}
+                <tr>
+                    <td>{{ venta.periodo|date:"M Y" }}</td>
+                    <td>{{ venta.cantidad }}</td>
+                    <td>${{ venta.total|floatformat:0 }}</td>
+                    <td>${{ venta.total|div:venta.cantidad|floatformat:0 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">No hay datos de ventas para el período seleccionado</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('ventasCanvas').getContext('2d');
+
+    const ventasData = {{ ventas|safe }};
+    const labels = ventasData.map(item => {
+        const date = new Date(item.periodo);
+        return date.toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'short',
+            day: '{{ periodo }}' === 'dia' ? 'numeric' : undefined
+        });
+    });
+
+    const data = ventasData.map(item => item.total);
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Ventas ($)',
+                data: data,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return '$' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+
+<style>
+.filters {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+.filters label {
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+.filters select {
+    padding: 5px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.table {
+    width: 100%;
+    margin-bottom: 1rem;
+    color: #212529;
+}
+
+.table th,
+.table td {
+    padding: 0.75rem;
+    vertical-align: top;
+    border-top: 1px solid #dee2e6;
+}
+
+.table thead th {
+    vertical-align: bottom;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.module {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.module h3 {
+    background: #f8f9fa;
+    margin: 0;
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+    font-size: 1.1em;
+}
+
+.module > div {
+    padding: 15px;
+}
+</style>
+{% endblock %}

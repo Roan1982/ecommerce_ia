@@ -1,0 +1,105 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}Movimientos de Inventario{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Inicio</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='tienda' %}">Tienda</a>
+    &rsaquo; Movimientos de Inventario
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h2>Movimientos de Inventario</h2>
+
+    <!-- Botones de navegación -->
+    <div class="object-tools">
+        <a href="{% url 'admin:inventario' %}" class="btn btn-outline-light btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver al Inventario
+        </a>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        Mostrando los últimos 100 movimientos de inventario. Los movimientos incluyen ventas, ajustes manuales y otros cambios de stock.
+    </div>
+
+    <!-- Tabla de movimientos -->
+    <table class="table table-striped table-hover">
+        <thead class="thead-dark">
+            <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th>Tipo</th>
+                <th>Cantidad</th>
+                <th>Descripción</th>
+                <th>Usuario</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movimiento in movimientos %}
+            <tr>
+                <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                <td>
+                    <strong>{{ movimiento.producto.nombre }}</strong>
+                    {% if movimiento.producto.sku %}
+                    <br><small class="text-muted">SKU: {{ movimiento.producto.sku }}</small>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if movimiento.tipo == 'entrada' %}
+                        <span class="badge badge-success">Entrada</span>
+                    {% elif movimiento.tipo == 'salida' %}
+                        <span class="badge badge-danger">Salida</span>
+                    {% else %}
+                        <span class="badge badge-secondary">{{ movimiento.tipo|title }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if movimiento.cantidad > 0 %}
+                        <span class="text-success">+{{ movimiento.cantidad }}</span>
+                    {% else %}
+                        <span class="text-danger">{{ movimiento.cantidad }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ movimiento.descripcion }}</td>
+                <td>
+                    {% if movimiento.usuario %}
+                        {{ movimiento.usuario.username }}
+                        {% if movimiento.usuario.get_full_name %}
+                            <br><small class="text-muted">{{ movimiento.usuario.get_full_name }}</small>
+                        {% endif %}
+                    {% else %}
+                        <span class="text-muted">Sistema</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center text-muted">
+                    <i class="fas fa-inbox fa-2x mb-2"></i>
+                    <p>No hay movimientos de inventario registrados.</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if movimientos %}
+    <div class="text-muted mt-2">
+        Mostrando {{ movimientos|length }} movimientos de inventario
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extrahead %}
+<style>
+.badge { font-size: 0.8em; }
+.object-tools { margin-bottom: 1rem; }
+.table td { vertical-align: middle; }
+</style>
+{% endblock %}

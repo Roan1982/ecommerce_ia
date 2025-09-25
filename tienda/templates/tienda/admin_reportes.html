@@ -1,0 +1,422 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Reportes y Analytics{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Reportes y Analytics</h1>
+                <p class="text-muted">Análisis de ventas y rendimiento</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline-primary me-2" onclick="exportarReporte()">
+                    <i class="bi bi-download me-2"></i>
+                    Exportar
+                </button>
+                <button type="button" class="btn btn-admin" onclick="actualizarDatos()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>
+                    Actualizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas generales -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.total_pedidos }}</h3>
+                <p class="stat-label">Total Pedidos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.pedidos_completados }}</h3>
+                <p class="stat-label">Pedidos Completados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-cash"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">${{ stats.total_ingresos|floatformat:0 }}</h3>
+                <p class="stat-label">Total Ingresos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number">{{ stats.productos_vendidos }}</h3>
+                <p class="stat-label">Productos Vendidos</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de período -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="periodo" class="form-label">Período de Análisis</label>
+                <select name="periodo" id="periodo" class="form-select">
+                    <option value="dia" {% if periodo == 'dia' %}selected{% endif %}>Por Día</option>
+                    <option value="mes" {% if periodo == 'mes' %}selected{% endif %}>Por Mes</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-admin">
+                    <i class="bi bi-graph-up me-1"></i>
+                    Generar Reporte
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Gráfico de ventas -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    Tendencia de Ventas
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="ventasChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Productos más vendidos y análisis -->
+<div class="row">
+    <div class="col-xl-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-trophy me-2"></i>
+                    Productos Más Vendidos
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if productos_mas_vendidos %}
+                <div class="table-responsive">
+                    <table class="table table-admin table-hover">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Unidades Vendidas</th>
+                                <th>Ingresos Totales</th>
+                                <th>Porcentaje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for producto in productos_mas_vendidos %}
+                            <tr>
+                                <td>
+                                    <strong>{{ producto.producto__nombre }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ producto.total_vendido }}</span>
+                                </td>
+                                <td>
+                                    <strong>${{ producto.ingresos|floatformat:0 }}</strong>
+                                </td>
+                                <td>
+                                    <div class="progress" style="width: 100px;">
+                                        <div class="progress-bar bg-success" role="progressbar"
+                                             style="width: {% widthratio producto.total_vendido productos_mas_vendidos.0.total_vendido 100 %}%">
+                                            {% widthratio producto.total_vendido productos_mas_vendidos.0.total_vendido 100 %}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-graph-down text-muted display-1 mb-3"></i>
+                    <h5 class="text-muted">No hay datos de ventas disponibles</h5>
+                    <p class="text-muted">Los datos aparecerán cuando se realicen ventas</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-pie-chart me-2"></i>
+                    Resumen Ejecutivo
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h4 class="text-success mb-1">{{ stats.pedidos_completados }}</h4>
+                            <small class="text-muted">Pedidos<br>Exitosos</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-primary mb-1">{{ stats.usuarios_activos }}</h4>
+                        <small class="text-muted">Usuarios<br>Activos</small>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-12">
+                        <h5 class="text-info mb-1">
+                            ${{ stats.total_ingresos|floatformat:0 }}
+                        </h5>
+                        <small class="text-muted">Ingresos Totales</small>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-center">
+                    <small class="text-muted">
+                        <i class="bi bi-calendar me-1"></i>
+                        Reporte generado: {{ now|date:"d/m/Y H:i" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones rápidas -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-lightning me-2"></i>
+                    Acciones Rápidas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="exportarPDF()">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>
+                        Exportar PDF
+                    </button>
+                    <button type="button" class="btn btn-outline-success btn-sm" onclick="exportarExcel()">
+                        <i class="bi bi-file-earmark-excel me-1"></i>
+                        Exportar Excel
+                    </button>
+                    <button type="button" class="btn btn-outline-info btn-sm" onclick="enviarEmail()">
+                        <i class="bi bi-envelope me-1"></i>
+                        Enviar por Email
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla detallada de ventas -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-table me-2"></i>
+            Detalle de Ventas por Período
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if ventas %}
+        <div class="table-responsive">
+            <table class="table table-admin table-hover">
+                <thead>
+                    <tr>
+                        <th>Período</th>
+                        <th>Total Ventas</th>
+                        <th>Cantidad Pedidos</th>
+                        <th>Promedio por Pedido</th>
+                        <th>Crecimiento</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for venta in ventas %}
+                    <tr>
+                        <td>
+                            {% if periodo == 'dia' %}
+                                {{ venta.periodo|date:"d/m/Y" }}
+                            {% else %}
+                                {{ venta.periodo|date:"M Y" }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>${{ venta.total|floatformat:0 }}</strong>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ venta.cantidad }}</span>
+                        </td>
+                        <td>
+                            {% if venta.cantidad > 0 %}
+                                {% widthratio venta.total 1 venta.cantidad %}$
+                            {% else %}
+                                $0
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if forloop.first %}
+                                <span class="text-muted">-</span>
+                            {% else %}
+                                {% with previous=ventas|slice:forloop.counter0|last %}
+                                    {% if previous.total > 0 %}
+                                        {% widthratio venta.total previous.total 100 as growth_ratio %}
+                                        {% if growth_ratio > 100 %}
+                                            <span class="text-success">
+                                                <i class="bi bi-arrow-up"></i>
+                                                +{{ growth_ratio|add:-100 }}%
+                                            </span>
+                                        {% elif growth_ratio < 100 %}
+                                            <span class="text-danger">
+                                                <i class="bi bi-arrow-down"></i>
+                                                {{ growth_ratio|add:-100 }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">0%</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-success">
+                                            <i class="bi bi-arrow-up"></i>
+                                            +100%
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-graph-down display-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No hay datos de ventas para el período seleccionado</h5>
+            <p class="text-muted">Intenta cambiar el período de análisis</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Datos para el gráfico
+    const ventasData = {{ ventas|safe }};
+    const labels = ventasData.map(item => {
+        const date = new Date(item.periodo);
+        return '{{ periodo }}' === 'dia' ?
+            date.toLocaleDateString('es-ES') :
+            date.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+    });
+    const data = ventasData.map(item => item.total);
+
+    // Crear gráfico
+    const ctx = document.getElementById('ventasChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Ventas',
+                data: data,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString('es-CO');
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+
+function exportarReporte() {
+    mostrarMensaje('Funcionalidad de exportación en desarrollo', 'info');
+}
+
+function actualizarDatos() {
+    location.reload();
+}
+
+function exportarPDF() {
+    mostrarMensaje('Exportación a PDF en desarrollo', 'info');
+}
+
+function exportarExcel() {
+    mostrarMensaje('Exportación a Excel en desarrollo', 'info');
+}
+
+function enviarEmail() {
+    mostrarMensaje('Envío por email en desarrollo', 'info');
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de alerta
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alert);
+
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Auto-submit del formulario de período
+document.getElementById('periodo').addEventListener('change', function() {
+    this.form.submit();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,491 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}Administración de Inventario{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Inicio</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='tienda' %}">Tienda</a>
+    &rsaquo; Administración de Inventario
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-box-seam me-2"></i>
+                Administración de Inventario
+            </h1>
+            <p class="text-muted mb-0">Gestionar productos, stock y movimientos de inventario</p>
+        </div>
+        <div>
+            <a href="{% url 'admin:movimientos' %}" class="btn btn-outline-primary">
+                <i class="bi bi-clock-history me-2"></i>
+                Ver Movimientos
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number">{{ stats.total_productos }}</div>
+                    <div class="stat-label">Total Productos</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-box-seam fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-success">{{ stats.productos_activos }}</div>
+                    <div class="stat-label text-success">Activos</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-check-circle fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-warning">{{ stats.stock_bajo }}</div>
+                    <div class="stat-label text-warning">Stock Bajo</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-exclamation-triangle fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-danger">{{ stats.productos_agotados }}</div>
+                    <div class="stat-label text-danger">Agotados</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-x-circle fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-secondary">{{ stats.productos_inactivos }}</div>
+                    <div class="stat-label text-secondary">Inactivos</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-dash-circle fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-3">
+        <div class="stats-card">
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <div class="stat-number text-info">{{ stats.total_unidades }}</div>
+                    <div class="stat-label text-info">Total Unidades</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="bi bi-calculator fs-1 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card card-admin mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="bi bi-funnel me-2"></i>
+            Filtros de Búsqueda
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="categoria" class="form-label fw-bold">
+                    <i class="bi bi-tag me-1"></i>
+                    Categoría
+                </label>
+                <select name="categoria" id="categoria" class="form-select">
+                    <option value="">Todas las categorías</option>
+                    {% for categoria in categorias %}
+                    <option value="{{ categoria }}" {% if filtros.categoria == categoria %}selected{% endif %}>{{ categoria }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="stock" class="form-label fw-bold">
+                    <i class="bi bi-bar-chart me-1"></i>
+                    Estado de Stock
+                </label>
+                <select name="stock" id="stock" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="disponible" {% if filtros.stock == 'disponible' %}selected{% endif %}>Disponible</option>
+                    <option value="bajo" {% if filtros.stock == 'bajo' %}selected{% endif %}>Stock Bajo</option>
+                    <option value="agotado" {% if filtros.stock == 'agotado' %}selected{% endif %}>Agotado</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="estado" class="form-label fw-bold">
+                    <i class="bi bi-toggle-on me-1"></i>
+                    Estado del Producto
+                </label>
+                <select name="estado" id="estado" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="activo" {% if filtros.estado == 'activo' %}selected{% endif %}>Activo</option>
+                    <option value="inactivo" {% if filtros.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+                    <option value="agotado" {% if filtros.estado == 'agotado' %}selected{% endif %}>Agotado</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="d-grid gap-2 w-100">
+                    <button type="submit" class="btn btn-admin">
+                        <i class="bi bi-search me-1"></i>
+                        Filtrar
+                    </button>
+                    <a href="{% url 'admin:inventario' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-circle me-1"></i>
+                        Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de productos -->
+<div class="card card-admin">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-table me-2"></i>
+            Lista de Productos
+        </h5>
+        <small class="text-muted">{{ productos|length }} productos encontrados</small>
+    </div>
+    <div class="card-body p-0">
+        {% if productos %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Producto</th>
+                        <th>SKU</th>
+                        <th>Categoría</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                        <th>Mínimo</th>
+                        <th>Estado</th>
+                        <th>Estado Stock</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in productos %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if producto.imagen_url %}
+                                <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}"
+                                     class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                {% endif %}
+                                <div>
+                                    <div class="fw-bold">{{ producto.nombre }}</div>
+                                    {% if producto.descripcion %}
+                                    <small class="text-muted">{{ producto.descripcion|truncatechars:50 }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if producto.sku %}
+                            <code class="small">{{ producto.sku }}</code>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark">{{ producto.categoria }}</span>
+                        </td>
+                        <td class="fw-bold text-primary">${{ producto.precio }}</td>
+                        <td>
+                            <span class="stock-display fw-bold" data-producto-id="{{ producto.id }}">
+                                {{ producto.stock }}
+                            </span>
+                        </td>
+                        <td>{{ producto.stock_minimo }}</td>
+                        <td>
+                            <span class="badge bg-{% if producto.estado == 'activo' %}success{% elif producto.estado == 'inactivo' %}secondary{% else %}danger{% endif %}">
+                                {{ producto.estado|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if producto.agotado %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-x-circle me-1"></i>
+                                    Agotado
+                                </span>
+                            {% elif producto.stock_bajo %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    Stock Bajo
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Disponible
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-outline-primary btn-sm edit-stock-btn"
+                                    data-producto-id="{{ producto.id }}"
+                                    data-producto-nombre="{{ producto.nombre }}"
+                                    data-stock-actual="{{ producto.stock }}"
+                                    title="Editar Stock">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="bi bi-search fs-1 mb-2"></i>
+                            <br>
+                            No hay productos que coincidan con los filtros aplicados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if productos.has_other_pages %}
+        <div class="card-footer bg-light">
+            <nav aria-label="Paginación de productos">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if productos.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ productos.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i> Anterior
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in productos.paginator.page_range %}
+                    {% if productos.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > productos.number|add:'-3' and num < productos.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if productos.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ productos.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            Siguiente <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="card-body text-center py-5">
+            <i class="bi bi-box-seam fs-1 text-muted mb-3"></i>
+            <h5 class="text-muted">No se encontraron productos</h5>
+            <p class="text-muted">Intenta cambiar los filtros de búsqueda</p>
+            <a href="{% url 'admin:tienda_producto_add' %}" class="btn btn-admin mt-3">
+                <i class="bi bi-plus-circle me-2"></i>
+                Agregar Producto
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para editar stock -->
+<div class="modal fade" id="editStockModal" tabindex="-1" aria-labelledby="editStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editStockModalLabel">
+                    <i class="bi bi-pencil me-2"></i>
+                    Editar Stock
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editStockForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="productoNombre" class="form-label fw-bold">Producto:</label>
+                        <input type="text" class="form-control" id="productoNombre" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="stockActual" class="form-label fw-bold">Stock Actual:</label>
+                        <input type="number" class="form-control" id="stockActual" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nuevoStock" class="form-label fw-bold">Nuevo Stock:</label>
+                        <input type="number" class="form-control" id="nuevoStock" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label fw-bold">Descripción del cambio:</label>
+                        <textarea class="form-control" id="descripcion" rows="3" placeholder="Ej: Reabastecimiento, ajuste manual, etc."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="saveStockBtn">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+<style>
+.stock-display { font-weight: bold; }
+.badge { font-size: 0.8em; }
+</style>
+{% endblock %}
+
+{% block extrajs %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentProductoId = null;
+
+    // Botones de editar stock
+    document.querySelectorAll('.edit-stock-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            currentProductoId = this.dataset.productoId;
+            document.getElementById('productoNombre').value = this.dataset.productoNombre;
+            document.getElementById('stockActual').value = this.dataset.stockActual;
+            document.getElementById('nuevoStock').value = this.dataset.stockActual;
+            document.getElementById('descripcion').value = 'Ajuste manual desde admin';
+
+            const modal = new bootstrap.Modal(document.getElementById('editStockModal'));
+            modal.show();
+        });
+    });
+
+    // Guardar cambios de stock
+    document.getElementById('saveStockBtn').addEventListener('click', function() {
+        const nuevoStock = document.getElementById('nuevoStock').value;
+        const descripcion = document.getElementById('descripcion').value;
+
+        if (!nuevoStock || nuevoStock < 0) {
+            showAlert('Por favor ingrese un stock válido (mayor o igual a 0)', 'danger');
+            return;
+        }
+
+        fetch(`{% url 'admin:tienda_producto_actualizar_stock' producto_id=currentProductoId %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: `stock=${nuevoStock}&descripcion=${encodeURIComponent(descripcion)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Actualizar la interfaz
+                const stockDisplay = document.querySelector(`[data-producto-id="${currentProductoId}"] .stock-display`);
+                stockDisplay.textContent = data.nuevo_stock;
+
+                // Actualizar badges de estado
+                const row = stockDisplay.closest('tr');
+                const estadoCell = row.querySelector('td:nth-child(7)');
+                const stockStatusCell = row.querySelector('td:nth-child(8)');
+
+                // Actualizar badge de estado del producto
+                const estadoBadge = estadoCell.querySelector('.badge');
+                if (data.agotado) {
+                    estadoBadge.className = 'badge bg-danger';
+                    estadoBadge.textContent = 'Agotado';
+                } else {
+                    // Mantener el estado actual si no está agotado
+                }
+
+                // Actualizar badge de estado de stock
+                if (data.agotado) {
+                    stockStatusCell.innerHTML = '<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Agotado</span>';
+                } else if (data.stock_bajo) {
+                    stockStatusCell.innerHTML = '<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Stock Bajo</span>';
+                } else {
+                    stockStatusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Disponible</span>';
+                }
+
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editStockModal'));
+                modal.hide();
+
+                showAlert('Stock actualizado exitosamente', 'success');
+            } else {
+                showAlert('Error: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al actualizar el stock', 'danger');
+        });
+    });
+
+    function showAlert(message, type) {
+        // Crear elemento de alerta
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        // Auto-remover después de 5 segundos
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

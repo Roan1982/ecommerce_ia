@@ -1,0 +1,137 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls %}
+
+{% block title %}{% blocktrans with name=object|truncatewords:"18" %}Change history: {{ name }}{% endblocktrans %} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'change' object_id %}">{{ object|truncatewords:"18" }}</a>
+&rsaquo; {% trans 'History' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-clock-history me-2"></i>
+                {% blocktrans with name=object|truncatewords:"18" %}Change history: {{ name }}{% endblocktrans %}
+            </h1>
+            <p class="text-muted mb-0">Historial de cambios del objeto</p>
+        </div>
+        <div>
+            <a href="{% url opts|admin_urlname:'change' object_id %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left me-2"></i>
+                {% trans 'Back to object' %}
+            </a>
+            <a href="{% url opts|admin_urlname:'changelist' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list me-2"></i>
+                {% trans 'Back to list' %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card card-admin">
+            <div class="card-header">
+                <h5 class="mb-0">Historial de cambios</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if action_list %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Fecha</th>
+                                    <th scope="col">Usuario</th>
+                                    <th scope="col">Acción</th>
+                                    <th scope="col">Cambios</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for action in action_list %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">{{ action.action_time|date:"M j, Y g:i A" }}</small>
+                                    </td>
+                                    <td>
+                                        {% if action.user %}
+                                            <strong>{{ action.user.get_full_name|default:action.user.username }}</strong>
+                                        {% else %}
+                                            <em class="text-muted">Sistema</em>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if action.change_message %}
+                                            <span class="badge bg-primary">{{ action.get_change_message }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Sin mensaje</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if action.change_message %}
+                                            <small>{{ action.change_message|truncatechars:100 }}</small>
+                                        {% else %}
+                                            <em class="text-muted">Sin cambios registrados</em>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-info-circle text-muted" style="font-size: 3rem;"></i>
+                        <h4 class="text-muted mt-3">No hay historial disponible</h4>
+                        <p class="text-muted">Este objeto no tiene un historial de cambios registrado.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.card-admin {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.btn-outline-secondary {
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+}
+</style>
+{% endblock %}

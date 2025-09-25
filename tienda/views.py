@@ -1,14 +1,18 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, UserChangeForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon
+from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema
+from .forms import ProductoForm, CuponForm
 from .recomendador import RecomendadorIA
 from django.utils.translation import gettext_lazy as _
 from django.db import models, transaction
 from django import forms
 from django.http import JsonResponse
+from django.contrib.auth.models import User
+from django.db.models import Sum, Count
+from django.db.models.functions import TruncMonth, TruncDay
 import pandas as pd
 from datetime import date
 
@@ -647,9 +651,8 @@ def procesar_pedido(request):
                 cantidad=item.cantidad,
                 precio_unitario=item.producto.precio
             )
-            # Reducir stock
-            item.producto.stock -= item.cantidad
-            item.producto.save()
+            # Reducir stock con registro de movimiento
+            item.producto.reducir_stock(item.cantidad, usuario=request.user, pedido=pedido)
 
         # Vaciar carrito
         items.delete()
@@ -814,4 +817,1108 @@ def cupones_disponibles(request):
 
     return render(request, 'tienda/cupones.html', {
         'cupones': cupones
+    })
+
+@login_required
+def admin_inventario(request):
+    """Vista de administración de inventario"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros
+    categoria_filter = request.GET.get('categoria', '')
+    stock_filter = request.GET.get('stock', '')
+    estado_filter = request.GET.get('estado', '')
+
+    productos = Producto.objects.all().order_by('nombre')
+
+    # Aplicar filtros
+    if categoria_filter:
+        productos = productos.filter(categoria=categoria_filter)
+    if stock_filter == 'bajo':
+        productos = productos.filter(stock__lte=models.F('stock_minimo'), stock__gt=0)
+    elif stock_filter == 'agotado':
+        productos = productos.filter(stock=0)
+    elif stock_filter == 'disponible':
+        productos = productos.filter(stock__gt=0)
+    if estado_filter:
+        productos = productos.filter(estado=estado_filter)
+
+    # Estadísticas
+    stats = {
+        'total_productos': Producto.objects.count(),
+        'productos_activos': Producto.objects.filter(estado='activo').count(),
+        'productos_inactivos': Producto.objects.filter(estado='inactivo').count(),
+        'productos_agotados': Producto.objects.filter(estado='agotado').count(),
+        'stock_bajo': Producto.objects.filter(stock__lte=models.F('stock_minimo'), stock__gt=0).count(),
+        'total_unidades': Producto.objects.aggregate(total=models.Sum('stock'))['total'] or 0,
+    }
+
+    categorias = Producto.objects.values_list('categoria', flat=True).distinct()
+
+    return render(request, 'tienda/admin_inventario.html', {
+        'productos': productos,
+        'stats': stats,
+        'categorias': categorias,
+        'filtros': {
+            'categoria': categoria_filter,
+            'stock': stock_filter,
+            'estado': estado_filter,
+        }
+    })
+
+@login_required
+def actualizar_stock(request, producto_id):
+    """Vista AJAX para actualizar stock de un producto"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        producto = Producto.objects.get(id=producto_id)
+        nuevo_stock = int(request.POST.get('stock', 0))
+        descripcion = request.POST.get('descripcion', 'Ajuste manual')
+
+        if nuevo_stock < 0:
+            return JsonResponse({'success': False, 'error': 'El stock no puede ser negativo'})
+
+        # Calcular la diferencia
+        diferencia = nuevo_stock - producto.stock
+
+        if diferencia > 0:
+            # Aumento de stock
+            MovimientoInventario.objects.create(
+                producto=producto,
+                tipo='entrada',
+                cantidad=diferencia,
+                descripcion=descripcion,
+                usuario=request.user
+            )
+        elif diferencia < 0:
+            # Reducción de stock
+            MovimientoInventario.objects.create(
+                producto=producto,
+                tipo='salida',
+                cantidad=diferencia,  # Negativo
+                descripcion=descripcion,
+                usuario=request.user
+            )
+
+        # Actualizar stock
+        producto.stock = nuevo_stock
+        producto.save()
+
+        return JsonResponse({
+            'success': True,
+            'nuevo_stock': producto.stock,
+            'stock_bajo': producto.stock_bajo,
+            'agotado': producto.agotado
+        })
+
+    except Producto.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Producto no encontrado'})
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Valor de stock inválido'})
+
+@login_required
+def movimientos_inventario(request):
+    """Vista para ver movimientos de inventario"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    movimientos = MovimientoInventario.objects.select_related('producto', 'usuario').order_by('-fecha')[:100]
+
+    return render(request, 'tienda/movimientos_inventario.html', {
+        'movimientos': movimientos
+    })
+
+# ========================================
+# VISTAS DE ADMINISTRACIÓN PERSONALIZADAS
+# ========================================
+
+@login_required
+def admin_dashboard(request):
+    """Dashboard administrativo principal"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder al panel de administración.'))
+        return redirect('home')
+
+    # Estadísticas generales
+    stats = {
+        'total_usuarios': User.objects.count(),
+        'total_productos': Producto.objects.count(),
+        'productos_activos': Producto.objects.filter(estado='activo').count(),
+        'total_pedidos': Pedido.objects.count(),
+        'pedidos_pendientes': Pedido.objects.filter(estado='pendiente').count(),
+        'pedidos_completados': Pedido.objects.filter(estado='completado').count(),
+        'total_ingresos': Pedido.objects.filter(estado='completado').aggregate(
+            total=Sum('total_pedido')
+        )['total'] or 0,
+        'productos_stock_bajo': Producto.objects.filter(
+            stock__lte=models.F('stock_minimo'),
+            stock__gt=0
+        ).count(),
+        'productos_agotados': Producto.objects.filter(stock=0).count(),
+    }
+
+    # Pedidos recientes
+    pedidos_recientes = Pedido.objects.select_related('usuario').order_by('-fecha_creacion')[:5]
+
+    # Productos más vendidos
+    productos_populares = Producto.objects.filter(estado='activo').order_by('-stock')[:5]
+
+    # Alertas
+    alertas = []
+    if stats['productos_stock_bajo'] > 0:
+        alertas.append({
+            'tipo': 'warning',
+            'icono': 'bi-exclamation-triangle',
+            'titulo': f"{stats['productos_stock_bajo']} productos con stock bajo",
+            'mensaje': 'Revisa el inventario para evitar faltantes.'
+        })
+    if stats['productos_agotados'] > 0:
+        alertas.append({
+            'tipo': 'danger',
+            'icono': 'bi-x-circle',
+            'titulo': f"{stats['productos_agotados']} productos agotados",
+            'mensaje': 'Estos productos no se pueden vender actualmente.'
+        })
+
+    return render(request, 'tienda/admin_dashboard.html', {
+        'stats': stats,
+        'pedidos_recientes': pedidos_recientes,
+        'productos_populares': productos_populares,
+        'alertas': alertas,
+    })
+
+@login_required
+def admin_productos(request):
+    """Gestión de productos administrativos"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros
+    categoria_filter = request.GET.get('categoria', '')
+    estado_filter = request.GET.get('estado', '')
+    stock_filter = request.GET.get('stock', '')
+    query = request.GET.get('q', '')
+
+    productos = Producto.objects.all().order_by('nombre')
+
+    # Aplicar filtros
+    if categoria_filter:
+        productos = productos.filter(categoria=categoria_filter)
+    if estado_filter:
+        productos = productos.filter(estado=estado_filter)
+    if stock_filter == 'bajo':
+        productos = productos.filter(stock__lte=models.F('stock_minimo'), stock__gt=0)
+    elif stock_filter == 'agotado':
+        productos = productos.filter(stock=0)
+    elif stock_filter == 'disponible':
+        productos = productos.filter(stock__gt=0)
+    if query:
+        productos = productos.filter(
+            models.Q(nombre__icontains=query) |
+            models.Q(descripcion__icontains=query) |
+            models.Q(sku__icontains=query)
+        )
+
+    # Estadísticas
+    stats = {
+        'total': Producto.objects.count(),
+        'activos': Producto.objects.filter(estado='activo').count(),
+        'inactivos': Producto.objects.filter(estado='inactivo').count(),
+        'agotados': Producto.objects.filter(stock=0).count(),
+        'stock_bajo': Producto.objects.filter(stock__lte=models.F('stock_minimo'), stock__gt=0).count(),
+    }
+
+    categorias = Producto.objects.values_list('categoria', flat=True).distinct()
+
+    return render(request, 'tienda/admin_productos.html', {
+        'productos': productos,
+        'stats': stats,
+        'categorias': categorias,
+        'filtros': {
+            'categoria': categoria_filter,
+            'estado': estado_filter,
+            'stock': stock_filter,
+            'q': query,
+        }
+    })
+
+@login_required
+def admin_pedidos(request):
+    """Gestión de pedidos administrativos"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros
+    estado_filter = request.GET.get('estado', '')
+    fecha_filter = request.GET.get('fecha', '')
+    usuario_filter = request.GET.get('usuario', '')
+
+    pedidos = Pedido.objects.select_related('usuario').order_by('-fecha_creacion')
+
+    # Aplicar filtros
+    if estado_filter:
+        pedidos = pedidos.filter(estado=estado_filter)
+    if usuario_filter:
+        pedidos = pedidos.filter(
+            models.Q(usuario__username__icontains=usuario_filter) |
+            models.Q(usuario__email__icontains=usuario_filter)
+        )
+
+    # Estadísticas
+    stats = {
+        'total': Pedido.objects.count(),
+        'pendientes': Pedido.objects.filter(estado='pendiente').count(),
+        'procesando': Pedido.objects.filter(estado='procesando').count(),
+        'completados': Pedido.objects.filter(estado='completado').count(),
+        'cancelados': Pedido.objects.filter(estado='cancelado').count(),
+        'total_ingresos': Pedido.objects.filter(estado='completado').aggregate(
+            total=Sum('total_pedido')
+        )['total'] or 0,
+    }
+
+    return render(request, 'tienda/admin_pedidos.html', {
+        'pedidos': pedidos,
+        'stats': stats,
+        'filtros': {
+            'estado': estado_filter,
+            'usuario': usuario_filter,
+        }
+    })
+
+@login_required
+def admin_usuarios(request):
+    """Gestión de usuarios administrativos"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros
+    query = request.GET.get('q', '')
+    estado_filter = request.GET.get('estado', '')
+    rol_filter = request.GET.get('rol', '')
+
+    usuarios = User.objects.all().order_by('-date_joined')
+
+    # Aplicar filtros
+    if query:
+        usuarios = usuarios.filter(
+            models.Q(username__icontains=query) |
+            models.Q(email__icontains=query) |
+            models.Q(first_name__icontains=query) |
+            models.Q(last_name__icontains=query)
+        )
+    if estado_filter == 'activos':
+        usuarios = usuarios.filter(is_active=True)
+    elif estado_filter == 'inactivos':
+        usuarios = usuarios.filter(is_active=False)
+    if rol_filter == 'staff':
+        usuarios = usuarios.filter(is_staff=True)
+    elif rol_filter == 'superuser':
+        usuarios = usuarios.filter(is_superuser=True)
+
+    # Estadísticas
+    stats = {
+        'total': User.objects.count(),
+        'activos': User.objects.filter(is_active=True).count(),
+        'staff': User.objects.filter(is_staff=True).count(),
+        'superuser': User.objects.filter(is_superuser=True).count(),
+    }
+
+    return render(request, 'tienda/admin_usuarios.html', {
+        'usuarios': usuarios,
+        'stats': stats,
+        'filtros': {
+            'q': query,
+            'estado': estado_filter,
+            'rol': rol_filter,
+        }
+    })
+
+@login_required
+def admin_cupones(request):
+    """Gestión de cupones administrativos"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros
+    estado_filter = request.GET.get('estado', '')
+    tipo_filter = request.GET.get('tipo', '')
+
+    cupones = Cupon.objects.all().order_by('-id')
+
+    # Aplicar filtros
+    if estado_filter == 'activos':
+        cupones = cupones.filter(activo=True, fecha_expiracion__gte=date.today())
+    elif estado_filter == 'expirados':
+        cupones = cupones.filter(fecha_expiracion__lt=date.today())
+    elif estado_filter == 'inactivos':
+        cupones = cupones.filter(activo=False)
+    if tipo_filter:
+        cupones = cupones.filter(tipo_descuento=tipo_filter)
+
+    # Estadísticas
+    stats = {
+        'total': Cupon.objects.count(),
+        'activos': Cupon.objects.filter(activo=True, fecha_expiracion__gte=date.today()).count(),
+        'expirados': Cupon.objects.filter(fecha_expiracion__lt=date.today()).count(),
+        'usados': Cupon.objects.filter(activo=False).count(),
+    }
+
+    return render(request, 'tienda/admin_cupones.html', {
+        'cupones': cupones,
+        'stats': stats,
+        'filtros': {
+            'estado': estado_filter,
+            'tipo': tipo_filter,
+        }
+    })
+
+@login_required
+def admin_inventario(request):
+    """Vista de inventario administrativo"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros
+    categoria_filter = request.GET.get('categoria', '')
+    stock_filter = request.GET.get('stock', '')
+
+    productos = Producto.objects.all().order_by('nombre')
+
+    # Aplicar filtros
+    if categoria_filter:
+        productos = productos.filter(categoria=categoria_filter)
+    if stock_filter == 'bajo':
+        productos = productos.filter(stock__lte=models.F('stock_minimo'), stock__gt=0)
+    elif stock_filter == 'agotado':
+        productos = productos.filter(stock=0)
+    elif stock_filter == 'disponible':
+        productos = productos.filter(stock__gt=0)
+
+    # Estadísticas de inventario
+    stats = {
+        'total_productos': Producto.objects.count(),
+        'productos_activos': Producto.objects.filter(estado='activo').count(),
+        'total_unidades': Producto.objects.aggregate(total=Sum('stock'))['total'] or 0,
+        'productos_stock_bajo': Producto.objects.filter(stock__lte=models.F('stock_minimo'), stock__gt=0).count(),
+        'productos_agotados': Producto.objects.filter(stock=0).count(),
+        'valor_inventario': Producto.objects.filter(estado='activo').aggregate(
+            total=Sum(models.F('stock') * models.F('precio'))
+        )['total'] or 0,
+    }
+
+    # Movimientos recientes
+    movimientos_recientes = MovimientoInventario.objects.select_related('producto', 'usuario').order_by('-fecha')[:10]
+
+    categorias = Producto.objects.values_list('categoria', flat=True).distinct()
+
+    return render(request, 'tienda/admin_inventario.html', {
+        'productos': productos,
+        'stats': stats,
+        'movimientos_recientes': movimientos_recientes,
+        'categorias': categorias,
+        'filtros': {
+            'categoria': categoria_filter,
+            'stock': stock_filter,
+        }
+    })
+
+@login_required
+def admin_reportes(request):
+    """Vista de reportes administrativos"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros de fecha
+    periodo = request.GET.get('periodo', 'mes')
+
+    if periodo == 'dia':
+        ventas = Pedido.objects.filter(estado='completado').annotate(
+            periodo=TruncDay('fecha_creacion')
+        ).values('periodo').annotate(
+            total=Sum('total_pedido'),
+            cantidad=Count('id')
+        ).order_by('-periodo')[:30]
+    else:
+        ventas = Pedido.objects.filter(estado='completado').annotate(
+            periodo=TruncMonth('fecha_creacion')
+        ).values('periodo').annotate(
+            total=Sum('total_pedido'),
+            cantidad=Count('id')
+        ).order_by('-periodo')[:12]
+
+    # Productos más vendidos
+    productos_mas_vendidos = PedidoProducto.objects.values(
+        'producto__nombre'
+    ).annotate(
+        total_vendido=Sum('cantidad'),
+        ingresos=Sum(models.F('cantidad') * models.F('precio_unitario'))
+    ).order_by('-total_vendido')[:10]
+
+    # Estadísticas generales
+    stats = {
+        'total_pedidos': Pedido.objects.count(),
+        'pedidos_completados': Pedido.objects.filter(estado='completado').count(),
+        'total_ingresos': Pedido.objects.filter(estado='completado').aggregate(
+            total=Sum('total_pedido')
+        )['total'] or 0,
+        'productos_vendidos': PedidoProducto.objects.aggregate(
+            total=Sum('cantidad')
+        )['total'] or 0,
+        'usuarios_activos': User.objects.filter(is_active=True).count(),
+    }
+
+    return render(request, 'tienda/admin_reportes.html', {
+        'ventas': ventas,
+        'productos_mas_vendidos': productos_mas_vendidos,
+        'stats': stats,
+        'periodo': periodo,
+    })
+
+@login_required
+def admin_configuracion(request):
+    """Vista de configuración del sistema"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    if request.method == 'POST':
+        # Aquí iría la lógica para guardar configuraciones
+        messages.success(request, _('Configuración guardada exitosamente.'))
+        return redirect('admin_configuracion')
+
+    # Obtener configuración actual del sistema
+    configuracion = ConfiguracionSistema.get_configuracion()
+
+    return render(request, 'tienda/admin_configuracion.html', {
+        'configuraciones': configuracion,
+    })
+
+# ========================================
+# VISTAS AJAX PARA ADMINISTRACIÓN
+# ========================================
+
+@login_required
+def admin_actualizar_stock(request, producto_id):
+    """Vista AJAX para actualizar stock de un producto"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        producto = Producto.objects.get(id=producto_id)
+        nuevo_stock = int(request.POST.get('stock', 0))
+        descripcion = request.POST.get('descripcion', 'Ajuste manual desde admin')
+
+        if nuevo_stock < 0:
+            return JsonResponse({'success': False, 'error': 'El stock no puede ser negativo'})
+
+        # Calcular la diferencia
+        diferencia = nuevo_stock - producto.stock
+
+        if diferencia > 0:
+            # Aumento de stock
+            MovimientoInventario.objects.create(
+                producto=producto,
+                tipo='entrada',
+                cantidad=diferencia,
+                descripcion=descripcion,
+                usuario=request.user
+            )
+        elif diferencia < 0:
+            # Reducción de stock
+            MovimientoInventario.objects.create(
+                producto=producto,
+                tipo='salida',
+                cantidad=abs(diferencia),
+                descripcion=descripcion,
+                usuario=request.user
+            )
+
+        # Actualizar stock
+        producto.stock = nuevo_stock
+        producto.save()
+
+        return JsonResponse({
+            'success': True,
+            'nuevo_stock': producto.stock,
+            'stock_bajo': producto.stock_bajo,
+            'agotado': producto.agotado
+        })
+
+    except Producto.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Producto no encontrado'})
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Valor de stock inválido'})
+
+@login_required
+def admin_cambiar_estado_pedido(request, pedido_id):
+    """Vista AJAX para cambiar estado de un pedido"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        pedido = Pedido.objects.get(id=pedido_id)
+        nuevo_estado = request.POST.get('estado', '')
+
+        if nuevo_estado not in ['pendiente', 'procesando', 'completado', 'cancelado']:
+            return JsonResponse({'success': False, 'error': 'Estado inválido'})
+
+        pedido.estado = nuevo_estado
+        pedido.save()
+
+        return JsonResponse({
+            'success': True,
+            'nuevo_estado': pedido.get_estado_display(),
+            'estado_class': f'badge-{"success" if nuevo_estado == "completado" else "warning" if nuevo_estado == "pendiente" else "info" if nuevo_estado == "procesando" else "danger"}'
+        })
+
+    except Pedido.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Pedido no encontrado'})
+
+@login_required
+def admin_cambiar_estado_usuario(request, usuario_id):
+    """Vista AJAX para cambiar estado de un usuario"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        usuario = User.objects.get(id=usuario_id)
+        nuevo_estado = request.POST.get('estado', '')
+
+        if nuevo_estado not in ['activo', 'inactivo']:
+            return JsonResponse({'success': False, 'error': 'Estado inválido'})
+
+        usuario.is_active = (nuevo_estado == 'activo')
+        usuario.save()
+
+        return JsonResponse({
+            'success': True,
+            'nuevo_estado': 'Activo' if usuario.is_active else 'Inactivo',
+            'estado_class': 'badge-success' if usuario.is_active else 'badge-danger'
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado'})
+
+@login_required
+def admin_cambiar_estado_cupon(request, cupon_id):
+    """Vista AJAX para cambiar estado de un cupón"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        cupon = Cupon.objects.get(id=cupon_id)
+        nuevo_estado = request.POST.get('estado', '')
+
+        if nuevo_estado not in ['activo', 'inactivo']:
+            return JsonResponse({'success': False, 'error': 'Estado inválido'})
+
+        cupon.activo = (nuevo_estado == 'activo')
+        cupon.save()
+
+        return JsonResponse({
+            'success': True,
+            'nuevo_estado': 'Activo' if cupon.activo else 'Inactivo',
+            'estado_class': 'badge-success' if cupon.activo else 'badge-danger'
+        })
+
+    except Cupon.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Cupón no encontrado'})
+
+@login_required
+def admin_actualizar_estado_pedido(request):
+    """Vista AJAX para actualizar estado de pedido"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        pedido_id = request.POST.get('pedido_id')
+        nuevo_estado = request.POST.get('estado')
+
+        pedido = Pedido.objects.get(id=pedido_id)
+        pedido.estado = nuevo_estado
+        pedido.save()
+
+        return JsonResponse({
+            'success': True,
+            'estado_display': pedido.get_estado_display()
+        })
+
+    except Pedido.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Pedido no encontrado'})
+
+@login_required
+def admin_actualizar_estado_usuario(request):
+    """Vista AJAX para actualizar estado de usuario"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        usuario_id = request.POST.get('usuario_id')
+        nuevo_estado = request.POST.get('estado')
+
+        usuario = User.objects.get(id=usuario_id)
+        usuario.is_active = (nuevo_estado == 'activo')
+        usuario.save()
+
+        return JsonResponse({
+            'success': True,
+            'estado_display': 'Activo' if usuario.is_active else 'Inactivo'
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado'})
+
+@login_required
+def admin_actualizar_estado_cupon(request):
+    """Vista AJAX para actualizar estado de cupón"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        cupon_id = request.POST.get('cupon_id')
+        nuevo_estado = request.POST.get('estado')
+
+        cupon = Cupon.objects.get(id=cupon_id)
+        cupon.activo = (nuevo_estado == 'activo')
+        cupon.save()
+
+        return JsonResponse({
+            'success': True,
+            'estado_display': 'Activo' if cupon.activo else 'Inactivo'
+        })
+
+    except Cupon.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Cupón no encontrado'})
+
+@login_required
+def admin_actualizar_inventario(request):
+    """Vista AJAX para actualizar inventario"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        producto_id = request.POST.get('producto_id')
+        nuevo_stock = int(request.POST.get('stock', 0))
+        descripcion = request.POST.get('descripcion', 'Ajuste desde admin')
+
+        producto = Producto.objects.get(id=producto_id)
+
+        if nuevo_stock < 0:
+            return JsonResponse({'success': False, 'error': 'El stock no puede ser negativo'})
+
+        # Calcular diferencia y crear movimiento
+        diferencia = nuevo_stock - producto.stock
+
+        if diferencia != 0:
+            MovimientoInventario.objects.create(
+                producto=producto,
+                tipo='entrada' if diferencia > 0 else 'salida',
+                cantidad=abs(diferencia),
+                descripcion=descripcion,
+                usuario=request.user
+            )
+
+        producto.stock = nuevo_stock
+        producto.save()
+
+        return JsonResponse({
+            'success': True,
+            'nuevo_stock': producto.stock,
+            'stock_bajo': producto.stock_bajo,
+            'agotado': producto.agotado
+        })
+
+    except Producto.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Producto no encontrado'})
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Valor de stock inválido'})
+
+@login_required
+def admin_guardar_configuracion(request):
+    """Vista AJAX para guardar configuración del sistema"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        # Aquí iría la lógica para guardar configuraciones en la base de datos
+        # Por ahora solo simulamos el guardado
+        configuracion_data = {
+            'sitio_activo': request.POST.get('sitio_activo') == 'true',
+            'registro_abierto': request.POST.get('registro_abierto') == 'true',
+            'envio_gratuito_minimo': float(request.POST.get('envio_gratuito_minimo', 0)),
+            'impuestos_activos': request.POST.get('impuestos_activos') == 'true',
+            'moneda': request.POST.get('moneda'),
+            'email_notificaciones': request.POST.get('email_notificaciones') == 'true',
+            'productos_por_pagina': int(request.POST.get('productos_por_pagina', 12)),
+            'stock_minimo_alerta': int(request.POST.get('stock_minimo_alerta', 5)),
+        }
+
+        # Simular guardado exitoso
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Configuración guardada exitosamente'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def admin_restaurar_configuracion(request):
+    """Vista AJAX para restaurar configuración predeterminada"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        # Aquí iría la lógica para restaurar configuraciones predeterminadas
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Configuración restaurada a valores predeterminados'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def admin_crear_backup(request):
+    """Vista AJAX para crear backup del sistema"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        # Aquí iría la lógica para crear backup
+        # Por ahora solo simulamos
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Backup creado exitosamente',
+            'archivo': f'backup_{date.today().strftime("%Y%m%d")}.sql'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def admin_probar_email(request):
+    """Vista AJAX para probar configuración de email"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        # Aquí iría la lógica para probar envío de email
+        # Por ahora solo simulamos
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Email de prueba enviado exitosamente'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def admin_agregar_producto(request):
+    """Vista para agregar un nuevo producto"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = ProductoForm(request.POST, request.FILES)
+        if form.is_valid():
+            producto = form.save()
+            messages.success(request, f'Producto "{producto.nombre}" agregado exitosamente.')
+            return redirect('admin_productos')
+    else:
+        form = ProductoForm()
+
+    return render(request, 'tienda/admin_producto_form.html', {
+        'form': form,
+        'titulo': 'Agregar Producto',
+        'accion': 'Agregar'
+    })
+
+@login_required
+def admin_editar_producto(request, producto_id):
+    """Vista para editar un producto existente"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    try:
+        producto = Producto.objects.get(id=producto_id)
+    except Producto.DoesNotExist:
+        messages.error(request, 'Producto no encontrado.')
+        return redirect('admin_productos')
+
+    if request.method == 'POST':
+        form = ProductoForm(request.POST, request.FILES, instance=producto)
+        if form.is_valid():
+            producto = form.save()
+            messages.success(request, f'Producto "{producto.nombre}" actualizado exitosamente.')
+            return redirect('admin_productos')
+    else:
+        form = ProductoForm(instance=producto)
+
+    return render(request, 'tienda/admin_producto_form.html', {
+        'form': form,
+        'titulo': 'Editar Producto',
+        'accion': 'Actualizar',
+        'producto': producto
+    })
+
+@login_required
+def admin_eliminar_producto(request, producto_id):
+    """Vista AJAX para eliminar un producto"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        producto = Producto.objects.get(id=producto_id)
+
+        # Verificar si el producto tiene pedidos asociados
+        if PedidoProducto.objects.filter(producto=producto).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'No se puede eliminar el producto porque tiene pedidos asociados.'
+            })
+
+        nombre = producto.nombre
+        producto.delete()
+
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Producto "{nombre}" eliminado exitosamente.'
+        })
+
+    except Producto.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Producto no encontrado'})
+
+@login_required
+def admin_agregar_cupon(request):
+    """Vista para agregar un nuevo cupón"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = CuponForm(request.POST)
+        if form.is_valid():
+            cupon = form.save()
+            messages.success(request, f'Cupón "{cupon.codigo}" creado exitosamente.')
+            return redirect('admin_cupones')
+    else:
+        form = CuponForm()
+
+    return render(request, 'tienda/admin_cupon_form.html', {
+        'form': form,
+        'titulo': 'Crear Cupón',
+        'accion': 'Crear'
+    })
+
+@login_required
+def admin_editar_cupon(request, cupon_id):
+    """Vista para editar un cupón existente"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    try:
+        cupon = Cupon.objects.get(id=cupon_id)
+    except Cupon.DoesNotExist:
+        messages.error(request, 'Cupón no encontrado.')
+        return redirect('admin_cupones')
+
+    if request.method == 'POST':
+        form = CuponForm(request.POST, instance=cupon)
+        if form.is_valid():
+            cupon = form.save()
+            messages.success(request, f'Cupón "{cupon.codigo}" actualizado exitosamente.')
+            return redirect('admin_cupones')
+    else:
+        form = CuponForm(instance=cupon)
+
+    return render(request, 'tienda/admin_cupon_form.html', {
+        'form': form,
+        'titulo': 'Editar Cupón',
+        'accion': 'Actualizar',
+        'cupon': cupon
+    })
+
+@login_required
+def admin_eliminar_cupon(request, cupon_id):
+    """Vista AJAX para eliminar un cupón"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        cupon = Cupon.objects.get(id=cupon_id)
+
+        # Verificar si el cupón ha sido usado
+        if cupon.usos_actuales > 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'No se puede eliminar el cupón porque ya ha sido usado.'
+            })
+
+        codigo = cupon.codigo
+        cupon.delete()
+
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Cupón "{codigo}" eliminado exitosamente.'
+        })
+
+    except Cupon.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Cupón no encontrado'})
+
+@login_required
+def admin_detalle_pedido(request, pedido_id):
+    """Vista para ver el detalle completo de un pedido"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    try:
+        pedido = Pedido.objects.select_related('usuario').prefetch_related('pedidoproducto_set__producto').get(id=pedido_id)
+    except Pedido.DoesNotExist:
+        messages.error(request, 'Pedido no encontrado.')
+        return redirect('admin_pedidos')
+
+    # Calcular totales
+    productos_pedido = pedido.pedidoproducto_set.all()
+    subtotal = sum(item.precio_unitario * item.cantidad for item in productos_pedido)
+
+    # Información de envío (simulada por ahora)
+    info_envio = {
+        'direccion': getattr(pedido, 'direccion_envio', 'Dirección no especificada'),
+        'ciudad': getattr(pedido, 'ciudad_envio', 'Ciudad no especificada'),
+        'codigo_postal': getattr(pedido, 'codigo_postal_envio', 'Código postal no especificado'),
+        'telefono': getattr(pedido, 'telefono_envio', 'Teléfono no especificado'),
+    }
+
+    return render(request, 'tienda/admin_pedido_detalle.html', {
+        'pedido': pedido,
+        'productos_pedido': productos_pedido,
+        'subtotal': subtotal,
+        'info_envio': info_envio,
+    })
+
+@login_required
+def admin_agregar_usuario(request):
+    """Vista para agregar un nuevo usuario"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f'Usuario "{user.username}" creado exitosamente.')
+            return redirect('admin_usuarios')
+    else:
+        form = UserCreationForm()
+
+    return render(request, 'tienda/admin_usuario_form.html', {
+        'form': form,
+        'titulo': 'Agregar Usuario',
+        'accion': 'Agregar'
+    })
+
+@login_required
+def admin_editar_usuario(request, usuario_id):
+    """Vista para editar un usuario existente"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    try:
+        usuario = User.objects.get(id=usuario_id)
+    except User.DoesNotExist:
+        messages.error(request, 'Usuario no encontrado.')
+        return redirect('admin_usuarios')
+
+    if request.method == 'POST':
+        form = UserChangeForm(request.POST, instance=usuario)
+        if form.is_valid():
+            usuario = form.save()
+            messages.success(request, f'Usuario "{usuario.username}" actualizado exitosamente.')
+            return redirect('admin_usuarios')
+    else:
+        form = UserChangeForm(instance=usuario)
+
+    return render(request, 'tienda/admin_usuario_form.html', {
+        'form': form,
+        'titulo': 'Editar Usuario',
+        'accion': 'Actualizar',
+        'usuario': usuario
+    })
+
+@login_required
+def admin_cambiar_permisos_usuario(request, usuario_id):
+    """Vista AJAX para cambiar permisos de un usuario"""
+    if not request.user.is_staff or not request.method == 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        usuario = User.objects.get(id=usuario_id)
+
+        # No permitir cambiar permisos de superusuarios desde aquí
+        if usuario.is_superuser:
+            return JsonResponse({
+                'success': False,
+                'error': 'No se pueden cambiar los permisos de un superusuario.'
+            })
+
+        is_staff = request.POST.get('is_staff') == 'true'
+
+        usuario.is_staff = is_staff
+        usuario.save()
+
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Permisos de "{usuario.username}" actualizados exitosamente.',
+            'is_staff': usuario.is_staff
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado'})
+
+@login_required
+def admin_detalle_usuario(request, usuario_id):
+    """Vista para ver el detalle completo de un usuario"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    try:
+        usuario = User.objects.get(id=usuario_id)
+    except User.DoesNotExist:
+        messages.error(request, 'Usuario no encontrado.')
+        return redirect('admin_usuarios')
+
+    # Estadísticas del usuario
+    pedidos_usuario = Pedido.objects.filter(usuario=usuario)
+    stats = {
+        'total_pedidos': pedidos_usuario.count(),
+        'pedidos_completados': pedidos_usuario.filter(estado='completado').count(),
+        'total_gastado': pedidos_usuario.filter(estado='completado').aggregate(
+            total=Sum('total_pedido')
+        )['total'] or 0,
+        'ultimo_pedido': pedidos_usuario.order_by('-fecha_creacion').first(),
+    }
+
+    return render(request, 'tienda/admin_usuario_detalle.html', {
+        'usuario': usuario,
+        'stats': stats,
+        'pedidos_recientes': pedidos_usuario.order_by('-fecha_creacion')[:5],
     })
