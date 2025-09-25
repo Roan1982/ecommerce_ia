@@ -7,10 +7,10 @@ Sistema de e-commerce simple que incluye un módulo de IA para recomendaciones d
 - Python 3.x
 - Librerías: pandas, scikit-learn
 
-Instalar dependencias:
-```
-pip install pandas scikit-learn
-```
+## Configuración del Entorno
+1. Crear entorno virtual: `python -m venv venv`
+2. Activar entorno: `.\venv\Scripts\Activate.ps1` (Windows)
+3. Instalar dependencias: `pip install -r requirements.txt`
 
 ## Cómo Ejecutar
 1. Clona el repositorio.
