@@ -187,32 +187,32 @@
                             Inicio
                         </a>
 
-                        <a class="nav-link{% if 'dashboard' in request.path %} active{% endif %}" href="{% url 'admin_dashboard' %}">
+                        <a class="nav-link{% if 'dashboard' in request.path %} active{% endif %}" href="{% url 'admin:dashboard' %}">
                             <i class="bi bi-graph-up me-2"></i>
                             📊 Dashboard
                         </a>
 
-                        <a class="nav-link{% if 'usuarios' in request.path %} active{% endif %}" href="{% url 'admin_usuarios' %}">
+                        <a class="nav-link{% if 'usuarios' in request.path %} active{% endif %}" href="{% url 'admin:usuarios' %}">
                             <i class="bi bi-people me-2"></i>
                             👥 Gestión de Usuarios
                         </a>
 
-                        <a class="nav-link{% if 'inventario' in request.path %} active{% endif %}" href="{% url 'admin_inventario' %}">
+                        <a class="nav-link{% if 'inventario' in request.path %} active{% endif %}" href="{% url 'admin:inventario' %}">
                             <i class="bi bi-box-seam me-2"></i>
                             📦 Inventario
                         </a>
 
-                        <a class="nav-link{% if 'pedidos' in request.path %} active{% endif %}" href="{% url 'admin_pedidos' %}">
+                        <a class="nav-link{% if 'pedidos' in request.path %} active{% endif %}" href="{% url 'admin:pedidos' %}">
                             <i class="bi bi-receipt me-2"></i>
                             📦 Gestión de Pedidos
                         </a>
 
-                        <a class="nav-link{% if 'cupones' in request.path %} active{% endif %}" href="{% url 'admin_cupones' %}">
+                        <a class="nav-link{% if 'cupones' in request.path %} active{% endif %}" href="{% url 'admin:cupones' %}">
                             <i class="bi bi-ticket-perforated me-2"></i>
                             🎫 Cupones
                         </a>
 
-                        <a class="nav-link{% if 'configuracion' in request.path %} active{% endif %}" href="{% url 'admin_configuracion' %}">
+                        <a class="nav-link{% if 'configuracion' in request.path %} active{% endif %}" href="{% url 'admin:configuracion' %}">
                             <i class="bi bi-gear me-2"></i>
                             ⚙️ Configuración
                         </a>
