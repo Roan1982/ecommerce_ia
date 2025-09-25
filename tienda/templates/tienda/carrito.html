@@ -508,6 +508,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Deshabilitar botón mientras procesa
         aplicarCuponBtn.disabled = true;
+        const textoOriginal = aplicarCuponBtn.textContent;
         aplicarCuponBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Aplicando...';
 
         // Hacer llamada AJAX
@@ -520,7 +521,12 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: `codigo=${codigo}`
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 // Actualizar UI con descuento
@@ -533,11 +539,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 aplicarCuponBtn.onclick = removerCupon;
             } else {
                 mostrarMensajeCupon(data.error, 'danger');
+                // Restaurar botón original
+                aplicarCuponBtn.innerHTML = textoOriginal;
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            mostrarMensajeCupon('Error de conexión', 'danger');
+            mostrarMensajeCupon('Error de conexión. Inténtalo de nuevo.', 'danger');
+            // Restaurar botón original
+            aplicarCuponBtn.innerHTML = textoOriginal;
         })
         .finally(() => {
             aplicarCuponBtn.disabled = false;
@@ -546,6 +556,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function removerCupon() {
         aplicarCuponBtn.disabled = true;
+        const textoOriginal = aplicarCuponBtn.textContent;
         aplicarCuponBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Removiendo...';
 
         fetch('{% url "remover_cupon" %}', {
@@ -555,7 +566,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 // Restaurar total original
@@ -569,11 +585,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 codigoCuponInput.value = '';
             } else {
                 mostrarMensajeCupon(data.error, 'danger');
+                // Restaurar texto del botón
+                aplicarCuponBtn.innerHTML = textoOriginal;
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            mostrarMensajeCupon('Error de conexión', 'danger');
+            mostrarMensajeCupon('Error de conexión. Inténtalo de nuevo.', 'danger');
+            // Restaurar texto del botón
+            aplicarCuponBtn.innerHTML = textoOriginal;
         })
         .finally(() => {
             aplicarCuponBtn.disabled = false;
