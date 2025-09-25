@@ -1,0 +1,220 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Historial de Puntos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h2 class="h4 mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Historial de Puntos de Fidelidad
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="p-2 bg-light rounded">
+                                <h5 class="text-primary mb-1">{{ page_obj.paginator.count }}</h5>
+                                <small class="text-muted">Total Movimientos</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 bg-light rounded">
+                                <h5 class="text-success mb-1">+{{ page_obj.object_list|length|add:0 }}</h5>
+                                <small class="text-muted">En Esta Página</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 bg-light rounded">
+                                <h5 class="text-info mb-1">{{ user.profile.puntos_disponibles }}</h5>
+                                <small class="text-muted">Saldo Actual</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 bg-light rounded">
+                                <h5 class="text-warning mb-1">{{ user.profile.get_nivel_membresia_display }}</h5>
+                                <small class="text-muted">Nivel Actual</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros y Navegación -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <a href="{% url 'puntos_fidelidad' %}" class="btn btn-outline-primary">
+                                <i class="bi bi-arrow-left me-2"></i>
+                                Volver a Puntos de Fidelidad
+                            </a>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="btn-group" role="group">
+                                <a href="?tipo=ganados" class="btn btn-outline-success btn-sm">
+                                    <i class="bi bi-plus-circle me-1"></i>Ganados
+                                </a>
+                                <a href="?tipo=canjeados" class="btn btn-outline-danger btn-sm">
+                                    <i class="bi bi-dash-circle me-1"></i>Canjeados
+                                </a>
+                                <a href="{% url 'historial_puntos' %}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-funnel me-1"></i>Todos
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Historial -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-ul me-2"></i>
+                        Movimientos de Puntos
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if page_obj %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="border-0">Fecha y Hora</th>
+                                        <th class="border-0">Descripción</th>
+                                        <th class="border-0">Puntos</th>
+                                        <th class="border-0">Tipo</th>
+                                        <th class="border-0">Saldo Resultante</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in page_obj %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <strong>{{ item.fecha|date:"d/m/Y" }}</strong>
+                                                <small class="text-muted">{{ item.fecha|date:"H:i" }}</small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if item.tipo == 'ganados' %}
+                                                    <i class="bi bi-plus-circle text-success me-2"></i>
+                                                {% else %}
+                                                    <i class="bi bi-dash-circle text-danger me-2"></i>
+                                                {% endif %}
+                                                <span>{{ item.descripcion }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge fs-6 {% if item.tipo == 'ganados' %}bg-success{% else %}bg-danger{% endif %}">
+                                                {% if item.tipo == 'ganados' %}+{% else %}-{% endif %}{{ item.puntos }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if item.tipo == 'ganados' %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ item.get_tipo_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong class="text-primary">{{ item.saldo_resultante }}</strong>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Paginación -->
+                        {% if page_obj.has_other_pages %}
+                        <div class="card-footer">
+                            <nav aria-label="Navegación de páginas">
+                                <ul class="pagination justify-content-center mb-0">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                                <i class="bi bi-chevron-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                                <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-info-circle text-muted" style="font-size: 4rem;"></i>
+                            <h4 class="text-muted mt-3">Sin Movimientos</h4>
+                            <p class="text-muted">Aún no tienes movimientos en tu historial de puntos.</p>
+                            <a href="{% url 'productos' %}" class="btn btn-primary">
+                                <i class="bi bi-shop me-2"></i>
+                                Explorar Productos
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Información Adicional -->
+            {% if page_obj %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Información del Historial
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Resumen del Período:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-calendar-event me-2"></i>Mostrando página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</li>
+                                <li><i class="bi bi-file-earmark-text me-2"></i>{{ page_obj.paginator.count }} movimientos totales</li>
+                                {% if page_obj.object_list %}
+                                <li><i class="bi bi-clock me-2"></i>Último movimiento: {{ page_obj.object_list.0.fecha|date:"d/m/Y H:i" }}</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>¿Necesitas Ayuda?</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-question-circle me-2"></i><a href="#faq" class="text-decoration-none">Preguntas Frecuentes</a></li>
+                                <li><i class="bi bi-envelope me-2"></i><a href="mailto:soporte@tienda.com" class="text-decoration-none">Contactar Soporte</a></li>
+                                <li><i class="bi bi-star me-2"></i><a href="{% url 'canjear_puntos' %}" class="text-decoration-none">Canjear Puntos</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

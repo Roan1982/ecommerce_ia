@@ -1,0 +1,158 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Canjear Puntos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h2 class="h4 mb-0">
+                        <i class="bi bi-gift-fill me-2"></i>
+                        Canjear Puntos de Fidelidad
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-primary mb-1">{{ profile.puntos_disponibles }}</h3>
+                                <small class="text-muted">Puntos Disponibles</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-info mb-1">${{ profile.puntos_disponibles|div:10 }}</h3>
+                                <small class="text-muted">Valor Máximo de Canje</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Opciones de Canje -->
+            <div class="row">
+                {% for opcion in opciones_canje %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 {% if opcion.valor_maximo > 0 %}border-success{% else %}border-secondary{% endif %}">
+                        <div class="card-header {% if opcion.valor_maximo > 0 %}bg-success text-white{% else %}bg-light{% endif %}">
+                            <h5 class="mb-0">
+                                <i class="bi bi-gift me-2"></i>
+                                {{ opcion.titulo }}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">{{ opcion.descripcion }}</p>
+
+                            {% if opcion.tipo == 'descuento' %}
+                                <div class="mb-3">
+                                    <label class="form-label">Puntos a Canjear:</label>
+                                    <input type="range" class="form-range" id="puntos_descuento_{{ opcion.tipo }}"
+                                           min="{{ opcion.puntos_minimos }}" max="{{ profile.puntos_disponibles }}"
+                                           value="{{ opcion.puntos_minimos }}" step="10"
+                                           {% if opcion.valor_maximo == 0 %}disabled{% endif %}>
+                                    <div class="d-flex justify-content-between">
+                                        <small class="text-muted">{{ opcion.puntos_minimos }} puntos mínimo</small>
+                                        <small class="text-muted">{{ profile.puntos_disponibles }} puntos máximo</small>
+                                    </div>
+                                    <div class="mt-2">
+                                        <strong>Valor del descuento: $<span id="valor_descuento_{{ opcion.tipo }}">1</span></strong>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <form method="post" class="{% if opcion.tipo == 'descuento' %}d-none{% endif %}" id="form_{{ opcion.tipo }}">
+                                {% csrf_token %}
+                                <input type="hidden" name="tipo_canje" value="{{ opcion.tipo }}">
+                                {% if opcion.tipo == 'descuento' %}
+                                    <input type="hidden" name="puntos" id="puntos_input_descuento" value="{{ opcion.puntos_minimos }}">
+                                {% else %}
+                                    <input type="hidden" name="puntos" value="{{ opcion.puntos_minimos }}">
+                                {% endif %}
+
+                                {% if opcion.valor_maximo > 0 %}
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        Canjear {{ opcion.puntos_minimos }} Puntos
+                                    </button>
+                                {% else %}
+                                    <button type="button" class="btn btn-secondary w-100" disabled>
+                                        <i class="bi bi-x-circle me-2"></i>
+                                        Puntos Insuficientes
+                                    </button>
+                                {% endif %}
+                            </form>
+
+                            {% if opcion.tipo == 'descuento' and opcion.valor_maximo > 0 %}
+                                <button type="button" class="btn btn-success w-100" onclick="canjearDescuento()">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    Canjear Puntos
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Información Importante -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Información Importante
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Reglas de Canje:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-dot me-2"></i>Mínimo 10 puntos para descuento</li>
+                                <li><i class="bi bi-dot me-2"></i>200 puntos para envío gratis</li>
+                                <li><i class="bi bi-dot me-2"></i>Los cupones expiran en 30 días</li>
+                                <li><i class="bi bi-dot me-2"></i>Un uso por cupón generado</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>¿Cómo Ganar Más Puntos?</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-star me-2 text-warning"></i>Realiza compras en la tienda</li>
+                                <li><i class="bi bi-star me-2 text-warning"></i>Deja reseñas de productos</li>
+                                <li><i class="bi bi-star me-2 text-warning"></i>Sube de nivel de membresía</li>
+                                <li><i class="bi bi-star me-2 text-warning"></i>Participa en promociones especiales</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para actualizar el valor del descuento en tiempo real
+document.addEventListener('DOMContentLoaded', function() {
+    const rangeInput = document.getElementById('puntos_descuento_descuento');
+    const valorSpan = document.getElementById('valor_descuento_descuento');
+
+    if (rangeInput && valorSpan) {
+        rangeInput.addEventListener('input', function() {
+            const puntos = parseInt(this.value);
+            const descuento = Math.floor(puntos / 10);
+            valorSpan.textContent = descuento;
+        });
+    }
+});
+
+// Función para canjear descuento
+function canjearDescuento() {
+    const puntos = parseInt(document.getElementById('puntos_descuento_descuento').value);
+    document.getElementById('puntos_input_descuento').value = puntos;
+    document.getElementById('form_descuento').submit();
+}
+</script>
+{% endblock %}

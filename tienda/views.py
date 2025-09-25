@@ -3,10 +3,11 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, UserChangeForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile
+from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos
 from .forms import ProductoForm, CuponForm, ProfileForm
 from .recomendador import RecomendadorIA
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 from django.db import models, transaction
 from django import forms
 from django.http import JsonResponse
@@ -14,7 +15,7 @@ from django.contrib.auth.models import User
 from django.db.models import Sum, Count
 from django.db.models.functions import TruncMonth, TruncDay
 import pandas as pd
-from datetime import date
+from datetime import date, timedelta
 
 recomendador = RecomendadorIA()
 
@@ -87,13 +88,24 @@ def productos(request):
     # Obtener categorías disponibles para el filtro
     categorias = Producto.objects.values_list('categoria', flat=True).distinct().order_by('categoria')
 
-    return render(request, 'tienda/productos.html', {
+    # Obtener IDs de productos en wishlist del usuario para mostrar estado correcto
+    wishlist_product_ids = set(Wishlist.objects.filter(usuario=request.user).values_list('producto_id', flat=True))
+
+    response = render(request, 'tienda/productos.html', {
         'productos': productos,
         'query': query,
         'categoria_seleccionada': categoria,
         'ordenar_por': ordenar_por,
-        'categorias': categorias
+        'categorias': categorias,
+        'wishlist_product_ids': wishlist_product_ids,
     })
+
+    # Agregar headers para evitar cache del navegador
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+
+    return response
 
 @login_required
 def producto_detalle(request, producto_id):
@@ -111,11 +123,15 @@ def producto_detalle(request, producto_id):
         categoria=producto.categoria
     ).exclude(id=producto.id).filter(stock__gt=0)[:4]
 
+    # Verificar si el producto está en la wishlist del usuario
+    en_wishlist = Wishlist.objects.filter(usuario=request.user, producto=producto).exists()
+
     return render(request, 'tienda/producto_detalle.html', {
         'producto': producto,
         'resenas': resenas,
         'puede_reseñar': puede_reseñar,
-        'productos_relacionados': productos_relacionados
+        'productos_relacionados': productos_relacionados,
+        'en_wishlist': en_wishlist,
     })
 
 @login_required
@@ -666,6 +682,16 @@ def procesar_pedido(request):
         del request.session['metodo_pago_id']
         if 'cupon_aplicado' in request.session:
             del request.session['cupon_aplicado']
+
+        # Otorgar puntos de fidelidad por la compra
+        try:
+            profile, created = Profile.objects.get_or_create(usuario=request.user)
+            puntos_ganados = profile.otorgar_puntos_por_compra(subtotal, f"Compra #{pedido.id}")
+            if puntos_ganados > 0:
+                messages.info(request, f'¡Has ganado {puntos_ganados} puntos de fidelidad por tu compra!')
+        except Exception as e:
+            # No fallar el pedido si hay error con puntos
+            pass
 
         messages.success(request, _('¡Pedido realizado exitosamente! Número de pedido: %(pedido_id)d') % {'pedido_id': pedido.id})
         return redirect('pedido_detalle', pedido_id=pedido.id)
@@ -1965,4 +1991,242 @@ def admin_detalle_usuario(request, usuario_id):
         'usuario': usuario,
         'stats': stats,
         'pedidos_recientes': pedidos_usuario.order_by('-fecha_creacion')[:5],
+    })
+
+
+# ===== SISTEMA DE LISTA DE DESEOS (WISHLIST) =====
+
+@login_required
+def wishlist(request):
+    """Vista para mostrar la lista de deseos del usuario"""
+    wishlist_items = Wishlist.objects.filter(usuario=request.user).select_related('producto')
+    return render(request, 'tienda/wishlist.html', {
+        'wishlist_items': wishlist_items,
+    })
+
+@login_required
+def agregar_a_wishlist(request, producto_id):
+    """Vista para agregar un producto a la lista de deseos"""
+    if request.method == 'POST':
+        try:
+            producto = Producto.objects.get(id=producto_id)
+
+            # Verificar si ya está en la wishlist
+            wishlist_item, created = Wishlist.objects.get_or_create(
+                usuario=request.user,
+                producto=producto,
+                defaults={'fecha_agregado': timezone.now()}
+            )
+
+            if created:
+                messages.success(request, f'"{producto.nombre}" ha sido agregado a tu lista de deseos.')
+            else:
+                messages.info(request, f'"{producto.nombre}" ya está en tu lista de deseos.')
+
+        except Producto.DoesNotExist:
+            messages.error(request, 'Producto no encontrado.')
+
+    return redirect(request.META.get('HTTP_REFERER', 'productos'))
+
+@login_required
+def quitar_de_wishlist(request, producto_id):
+    """Vista para quitar un producto de la lista de deseos"""
+    if request.method == 'POST':
+        try:
+            wishlist_item = Wishlist.objects.get(
+                usuario=request.user,
+                producto_id=producto_id
+            )
+            producto_nombre = wishlist_item.producto.nombre
+            wishlist_item.delete()
+            messages.success(request, f'"{producto_nombre}" ha sido removido de tu lista de deseos.')
+
+        except Wishlist.DoesNotExist:
+            messages.error(request, 'El producto no está en tu lista de deseos.')
+
+    return redirect('wishlist')
+
+@login_required
+def toggle_wishlist(request, producto_id):
+    """Vista AJAX para agregar/quitar producto de wishlist"""
+    if request.method == 'POST':
+        try:
+            producto = Producto.objects.get(id=producto_id)
+
+            # Intentar obtener el item de wishlist
+            wishlist_item = Wishlist.objects.filter(
+                usuario=request.user,
+                producto=producto
+            ).first()
+
+            if wishlist_item:
+                # Si existe, lo eliminamos
+                wishlist_item.delete()
+                return JsonResponse({
+                    'success': True,
+                    'action': 'removed',
+                    'message': f'"{producto.nombre}" removido de tu lista de deseos.'
+                })
+            else:
+                # Si no existe, lo creamos
+
+                Wishlist.objects.create(
+                    usuario=request.user,
+                    producto=producto
+                )
+                return JsonResponse({
+                    'success': True,
+                    'action': 'added',
+                    'message': f'"{producto.nombre}" agregado a tu lista de deseos.'
+                })
+
+        except Producto.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Producto no encontrado.'
+            })
+
+    return JsonResponse({
+        'success': False,
+        'error': 'Método no permitido.'
+    })
+
+@login_required
+def wishlist_count(request):
+    """Vista AJAX para obtener el conteo de items en wishlist"""
+    if request.method == 'GET':
+        count = Wishlist.objects.filter(usuario=request.user).count()
+        return JsonResponse({'count': count})
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+# ===== SISTEMA DE PUNTOS DE FIDELIDAD =====
+
+@login_required
+def puntos_fidelidad(request):
+    """Vista para mostrar los puntos de fidelidad del usuario"""
+    try:
+        profile = request.user.profile
+    except Profile.DoesNotExist:
+        profile = Profile.objects.create(usuario=request.user)
+
+    # Historial reciente de puntos
+    historial_reciente = HistorialPuntos.objects.filter(usuario=request.user)[:10]
+
+    # Estadísticas
+    puntos_ganados = HistorialPuntos.objects.filter(
+        usuario=request.user, tipo='ganados'
+    ).aggregate(total=Sum('puntos'))['total'] or 0
+
+    puntos_canjeados = abs(HistorialPuntos.objects.filter(
+        usuario=request.user, tipo='canjeados'
+    ).aggregate(total=Sum('puntos'))['total'] or 0)
+
+    context = {
+        'profile': profile,
+        'historial_reciente': historial_reciente,
+        'puntos_ganados': puntos_ganados,
+        'puntos_canjeados': puntos_canjeados,
+        'nivel_actual': profile.get_nivel_membresia_display(),
+        'puntos_para_siguiente': profile.puntos_para_siguiente_nivel,
+        'siguiente_nivel': profile.get_siguiente_nivel(),
+    }
+
+    return render(request, 'tienda/puntos_fidelidad.html', context)
+
+@login_required
+def historial_puntos(request):
+    """Vista para mostrar el historial completo de puntos"""
+    historial = HistorialPuntos.objects.filter(usuario=request.user).order_by('-fecha')
+
+    # Paginación
+    from django.core.paginator import Paginator
+    paginator = Paginator(historial, 20)  # 20 items por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'tienda/historial_puntos.html', {
+        'page_obj': page_obj,
+    })
+
+@login_required
+def canjear_puntos(request):
+    """Vista para canjear puntos por descuentos"""
+    try:
+        profile = request.user.profile
+    except Profile.DoesNotExist:
+        profile = Profile.objects.create(usuario=request.user)
+
+    if request.method == 'POST':
+        puntos_a_canjear = int(request.POST.get('puntos', 0))
+        tipo_canje = request.POST.get('tipo_canje')
+
+        try:
+            if tipo_canje == 'descuento':
+                # Crear un cupón de descuento basado en puntos
+                descuento = puntos_a_canjear // 10  # 10 puntos = $1 de descuento
+                if descuento > 0:
+                    cupon = Cupon.objects.create(
+                        codigo=f"DESCUENTO_{request.user.username}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
+
+                        descripcion=f"Descuento generado por canje de {puntos_a_canjear} puntos",
+                        tipo_descuento='fijo',
+                        valor_descuento=descuento,
+                        fecha_expiracion=timezone.now() + timezone.timedelta(days=30),
+                        usos_maximos=1,
+                        activo=True
+                    )
+
+                    profile.canjear_puntos(puntos_a_canjear, f"Canje por descuento de ${descuento}")
+                    messages.success(request, f'¡Has canjeado {puntos_a_canjear} puntos por un descuento de ${descuento}!')
+                    messages.info(request, f'Usa el código: {cupon.codigo}')
+                else:
+                    messages.error(request, 'Los puntos mínimos para canjear son 10.')
+
+            elif tipo_canje == 'envio_gratis':
+                costo_envio_gratis = 200  # 200 puntos para envío gratis
+                if puntos_a_canjear >= costo_envio_gratis:
+                    cupon = Cupon.objects.create(
+                        codigo=f"ENVIO_GRATIS_{request.user.username}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
+
+                        descripcion=f"Envío gratis generado por canje de {puntos_a_canjear} puntos",
+                        tipo_descuento='envio_gratis',
+                        valor_descuento=0,
+                        fecha_expiracion=timezone.now() + timezone.timedelta(days=30),
+                        usos_maximos=1,
+                        activo=True
+                    )
+
+                    profile.canjear_puntos(costo_envio_gratis, "Canje por envío gratis")
+                    messages.success(request, f'¡Has canjeado {costo_envio_gratis} puntos por envío gratis!')
+                    messages.info(request, f'Usa el código: {cupon.codigo}')
+                else:
+                    messages.error(request, f'Necesitas al menos {costo_envio_gratis} puntos para envío gratis.')
+
+        except ValueError as e:
+            messages.error(request, str(e))
+
+        return redirect('canjear_puntos')
+
+    # Opciones de canje disponibles
+    opciones_canje = [
+        {
+            'tipo': 'descuento',
+            'titulo': 'Descuento en Compra',
+            'descripcion': '10 puntos = $1 de descuento',
+            'puntos_minimos': 10,
+            'valor_maximo': profile.puntos_disponibles // 10,
+        },
+        {
+            'tipo': 'envio_gratis',
+            'titulo': 'Envío Gratis',
+            'descripcion': 'Envío gratis en tu próxima compra',
+            'puntos_minimos': 200,
+            'valor_maximo': 1 if profile.puntos_disponibles >= 200 else 0,
+        },
+    ]
+
+    return render(request, 'tienda/canjear_puntos.html', {
+        'profile': profile,
+        'opciones_canje': opciones_canje,
     })

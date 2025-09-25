@@ -37,6 +37,16 @@ urlpatterns = [
     path('inventario/', views.admin_inventario, name='inventario_publico'),
     path('inventario/actualizar/<int:producto_id>/', views.actualizar_stock, name='actualizar_stock'),
     path('inventario/movimientos/', views.movimientos_inventario, name='movimientos_inventario'),
+    # Sistema de Lista de Deseos (Wishlist)
+    path('wishlist/', views.wishlist, name='wishlist'),
+    path('wishlist/agregar/<int:producto_id>/', views.agregar_a_wishlist, name='agregar_a_wishlist'),
+    path('wishlist/quitar/<int:producto_id>/', views.quitar_de_wishlist, name='quitar_de_wishlist'),
+    path('wishlist/toggle/<int:producto_id>/', views.toggle_wishlist, name='toggle_wishlist'),
+    path('wishlist/count/', views.wishlist_count, name='wishlist_count'),
+    # Sistema de Puntos de Fidelidad
+    path('puntos-fidelidad/', views.puntos_fidelidad, name='puntos_fidelidad'),
+    path('puntos-fidelidad/historial/', views.historial_puntos, name='historial_puntos'),
+    path('puntos-fidelidad/canjear/', views.canjear_puntos, name='canjear_puntos'),
     # Sistema de Administración Personalizado (movido al admin site personalizado)
     # path('admin/', views.admin_dashboard, name='admin_dashboard'),
     # path('admin/productos/', views.admin_productos, name='admin_productos'),

@@ -1,0 +1,199 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Puntos de Fidelidad{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h4 mb-0">
+                        <i class="bi bi-star-fill me-2"></i>
+                        Puntos de Fidelidad
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-primary mb-1">{{ profile.puntos_disponibles }}</h3>
+                                <small class="text-muted">Puntos Disponibles</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-success mb-1">{{ puntos_ganados }}</h3>
+                                <small class="text-muted">Puntos Ganados</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <h3 class="text-warning mb-1">{{ puntos_canjeados }}</h3>
+                                <small class="text-muted">Puntos Canjeados</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nivel de Membresía -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-trophy-fill me-2"></i>
+                        Nivel de Membresía: {{ nivel_actual }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Progreso al siguiente nivel</span>
+                            <span class="badge bg-info">{{ siguiente_nivel }}</span>
+                        </div>
+                        <div class="progress">
+                            {% widthratio profile.puntos_disponibles profile.puntos_para_siguiente_nivel 100 as progress %}
+                            <div class="progress-bar" role="progressbar"
+                                 style="width: {{ progress }}%"
+                                 aria-valuenow="{{ profile.puntos_disponibles }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="{{ profile.puntos_para_siguiente_nivel }}">
+                                {{ profile.puntos_disponibles }} / {{ profile.puntos_para_siguiente_nivel }}
+                            </div>
+                        </div>
+                        </div>
+                        <small class="text-muted">
+                            Te faltan {{ puntos_para_siguiente }} puntos para alcanzar el nivel {{ siguiente_nivel }}
+                        </small>
+                    </div>
+
+                    <!-- Beneficios por nivel -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Beneficios Actuales:</h6>
+                            <ul class="list-unstyled">
+                                {% if profile.nivel_membresia == 'bronce' %}
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>1 punto por cada $10 gastados</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Acceso a ofertas básicas</li>
+                                {% elif profile.nivel_membresia == 'plata' %}
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>1.5 puntos por cada $10 gastados</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Envío gratis en compras > $150</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Acceso a ofertas exclusivas</li>
+                                {% elif profile.nivel_membresia == 'oro' %}
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>2 puntos por cada $10 gastados</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Envío gratis en compras > $100</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>10% descuento adicional</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Acceso anticipado a ventas</li>
+                                {% else %}
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>2.5 puntos por cada $10 gastados</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Envío gratis ilimitado</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>15% descuento adicional</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Atención prioritaria</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Regalos de cumpleaños</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Próximos Beneficios:</h6>
+                            <ul class="list-unstyled">
+                                {% if profile.nivel_membresia == 'bronce' %}
+                                    <li><i class="bi bi-star text-warning me-2"></i>1.5 puntos por cada $10 gastados</li>
+                                    <li><i class="bi bi-star text-warning me-2"></i>Envío gratis en compras > $150</li>
+                                {% elif profile.nivel_membresia == 'plata' %}
+                                    <li><i class="bi bi-star text-warning me-2"></i>2 puntos por cada $10 gastados</li>
+                                    <li><i class="bi bi-star text-warning me-2"></i>10% descuento adicional</li>
+                                {% elif profile.nivel_membresia == 'oro' %}
+                                    <li><i class="bi bi-star text-warning me-2"></i>2.5 puntos por cada $10 gastados</li>
+                                    <li><i class="bi bi-star text-warning me-2"></i>15% descuento adicional</li>
+                                    <li><i class="bi bi-star text-warning me-2"></i>Atención prioritaria</li>
+                                {% else %}
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>¡Has alcanzado el nivel máximo!</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones Rápidas -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning-charge-fill me-2"></i>
+                        Acciones Rápidas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <a href="{% url 'canjear_puntos' %}" class="btn btn-success w-100">
+                                <i class="bi bi-gift-fill me-2"></i>
+                                Canjear Puntos
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'historial_puntos' %}" class="btn btn-outline-primary w-100">
+                                <i class="bi bi-clock-history me-2"></i>
+                                Ver Historial
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historial Reciente -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Actividad Reciente
+                    </h5>
+                    <a href="{% url 'historial_puntos' %}" class="btn btn-sm btn-outline-primary">
+                        Ver Todo
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if historial_reciente %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Descripción</th>
+                                        <th>Puntos</th>
+                                        <th>Tipo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in historial_reciente %}
+                                    <tr>
+                                        <td>{{ item.fecha|date:"d/m/Y H:i" }}</td>
+                                        <td>{{ item.descripcion }}</td>
+                                        <td class="{% if item.tipo == 'ganados' %}text-success{% else %}text-danger{% endif %}">
+                                            {% if item.tipo == 'ganados' %}+{% else %}-{% endif %}{{ item.puntos }}
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if item.tipo == 'ganados' %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ item.get_tipo_display }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-info-circle text-muted" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-2">Aún no tienes actividad en puntos de fidelidad.</p>
+                            <p class="text-muted">¡Realiza tu primera compra para comenzar a ganar puntos!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

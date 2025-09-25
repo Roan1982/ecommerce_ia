@@ -429,17 +429,135 @@ class ConfiguracionSistema(models.Model):
 
 class Profile(models.Model):
     """Modelo para perfil de usuario extendido"""
+    NIVEL_CHOICES = [
+        ('bronce', 'Bronce'),
+        ('plata', 'Plata'),
+        ('oro', 'Oro'),
+        ('platino', 'Platino'),
+    ]
+
     usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     telefono = models.CharField(max_length=20, blank=True, null=True, help_text="Número de teléfono")
     fecha_nacimiento = models.DateField(blank=True, null=True, help_text="Fecha de nacimiento")
     genero = models.CharField(max_length=10, choices=[('M', 'Masculino'), ('F', 'Femenino'), ('O', 'Otro')], blank=True, null=True)
     biografia = models.TextField(blank=True, null=True, help_text="Biografía del usuario")
+
+    # Sistema de puntos de fidelidad
+    puntos_totales = models.PositiveIntegerField(default=0, help_text="Puntos totales acumulados")
+    puntos_disponibles = models.PositiveIntegerField(default=0, help_text="Puntos disponibles para canjear")
+    nivel_membresia = models.CharField(max_length=10, choices=NIVEL_CHOICES, default='bronce', help_text="Nivel de membresía")
+
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Perfil de {self.usuario.username}"
 
+    @property
+    def puntos_para_siguiente_nivel(self):
+        """Calcula los puntos necesarios para el siguiente nivel"""
+        niveles_puntos = {
+            'bronce': 0,
+            'plata': 500,
+            'oro': 1500,
+            'platino': 3000,
+        }
+        siguiente_nivel = self.get_siguiente_nivel()
+        return niveles_puntos.get(siguiente_nivel, 0) - self.puntos_totales
+
+    def get_siguiente_nivel(self):
+        """Obtiene el siguiente nivel disponible"""
+        niveles = ['bronce', 'plata', 'oro', 'platino']
+        current_index = niveles.index(self.nivel_membresia)
+        if current_index < len(niveles) - 1:
+            return niveles[current_index + 1]
+        return self.nivel_membresia
+
+    def actualizar_nivel(self):
+        """Actualiza el nivel de membresía basado en puntos totales"""
+        puntos = self.puntos_totales
+        if puntos >= 3000:
+            self.nivel_membresia = 'platino'
+        elif puntos >= 1500:
+            self.nivel_membresia = 'oro'
+        elif puntos >= 500:
+            self.nivel_membresia = 'plata'
+        else:
+            self.nivel_membresia = 'bronce'
+        self.save()
+
+    def agregar_puntos(self, puntos, descripcion="Compra realizada"):
+        """Agrega puntos al usuario y actualiza nivel"""
+        self.puntos_totales += puntos
+        self.puntos_disponibles += puntos
+        self.actualizar_nivel()
+
+        # Crear registro en historial
+        HistorialPuntos.objects.create(
+            usuario=self.usuario,
+            tipo='ganados',
+            puntos=puntos,
+            descripcion=descripcion
+        )
+
+        self.save()
+
+    def canjear_puntos(self, puntos, descripcion="Canje de puntos"):
+        """Canjea puntos disponibles"""
+        if puntos > self.puntos_disponibles:
+            raise ValueError("No tienes suficientes puntos disponibles")
+
+        self.puntos_disponibles -= puntos
+
+        # Crear registro en historial
+        HistorialPuntos.objects.create(
+            usuario=self.usuario,
+            tipo='canjeados',
+            puntos=-puntos,  # Negativo para indicar canje
+            descripcion=descripcion
+        )
+
+        self.save()
+
     class Meta:
         verbose_name = "Perfil"
         verbose_name_plural = "Perfiles"
+
+
+class HistorialPuntos(models.Model):
+    """Modelo para el historial de puntos de fidelidad"""
+    TIPO_CHOICES = [
+        ('ganados', 'Puntos Ganados'),
+        ('canjeados', 'Puntos Canjeados'),
+        ('expirados', 'Puntos Expirados'),
+    ]
+
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='historial_puntos')
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    puntos = models.IntegerField(help_text="Cantidad de puntos (positivo para ganados, negativo para canjeados)")
+    descripcion = models.CharField(max_length=200, help_text="Descripción de la transacción")
+    fecha = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "Historial de Puntos"
+        verbose_name_plural = "Historial de Puntos"
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.usuario.username} - {self.get_tipo_display()} - {self.puntos} puntos"
+
+
+class Wishlist(models.Model):
+    """Modelo para lista de deseos de usuarios"""
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wishlist_items')
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='wishlist_users')
+    fecha_agregado = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "Lista de Deseos"
+        verbose_name_plural = "Listas de Deseos"
+        unique_together = ['usuario', 'producto']  # Un usuario no puede tener el mismo producto dos veces
+        ordering = ['-fecha_agregado']
+
+    def __str__(self):
+        return f"{self.usuario.username} - {self.producto.nombre}"

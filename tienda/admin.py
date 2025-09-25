@@ -1186,6 +1186,10 @@ class CustomUserAdmin(UserAdmin):
     change_list_template = "admin/auth/user/change_list.html"
     change_form_template = "admin/change_form.html"
 
+    # Agregar acciones en lote para activar/desactivar usuarios
+    actions = [UserAdmin.actions[0]] if UserAdmin.actions else []  # Mantener la acción de eliminar si existe
+    actions.extend(['activate_users', 'deactivate_users'])
+
     fieldsets = (
         ("Información de la Cuenta", {
             "fields": ("username", "password"),
@@ -1208,6 +1212,24 @@ class CustomUserAdmin(UserAdmin):
     )
 
     filter_horizontal = ("groups", "user_permissions")
+
+    def activate_users(self, request, queryset):
+        """Activar usuarios seleccionados"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f'{updated} usuario(s) activado(s) correctamente.')
+    activate_users.short_description = "Activar usuarios seleccionados"
+
+    def deactivate_users(self, request, queryset):
+        """Desactivar usuarios seleccionados"""
+        # No permitir desactivar al propio usuario
+        current_user = request.user
+        queryset = queryset.exclude(pk=current_user.pk)
+        updated = queryset.update(is_active=False)
+        if updated < queryset.count():
+            self.message_user(request, f'No puedes desactivar tu propia cuenta. {updated} usuario(s) desactivado(s).')
+        else:
+            self.message_user(request, f'{updated} usuario(s) desactivado(s) correctamente.')
+    deactivate_users.short_description = "Desactivar usuarios seleccionados"
 
     # Agregar enlace a la gestión personalizada de usuarios
     def get_urls(self):

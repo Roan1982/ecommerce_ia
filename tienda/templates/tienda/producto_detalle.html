@@ -101,6 +101,14 @@
                                 <i class="bi bi-star-half me-1"></i>
                                 {% trans "Ver Reseñas" %} ({{ producto.total_resenas }})
                             </a>
+                            {% if user.is_authenticated %}
+                                <button type="button" class="btn {% if en_wishlist %}btn-danger{% else %}btn-outline-danger{% endif %} wishlist-btn-detail"
+                                        data-producto-id="{{ producto.id }}"
+                                        title="{% if en_wishlist %}{% trans 'Quitar de lista de deseos' %}{% else %}{% trans 'Agregar a lista de deseos' %}{% endif %}">
+                                    <i class="bi bi-heart{% if en_wishlist %}-fill{% endif %}"></i>
+                                    {% if en_wishlist %}{% trans 'Quitar de Lista de Deseos' %}{% else %}{% trans 'Agregar a Lista de Deseos' %}{% endif %}
+                                </button>
+                            {% endif %}
                             {% if puede_reseñar %}
                                 <a href="{% url 'agregar_resena' producto.id %}" class="btn btn-outline-primary">
                                     <i class="bi bi-pencil me-1"></i>
@@ -211,4 +219,117 @@
         </div>
     {% endif %}
 </div>
+
+<script>
+// Funcionalidad AJAX para wishlist en página de detalle
+document.addEventListener('DOMContentLoaded', function() {
+    const wishlistBtn = document.querySelector('.wishlist-btn-detail');
+
+    if (wishlistBtn) {
+        wishlistBtn.addEventListener('click', function() {
+            const productoId = this.getAttribute('data-producto-id');
+            const icon = this.querySelector('i');
+            const originalIcon = icon.className;
+            const originalText = this.textContent.trim();
+
+            // Cambiar icono a loading
+            icon.className = 'bi bi-hourglass-split';
+            this.innerHTML = '<i class="bi bi-hourglass-split"></i> Procesando...';
+
+            // Hacer petición AJAX
+            fetch(`/wishlist/toggle/${productoId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Cambiar apariencia del botón según la acción
+                    if (data.action === 'added') {
+                        this.classList.remove('btn-outline-danger');
+                        this.classList.add('btn-danger');
+                        this.innerHTML = '<i class="bi bi-heart-fill"></i> Quitar de Lista de Deseos';
+                        this.setAttribute('title', 'Quitar de lista de deseos');
+
+                        // Mostrar mensaje de éxito
+                        showToast(data.message, 'success');
+                    } else {
+                        this.classList.remove('btn-danger');
+                        this.classList.add('btn-outline-danger');
+                        this.innerHTML = '<i class="bi bi-heart"></i> Agregar a Lista de Deseos';
+                        this.setAttribute('title', 'Agregar a lista de deseos');
+
+                        // Mostrar mensaje de éxito
+                        showToast(data.message, 'success');
+                    }
+
+                    // Actualizar contador de wishlist en navbar
+                    updateWishlistCount();
+                } else {
+                    // Restaurar estado original
+                    icon.className = originalIcon;
+                    this.innerHTML = originalText;
+                    showToast(data.error || 'Error al actualizar la lista de deseos', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Restaurar estado original
+                icon.className = originalIcon;
+                this.innerHTML = originalText;
+                showToast('Error de conexión', 'error');
+            });
+        });
+    }
+});
+
+// Función para mostrar toasts
+function showToast(message, type) {
+    // Crear elemento de toast
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Auto-remover después de 3 segundos
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 3000);
+}
+
+// Función para actualizar contador de wishlist
+function updateWishlistCount() {
+    fetch('/wishlist/count/')
+        .then(response => response.json())
+        .then(data => {
+            const wishlistLink = document.querySelector('a[href*="wishlist"]');
+            if (wishlistLink) {
+                let badge = wishlistLink.querySelector('.badge');
+                if (data.count > 0) {
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'badge bg-danger ms-2';
+                        wishlistLink.appendChild(badge);
+                    }
+                    badge.textContent = data.count;
+                } else {
+                    if (badge) {
+                        badge.remove();
+                    }
+                }
+            }
+        })
+        .catch(error => console.error('Error updating wishlist count:', error));
+}
+</script>
 {% endblock %}
