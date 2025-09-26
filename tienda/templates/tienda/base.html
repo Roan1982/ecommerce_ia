@@ -73,6 +73,14 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="{% url 'comparacion_productos' %}">
+                                <i class="bi bi-arrow-left-right"></i> {% trans "Comparar" %}
+                                {% if comparacion_count > 0 %}
+                                    <span class="badge bg-info">{{ comparacion_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="{% url 'ver_carrito' %}">
                                 <i class="bi bi-cart3"></i> {% trans "Carrito" %}
                                 {% if carrito_total_productos > 0 %}
@@ -113,6 +121,12 @@
                                     <i class="bi bi-heart"></i> {% trans "Lista de Deseos" %}
                                     {% if wishlist_count > 0 %}
                                         <span class="badge bg-danger ms-2">{{ wishlist_count }}</span>
+                                    {% endif %}
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'comparacion_productos' %}">
+                                    <i class="bi bi-arrow-left-right"></i> {% trans "Comparar Productos" %}
+                                    {% if comparacion_count > 0 %}
+                                        <span class="badge bg-info ms-2">{{ comparacion_count }}</span>
                                     {% endif %}
                                 </a></li>
                                 <li><hr class="dropdown-divider"></li>
@@ -175,5 +189,7 @@
 
     <!-- CSRF Token for AJAX requests -->
     {% csrf_token %}
+
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,358 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+
+{% block title %}Gestión de Suscriptores{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">👥 Gestión de Suscriptores</h1>
+            <p class="text-muted">Administrar suscripciones al newsletter</p>
+        </div>
+        <div>
+            <a href="{% url 'admin_newsletter_dashboard' %}" class="btn btn-outline-secondary mr-2">
+                <i class="fas fa-arrow-left"></i> Dashboard
+            </a>
+            <button onclick="exportarSuscriptores()" class="btn btn-success">
+                <i class="fas fa-download"></i> Exportar
+            </button>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Suscriptores
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ suscriptores|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Confirmados
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ confirmados }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Pendientes
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ pendientes }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Tasa de Confirmación
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% if suscriptores %}
+                                    {{ confirmados|mul:100|div:suscriptores|length }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filtros</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row">
+                <div class="col-md-3">
+                    <input type="text" name="busqueda" class="form-control" placeholder="Buscar por email o nombre..."
+                           value="{{ request.GET.busqueda }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="estado" class="form-control">
+                        <option value="">Todos los estados</option>
+                        <option value="activo" {% if request.GET.estado == 'activo' %}selected{% endif %}>Activos</option>
+                        <option value="inactivo" {% if request.GET.estado == 'inactivo' %}selected{% endif %}>Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="confirmado" class="form-control">
+                        <option value="">Todos</option>
+                        <option value="si" {% if request.GET.confirmado == 'si' %}selected{% endif %}>Confirmados</option>
+                        <option value="no" {% if request.GET.confirmado == 'no' %}selected{% endif %}>Pendientes</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="frecuencia" class="form-control">
+                        <option value="">Todas las frecuencias</option>
+                        <option value="diaria" {% if request.GET.frecuencia == 'diaria' %}selected{% endif %}>Diaria</option>
+                        <option value="semanal" {% if request.GET.frecuencia == 'semanal' %}selected{% endif %}>Semanal</option>
+                        <option value="mensual" {% if request.GET.frecuencia == 'mensual' %}selected{% endif %}>Mensual</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary mr-2">
+                        <i class="fas fa-search"></i> Filtrar
+                    </button>
+                    <a href="{% url 'admin_newsletter_suscriptores' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de suscriptores -->
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Suscriptores ({{ suscriptores|length }})</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Nombre</th>
+                            <th>Estado</th>
+                            <th>Confirmado</th>
+                            <th>Frecuencia</th>
+                            <th>Fecha Suscripción</th>
+                            <th>Última Actividad</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for suscriptor in suscriptores %}
+                        <tr>
+                            <td>{{ suscriptor.email }}</td>
+                            <td>{{ suscriptor.nombre|default:"-" }}</td>
+                            <td>
+                                {% if suscriptor.activo %}
+                                    <span class="badge badge-success">Activo</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if suscriptor.confirmado %}
+                                    <span class="badge badge-success">Sí</span>
+                                {% else %}
+                                    <span class="badge badge-warning">Pendiente</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge badge-info">{{ suscriptor.frecuencia|title }}</span>
+                            </td>
+                            <td>{{ suscriptor.fecha_suscripcion|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if suscriptor.fecha_ultima_actividad %}
+                                    {{ suscriptor.fecha_ultima_actividad|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    {% if not suscriptor.confirmado %}
+                                    <button onclick="reenviarConfirmacion({{ suscriptor.id }})"
+                                            class="btn btn-sm btn-outline-primary" title="Reenviar confirmación">
+                                        <i class="fas fa-envelope"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if suscriptor.activo %}
+                                    <button onclick="desactivarSuscriptor({{ suscriptor.id }})"
+                                            class="btn btn-sm btn-outline-warning" title="Desactivar">
+                                        <i class="fas fa-pause"></i>
+                                    </button>
+                                    {% else %}
+                                    <button onclick="activarSuscriptor({{ suscriptor.id }})"
+                                            class="btn btn-sm btn-outline-success" title="Activar">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button onclick="eliminarSuscriptor({{ suscriptor.id }})"
+                                            class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            {% if suscriptores.has_other_pages %}
+            <div class="d-flex justify-content-center mt-4">
+                <nav>
+                    <ul class="pagination">
+                        {% if suscriptores.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ suscriptores.previous_page_number }}{% if request.GET.busqueda %}&busqueda={{ request.GET.busqueda }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.confirmado %}&confirmado={{ request.GET.confirmado }}{% endif %}{% if request.GET.frecuencia %}&frecuencia={{ request.GET.frecuencia }}{% endif %}">
+                                Anterior
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in suscriptores.paginator.page_range %}
+                        {% if suscriptores.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > suscriptores.number|add:'-3' and num < suscriptores.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.busqueda %}&busqueda={{ request.GET.busqueda }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.confirmado %}&confirmado={{ request.GET.confirmado }}{% endif %}{% if request.GET.frecuencia %}&frecuencia={{ request.GET.frecuencia }}{% endif %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+
+                        {% if suscriptores.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ suscriptores.next_page_number }}{% if request.GET.busqueda %}&busqueda={{ request.GET.busqueda }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.confirmado %}&confirmado={{ request.GET.confirmado }}{% endif %}{% if request.GET.frecuencia %}&frecuencia={{ request.GET.frecuencia }}{% endif %}">
+                                Siguiente
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function reenviarConfirmacion(suscriptorId) {
+    if (confirm('¿Reenviar email de confirmación?')) {
+        fetch(`/admin/newsletter/suscriptores/${suscriptorId}/reenviar-confirmacion/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Email de confirmación reenviado exitosamente');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+function desactivarSuscriptor(suscriptorId) {
+    if (confirm('¿Desactivar este suscriptor?')) {
+        fetch(`/admin/newsletter/suscriptores/${suscriptorId}/desactivar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+function activarSuscriptor(suscriptorId) {
+    if (confirm('¿Activar este suscriptor?')) {
+        fetch(`/admin/newsletter/suscriptores/${suscriptorId}/activar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+function eliminarSuscriptor(suscriptorId) {
+    if (confirm('¿Eliminar permanentemente este suscriptor? Esta acción no se puede deshacer.')) {
+        fetch(`/admin/newsletter/suscriptores/${suscriptorId}/eliminar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+function exportarSuscriptores() {
+    const url = '/admin/newsletter/suscriptores/exportar/?' + new URLSearchParams(window.location.search);
+    window.open(url, '_blank');
+}
+</script>
+{% endblock %}

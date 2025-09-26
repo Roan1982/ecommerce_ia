@@ -1,0 +1,350 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+
+{% block title %}Gestión de Campañas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">📢 Gestión de Campañas</h1>
+            <p class="text-muted">Administrar campañas de newsletter</p>
+        </div>
+        <div>
+            <a href="{% url 'admin_newsletter_dashboard' %}" class="btn btn-outline-secondary mr-2">
+                <i class="fas fa-arrow-left"></i> Dashboard
+            </a>
+            <a href="{% url 'admin_crear_campana' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nueva Campaña
+            </a>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Campañas
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ campanas|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-bullhorn fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Enviadas
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ enviadas }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Programadas
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ programadas }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Tasa de Apertura Promedio
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% if campanas_con_metricas %}
+                                    {{ tasa_apertura_promedio }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-eye fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filtros</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row">
+                <div class="col-md-3">
+                    <input type="text" name="busqueda" class="form-control" placeholder="Buscar por título..."
+                           value="{{ request.GET.busqueda }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="estado" class="form-control">
+                        <option value="">Todos los estados</option>
+                        <option value="borrador" {% if request.GET.estado == 'borrador' %}selected{% endif %}>Borrador</option>
+                        <option value="programado" {% if request.GET.estado == 'programado' %}selected{% endif %}>Programado</option>
+                        <option value="enviando" {% if request.GET.estado == 'enviando' %}selected{% endif %}>Enviando</option>
+                        <option value="enviado" {% if request.GET.estado == 'enviado' %}selected{% endif %}>Enviado</option>
+                        <option value="cancelado" {% if request.GET.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="date" name="fecha_desde" class="form-control"
+                           value="{{ request.GET.fecha_desde }}">
+                </div>
+                <div class="col-md-2">
+                    <input type="date" name="fecha_hasta" class="form-control"
+                           value="{{ request.GET.fecha_hasta }}">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary mr-2">
+                        <i class="fas fa-search"></i> Filtrar
+                    </button>
+                    <a href="{% url 'admin_newsletter_campanas' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de campañas -->
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Campañas ({{ campanas|length }})</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Asunto</th>
+                            <th>Estado</th>
+                            <th>Enviados</th>
+                            <th>Aperturas</th>
+                            <th>Clics</th>
+                            <th>Tasa Apertura</th>
+                            <th>Tasa Clic</th>
+                            <th>Fecha Creación</th>
+                            <th>Fecha Envío</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for campana in campanas %}
+                        <tr>
+                            <td>
+                                <strong>{{ campana.titulo }}</strong>
+                                {% if campana.descripcion %}
+                                <br><small class="text-muted">{{ campana.descripcion|truncatechars:50 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ campana.asunto }}</td>
+                            <td>
+                                {% if campana.estado == 'borrador' %}
+                                    <span class="badge badge-secondary">Borrador</span>
+                                {% elif campana.estado == 'programado' %}
+                                    <span class="badge badge-info">Programado</span>
+                                {% elif campana.estado == 'enviando' %}
+                                    <span class="badge badge-warning">Enviando</span>
+                                {% elif campana.estado == 'enviado' %}
+                                    <span class="badge badge-success">Enviado</span>
+                                {% else %}
+                                    <span class="badge badge-danger">{{ campana.estado|title }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ campana.enviados }}</td>
+                            <td>{{ campana.abiertos }}</td>
+                            <td>{{ campana.clics }}</td>
+                            <td>
+                                {% if campana.enviados > 0 %}
+                                    {{ campana.tasa_apertura }}%
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if campana.enviados > 0 %}
+                                    {{ campana.tasa_clic }}%
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ campana.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if campana.fecha_envio %}
+                                    {{ campana.fecha_envio|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group-vertical" role="group">
+                                    <a href="{% url 'admin_editar_campana' campana.id %}" class="btn btn-sm btn-outline-primary mb-1">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </a>
+                                    {% if campana.estado == 'borrador' %}
+                                    <a href="{% url 'admin_enviar_campana' campana.id %}" class="btn btn-sm btn-outline-success mb-1">
+                                        <i class="fas fa-paper-plane"></i> Enviar
+                                    </a>
+                                    {% endif %}
+                                    {% if campana.estado == 'programado' %}
+                                    <button onclick="cancelarCampana({{ campana.id }})" class="btn btn-sm btn-outline-warning mb-1">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </button>
+                                    {% endif %}
+                                    <button onclick="duplicarCampana({{ campana.id }})" class="btn btn-sm btn-outline-info mb-1">
+                                        <i class="fas fa-copy"></i> Duplicar
+                                    </button>
+                                    {% if campana.estado == 'borrador' %}
+                                    <button onclick="eliminarCampana({{ campana.id }})" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash"></i> Eliminar
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            {% if campanas.has_other_pages %}
+            <div class="d-flex justify-content-center mt-4">
+                <nav>
+                    <ul class="pagination">
+                        {% if campanas.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ campanas.previous_page_number }}{% if request.GET.busqueda %}&busqueda={{ request.GET.busqueda }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.fecha_desde %}&fecha_desde={{ request.GET.fecha_desde }}{% endif %}{% if request.GET.fecha_hasta %}&fecha_hasta={{ request.GET.fecha_hasta }}{% endif %}">
+                                Anterior
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in campanas.paginator.page_range %}
+                        {% if campanas.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > campanas.number|add:'-3' and num < campanas.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.busqueda %}&busqueda={{ request.GET.busqueda }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.fecha_desde %}&fecha_desde={{ request.GET.fecha_desde }}{% endif %}{% if request.GET.fecha_hasta %}&fecha_hasta={{ request.GET.fecha_hasta }}{% endif %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+
+                        {% if campanas.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ campanas.next_page_number }}{% if request.GET.busqueda %}&busqueda={{ request.GET.busqueda }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.fecha_desde %}&fecha_desde={{ request.GET.fecha_desde }}{% endif %}{% if request.GET.fecha_hasta %}&fecha_hasta={{ request.GET.fecha_hasta }}{% endif %}">
+                                Siguiente
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function cancelarCampana(campanaId) {
+    if (confirm('¿Cancelar esta campaña programada?')) {
+        fetch(`/admin/newsletter/campanas/${campanaId}/cancelar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+function duplicarCampana(campanaId) {
+    if (confirm('¿Duplicar esta campaña?')) {
+        fetch(`/admin/newsletter/campanas/${campanaId}/duplicar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+
+function eliminarCampana(campanaId) {
+    if (confirm('¿Eliminar permanentemente esta campaña? Esta acción no se puede deshacer.')) {
+        fetch(`/admin/newsletter/campanas/${campanaId}/eliminar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

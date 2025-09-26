@@ -1,0 +1,124 @@
+{% extends 'tienda/emails/base_email.html' %}
+{% load static %}
+
+{% block title %}¡Has ganado puntos de fidelidad!{% endblock %}
+
+{% block content %}
+<h1 style="color: #ffd700; text-align: center;">⭐ ¡Puntos Ganados!</h1>
+
+<p>Hola <strong>{{ user.get_full_name|default:user.username }}</strong>,</p>
+
+<p>¡Felicitaciones! Has acumulado nuevos puntos en nuestro programa de fidelidad. Sigue comprando y canjea tus puntos por descuentos exclusivos.</p>
+
+<!-- Resumen de puntos -->
+<div class="email-card">
+    <div class="email-card-header">
+        <strong>Resumen de tus Puntos</strong>
+    </div>
+    <div class="email-card-body">
+        <div style="text-align: center; margin: 20px 0;">
+            <div style="font-size: 48px; font-weight: bold; color: #ffd700; margin: 10px 0;">{{ puntos_ganados }}</div>
+            <div style="font-size: 18px; color: #666;">puntos ganados</div>
+        </div>
+
+        <table class="email-table">
+            <tr>
+                <td><strong>Puntos actuales:</strong></td>
+                <td style="font-weight: bold; color: #28a745;">{{ perfil.puntos_actuales }}</td>
+            </tr>
+            <tr>
+                <td><strong>Puntos totales acumulados:</strong></td>
+                <td>{{ perfil.puntos_totales }}</td>
+            </tr>
+            <tr>
+                <td><strong>Nivel actual:</strong></td>
+                <td>
+                    <span class="status-badge status-info">{{ perfil.get_nivel_display }}</span>
+                </td>
+            </tr>
+            {% if perfil.proximo_nivel %}
+            <tr>
+                <td><strong>Próximo nivel:</strong></td>
+                <td>{{ perfil.proximo_nivel.nombre }} ({{ perfil.puntos_para_nivel }} puntos más)</td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<!-- Cómo se ganaron los puntos -->
+{% if razon_puntos %}
+<div class="email-card">
+    <div class="email-card-header">
+        <strong>¿Cómo ganaste estos puntos?</strong>
+    </div>
+    <div class="email-card-body">
+        <div style="background: #e7f3ff; padding: 15px; border-radius: 6px; border-left: 4px solid #0066cc;">
+            {{ razon_puntos }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Beneficios del programa -->
+<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center;">
+    <h3 style="margin-top: 0; color: white;">🎁 Beneficios de tu Nivel</h3>
+    <div style="display: table; width: 100%; margin-top: 15px;">
+        <div style="display: table-cell; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 5px;">💰</div>
+            <div style="font-weight: bold;">Descuentos Exclusivos</div>
+            <div style="font-size: 14px;">Hasta {{ perfil.nivel.descuento_max }}% off</div>
+        </div>
+        <div style="display: table-cell; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 5px;">🚚</div>
+            <div style="font-weight: bold;">Envío Gratis</div>
+            <div style="font-size: 14px;">En pedidos +${{ perfil.nivel.envio_gratis_min }}</div>
+        </div>
+        <div style="display: table-cell; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 5px;">🎉</div>
+            <div style="font-weight: bold;">Premios Especiales</div>
+            <div style="font-size: 14px;">Regalos sorpresa</div>
+        </div>
+    </div>
+</div>
+
+<!-- Cómo canjear puntos -->
+<div class="email-card">
+    <div class="email-card-header">
+        <strong>¿Cómo canjear tus puntos?</strong>
+    </div>
+    <div class="email-card-body">
+        <div style="display: table; width: 100%;">
+            <div style="display: table-cell; width: 50%; padding-right: 15px; vertical-align: top;">
+                <h4 style="margin-top: 0; color: #495057;">Opciones de canje:</h4>
+                <ul style="margin-bottom: 0; color: #6c757d;">
+                    <li><strong>Descuento en compra:</strong> 100 puntos = $5 off</li>
+                    <li><strong>Envío gratis:</strong> 200 puntos</li>
+                    <li><strong>Producto gratis:</strong> Según acumulación</li>
+                    <li><strong>Upgrade de nivel:</strong> Bonos especiales</li>
+                </ul>
+            </div>
+            <div style="display: table-cell; width: 50%; padding-left: 15px; vertical-align: top;">
+                <h4 style="margin-top: 0; color: #495057;">Próximas oportunidades:</h4>
+                <ul style="margin-bottom: 0; color: #6c757d;">
+                    <li><strong>Compras:</strong> Gana 1 punto por cada $10</li>
+                    <li><strong>Reseñas:</strong> +10 puntos por reseña</li>
+                    <li><strong>Referidos:</strong> +50 puntos por amigo</li>
+                    <li><strong>Cumpleaños:</strong> Bono especial mensual</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ SITE_URL }}{% url 'puntos_fidelidad' %}" class="email-button">Ver Mis Puntos</a>
+    <br><br>
+    <a href="{{ SITE_URL }}{% url 'canjear_puntos' %}" class="email-button email-button-secondary">Canjear Puntos</a>
+</div>
+
+<p>¡Sigue acumulando puntos y disfruta de más beneficios! Cada compra te acerca a mejores recompensas.</p>
+
+<p style="margin-bottom: 0;">¡Gracias por ser parte de nuestro programa!<br>
+<strong>El equipo de E-commerce IA</strong></p>
+{% endblock %}

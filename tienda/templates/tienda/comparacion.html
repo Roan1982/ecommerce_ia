@@ -1,0 +1,356 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Comparar Productos{% endblock %}
+
+{% block content %}
+<!-- CSRF Token for JavaScript -->
+<div id="csrf-token-container" data-csrf-token="{{ csrf_token }}" style="display: none;"></div>
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="h4 mb-0">
+                            <i class="bi bi-arrow-left-right me-2"></i>
+                            Comparar Productos
+                        </h2>
+                        <div class="btn-group">
+                            {% if puede_agregar_mas %}
+                                <a href="{% url 'productos' %}" class="btn btn-light btn-sm">
+                                    <i class="bi bi-plus-circle me-1"></i>
+                                    Agregar Más
+                                </a>
+                            {% endif %}
+                            {% if productos %}
+                                <button type="button" class="btn btn-danger btn-sm" onclick="limpiarComparacion()">
+                                    <i class="bi bi-trash me-1"></i>
+                                    Limpiar Todo
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    {% if mensaje %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            {{ mensaje }}
+                        </div>
+                    {% endif %}
+
+                    {% if productos_comparacion %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th class="text-center" style="width: 200px;">Característica</th>
+                                        {% for item in productos_comparacion %}
+                                            <th class="text-center">
+                                                <div class="d-flex flex-column align-items-center">
+                                                    {% if item.producto.imagen_url %}
+                                                        <img src="{{ item.producto.imagen_url }}" alt="{{ item.producto.nombre }}"
+                                                             class="img-thumbnail mb-2" style="width: 120px; height: 120px; object-fit: cover;">
+                                                    {% else %}
+                                                        <div class="bg-light d-flex align-items-center justify-content-center mb-2"
+                                                             style="width: 120px; height: 120px; border-radius: 8px;">
+                                                            <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
+                                                        </div>
+                                                    {% endif %}
+                        <h6 class="mb-1">{{ item.producto.nombre }}</h6>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                                            onclick="mostrarModalQuitar({{ item.producto.id }}, '{{ item.producto.nombre }}')">
+                                                        <i class="bi bi-x-circle me-1"></i>
+                                                        Quitar
+                                                    </button>
+                                                </div>
+                                            </th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for caracteristica, valores in productos_comparacion.0.caracteristicas.items %}
+                                        <tr>
+                                            <td class="fw-bold bg-light">{{ caracteristica }}</td>
+                                            {% for item in productos_comparacion %}
+                                                <td class="text-center">
+                                                    {{ item.caracteristicas|get_item:caracteristica }}
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                    <tr class="table-secondary">
+                                        <td class="fw-bold">Acciones</td>
+                                        {% for item in productos_comparacion %}
+                                            <td class="text-center">
+                                                <div class="btn-group-vertical" role="group">
+                                                    <a href="{% url 'producto_detalle' item.producto.id %}"
+                                                       class="btn btn-outline-primary btn-sm mb-1">
+                                                        <i class="bi bi-eye me-1"></i>
+                                                        Ver Detalle
+                                                    </a>
+                                                    <button type="button" class="btn btn-success btn-sm"
+                                                            onclick="agregarAlCarrito({{ item.producto.id }})">
+                                                        <i class="bi bi-cart-plus me-1"></i>
+                                                        Agregar al Carrito
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-lightbulb me-2"></i>
+                                    <strong>Consejo:</strong> Puedes comparar hasta 4 productos. Usa los botones "Quitar" para remover productos específicos o "Limpiar Todo" para empezar de nuevo.
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-arrow-left-right text-muted" style="font-size: 4rem;"></i>
+                            <h4 class="text-muted mt-3">No hay productos para comparar</h4>
+                            <p class="text-muted">Agrega productos desde la página de productos para comenzar la comparación.</p>
+                            <a href="{% url 'productos' %}" class="btn btn-primary">
+                                <i class="bi bi-search me-2"></i>
+                                Explorar Productos
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para quitar producto -->
+<div class="modal fade" id="quitarModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title text-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Quitar Producto
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="bi bi-box-seam text-warning" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="mb-2">¿Estás seguro de que quieres quitar este producto?</h6>
+                <p class="text-muted mb-0" id="producto-nombre">Producto</p>
+                <small class="text-muted">Esta acción no se puede deshacer</small>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmarQuitarProducto()">
+                    <i class="bi bi-trash me-1"></i>
+                    Quitar Producto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para limpiar comparación -->
+<div class="modal fade" id="limpiarModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Limpiar Comparación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="bi bi-trash3-fill text-danger" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="mb-2">¿Estás seguro de que quieres limpiar toda la comparación?</h6>
+                <p class="text-muted mb-0">Se removerán todos los productos de la comparación</p>
+                <small class="text-muted">Esta acción no se puede deshacer</small>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmarLimpiar()">
+                    <i class="bi bi-trash me-1"></i>
+                    Limpiar Todo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variable global para almacenar el ID del producto a quitar
+let productoAQuitar = null;
+
+function mostrarModalQuitar(productoId, nombreProducto) {
+    productoAQuitar = productoId;
+    document.getElementById('producto-nombre').textContent = nombreProducto;
+    const modal = new bootstrap.Modal(document.getElementById('quitarModal'));
+    modal.show();
+}
+
+function confirmarQuitarProducto() {
+    if (productoAQuitar) {
+        // Crear formulario para POST
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/comparacion/quitar/${productoAQuitar}/`;
+
+        // Agregar CSRF token
+        const csrfToken = document.getElementById('csrf-token-container');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken.getAttribute('data-csrf-token');
+            form.appendChild(csrfInput);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Inicializar event listeners cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Limpiar variable global cuando se cierra el modal de quitar producto
+    const quitarModal = document.getElementById('quitarModal');
+    if (quitarModal) {
+        quitarModal.addEventListener('hidden.bs.modal', function() {
+            productoAQuitar = null;
+        });
+    }
+});
+
+function quitarProducto(productoId) {
+    if (confirm('¿Quieres remover este producto de la comparación?')) {
+        // Crear formulario para POST
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/comparacion/quitar/${productoId}/`;
+
+        // Agregar CSRF token
+        const csrfToken = document.getElementById('csrf-token-container');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken.getAttribute('data-csrf-token');
+            form.appendChild(csrfInput);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function limpiarComparacion() {
+    const modal = new bootstrap.Modal(document.getElementById('limpiarModal'));
+    modal.show();
+}
+
+function confirmarLimpiar() {
+    // Crear formulario para POST
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `{% url 'limpiar_comparacion' %}`;
+
+    // Agregar CSRF token
+    const csrfToken = document.getElementById('csrf-token-container');
+    if (csrfToken) {
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken.getAttribute('data-csrf-token');
+        form.appendChild(csrfInput);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function agregarAlCarrito(productoId) {
+    // Usar AJAX para agregar al carrito
+    const csrfToken = document.getElementById('csrf-token-container');
+    const tokenValue = csrfToken ? csrfToken.getAttribute('data-csrf-token') : '';
+
+    fetch(`/carrito/agregar/${productoId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': tokenValue
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Mostrar mensaje de éxito
+            mostrarMensaje('Producto agregado al carrito', 'success');
+            // Actualizar contador del carrito si existe
+            actualizarContadorCarrito();
+        } else {
+            mostrarMensaje('Error al agregar producto al carrito', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarMensaje('Error al agregar producto al carrito', 'error');
+    });
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de alerta
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${tipo === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+
+    // Auto-remover después de 3 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+
+function actualizarContadorCarrito() {
+    // Actualizar contador del carrito en la navbar si existe
+    fetch('/carrito/count/')
+        .then(response => response.json())
+        .then(data => {
+            const contador = document.querySelector('.carrito-count');
+            if (contador) {
+                contador.textContent = data.count;
+            }
+        })
+        .catch(error => console.error('Error actualizando contador:', error));
+}
+</script>
+{% endblock %}

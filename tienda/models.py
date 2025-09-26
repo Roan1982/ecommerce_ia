@@ -561,3 +561,527 @@ class Wishlist(models.Model):
 
     def __str__(self):
         return f"{self.usuario.username} - {self.producto.nombre}"
+
+
+class ComparacionProductos(models.Model):
+    """Modelo para comparación de productos"""
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='comparacion')
+    productos = models.ManyToManyField(Producto, related_name='comparaciones', blank=True)
+    fecha_creacion = models.DateTimeField(default=timezone.now)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Comparación de Productos"
+        verbose_name_plural = "Comparaciones de Productos"
+
+    def __str__(self):
+        return f"Comparación de {self.usuario.username} ({self.productos.count()} productos)"
+
+    @property
+    def puede_agregar_mas(self):
+        """Verifica si se pueden agregar más productos (máximo 4)"""
+        return self.productos.count() < 4
+
+    @property
+    def productos_ordenados(self):
+        """Devuelve los productos ordenados por nombre"""
+        return self.productos.all().order_by('nombre')
+
+    def agregar_producto(self, producto):
+        """Agrega un producto a la comparación"""
+        if self.productos.count() >= 4:
+            raise ValueError("No se pueden comparar más de 4 productos")
+        if self.productos.filter(id=producto.id).exists():
+            raise ValueError("El producto ya está en la comparación")
+        self.productos.add(producto)
+
+    def quitar_producto(self, producto):
+        """Quita un producto de la comparación"""
+        self.productos.remove(producto)
+
+    def limpiar(self):
+        """Limpia todos los productos de la comparación"""
+        self.productos.clear()
+
+
+# ===== SISTEMA DE NEWSLETTER/SUSCRIPCIÓN =====
+
+class NewsletterSubscription(models.Model):
+    """Modelo para suscripciones al newsletter"""
+    FRECUENCIA_CHOICES = [
+        ('diaria', 'Diaria'),
+        ('semanal', 'Semanal'),
+        ('mensual', 'Mensual'),
+    ]
+
+    email = models.EmailField(unique=True, help_text="Email del suscriptor")
+    nombre = models.CharField(max_length=100, blank=True, null=True, help_text="Nombre opcional del suscriptor")
+    frecuencia = models.CharField(max_length=20, choices=FRECUENCIA_CHOICES, default='semanal',
+                                  help_text="Frecuencia de envío del newsletter")
+    activo = models.BooleanField(default=True, help_text="Si la suscripción está activa")
+    fecha_suscripcion = models.DateTimeField(default=timezone.now, help_text="Fecha de suscripción")
+    fecha_ultimo_envio = models.DateTimeField(blank=True, null=True, help_text="Fecha del último envío")
+    token_confirmacion = models.CharField(max_length=64, unique=True, blank=True, null=True,
+                                          help_text="Token para confirmar suscripción")
+    confirmado = models.BooleanField(default=False, help_text="Si la suscripción ha sido confirmada")
+
+    # Preferencias de contenido
+    recibir_ofertas = models.BooleanField(default=True, help_text="Recibir ofertas y promociones")
+    recibir_novedades = models.BooleanField(default=True, help_text="Recibir novedades de productos")
+    recibir_recomendaciones = models.BooleanField(default=True, help_text="Recibir recomendaciones personalizadas")
+
+    class Meta:
+        verbose_name = "Suscripción Newsletter"
+        verbose_name_plural = "Suscripciones Newsletter"
+        ordering = ['-fecha_suscripcion']
+
+    def __str__(self):
+        return f"{self.email} ({'Confirmado' if self.confirmado else 'Pendiente'})"
+
+    def generar_token_confirmacion(self):
+        """Genera un token único para confirmar la suscripción"""
+        import secrets
+        self.token_confirmacion = secrets.token_hex(32)
+        self.save()
+
+    def confirmar_suscripcion(self):
+        """Confirma la suscripción usando el token"""
+        self.confirmado = True
+        self.token_confirmacion = None
+        self.save()
+
+    def cancelar_suscripcion(self):
+        """Cancela la suscripción"""
+        self.activo = False
+        self.save()
+
+    @property
+    def puede_recibir_newsletter(self):
+        """Verifica si puede recibir newsletters"""
+        return self.activo and self.confirmado
+
+
+class NewsletterCampaign(models.Model):
+    """Modelo para campañas de newsletter"""
+    ESTADO_CHOICES = [
+        ('borrador', 'Borrador'),
+        ('programado', 'Programado'),
+        ('enviando', 'Enviando'),
+        ('enviado', 'Enviado'),
+        ('cancelado', 'Cancelado'),
+    ]
+
+    titulo = models.CharField(max_length=200, help_text="Título de la campaña")
+    asunto = models.CharField(max_length=200, help_text="Asunto del email")
+    contenido_html = models.TextField(help_text="Contenido HTML del newsletter")
+    contenido_texto = models.TextField(blank=True, null=True, help_text="Versión texto plano")
+
+    # Configuración de envío
+    fecha_creacion = models.DateTimeField(default=timezone.now)
+    fecha_programada = models.DateTimeField(blank=True, null=True, help_text="Fecha de envío programado")
+    fecha_envio = models.DateTimeField(blank=True, null=True, help_text="Fecha real de envío")
+
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
+
+    # Estadísticas
+    total_suscriptores = models.IntegerField(default=0, help_text="Total de suscriptores objetivo")
+    enviados = models.IntegerField(default=0, help_text="Emails enviados")
+    abiertos = models.IntegerField(default=0, help_text="Emails abiertos")
+    clics = models.IntegerField(default=0, help_text="Clics en enlaces")
+
+    # Filtros de segmentación
+    frecuencia_target = models.CharField(max_length=20, blank=True, null=True,
+                                         help_text="Frecuencia específica (opcional)")
+    solo_confirmados = models.BooleanField(default=True, help_text="Solo suscriptores confirmados")
+
+    # Configuración de tracking
+    tracking_aperturas = models.BooleanField(default=True, help_text="Habilitar tracking de aperturas")
+    tracking_clics = models.BooleanField(default=True, help_text="Habilitar tracking de clics")
+
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Campaña Newsletter"
+        verbose_name_plural = "Campañas Newsletter"
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"{self.titulo} ({self.get_estado_display()})"
+
+    @property
+    def tasa_apertura(self):
+        """Calcula la tasa de apertura"""
+        if self.enviados == 0:
+            return 0
+        return round((self.abiertos / self.enviados) * 100, 2)
+
+    @property
+    def tasa_clic(self):
+        """Calcula la tasa de clic"""
+        if self.enviados == 0:
+            return 0
+        return round((self.clics / self.enviados) * 100, 2)
+
+    def obtener_suscriptores_target(self):
+        """Obtiene la lista de suscriptores objetivo para esta campaña"""
+        queryset = NewsletterSubscription.objects.filter(activo=True)
+
+        if self.solo_confirmados:
+            queryset = queryset.filter(confirmado=True)
+
+        if self.frecuencia_target:
+            queryset = queryset.filter(frecuencia=self.frecuencia_target)
+
+        return queryset
+
+    def programar_envio(self, fecha):
+        """Programa el envío de la campaña"""
+        self.fecha_programada = fecha
+        self.estado = 'programado'
+        self.save()
+
+    def iniciar_envio(self):
+        """Inicia el proceso de envío"""
+        self.estado = 'enviando'
+        self.fecha_envio = timezone.now()
+        self.total_suscriptores = self.obtener_suscriptores_target().count()
+        self.save()
+
+    def completar_envio(self):
+        """Completa el envío de la campaña"""
+        self.estado = 'enviado'
+        self.save()
+
+    def send_campaign(self):
+        """
+        Envía la campaña de newsletter a todos los suscriptores objetivo.
+        Maneja el proceso completo de envío, incluyendo tracking y estadísticas.
+        """
+        from django.core.mail import EmailMultiAlternatives
+        from django.template.loader import render_to_string
+        from django.utils.html import strip_tags
+        from .views import generar_unsubscribe_url  # Importar función auxiliar
+
+        # Verificar que la campaña esté en estado válido para envío
+        if self.estado not in ['borrador', 'programado']:
+            raise ValueError("La campaña debe estar en estado 'borrador' o 'programado' para poder enviarse")
+
+        # Iniciar el envío
+        self.iniciar_envio()
+
+        # Obtener suscriptores objetivo
+        suscriptores = self.obtener_suscriptores_target()
+        emails_enviados = 0
+        emails_fallidos = 0
+
+        for suscriptor in suscriptores:
+            try:
+                # Generar URLs de tracking
+                unsubscribe_url = generar_unsubscribe_url(suscriptor.email)
+
+                # Preparar contexto para el template
+                context = {
+                    'campana': self,
+                    'suscriptor': suscriptor,
+                    'unsubscribe_url': unsubscribe_url,
+                    'es_prueba': False,
+                }
+
+                # Renderizar contenido
+                html_content = render_to_string('tienda/emails/newsletter_template.html', context)
+                text_content = strip_tags(html_content)
+
+                # Crear log de envío para tracking
+                log_envio = NewsletterLog.objects.create(
+                    campaign=self,
+                    suscriptor=suscriptor,
+                    tipo='envio'
+                )
+
+                # Agregar pixel de tracking de apertura si está habilitado
+                if hasattr(self, 'tracking_aperturas') and self.tracking_aperturas:
+                    from django.conf import settings
+                    tracking_pixel = f'<img src="{settings.SITE_URL}/newsletter/tracking/open/{log_envio.id}/" width="1" height="1" style="display:none;" alt="" />'
+                    html_content = html_content.replace('</body>', f'{tracking_pixel}</body>')
+
+                # Crear y enviar email
+                email_msg = EmailMultiAlternatives(
+                    subject=self.asunto,
+                    body=text_content,
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@tu-sitio.com'),
+                    to=[suscriptor.email]
+                )
+                email_msg.attach_alternative(html_content, "text/html")
+
+                # Enviar email
+                email_msg.send()
+
+                emails_enviados += 1
+
+                # Actualizar contador en campaña
+                self.enviados += 1
+                self.save()
+
+            except Exception as e:
+                print(f"Error enviando newsletter a {suscriptor.email}: {e}")
+                emails_fallidos += 1
+
+                # Registrar error en log
+                NewsletterLog.objects.create(
+                    campaign=self,
+                    suscriptor=suscriptor,
+                    tipo='rebote'
+                )
+                continue
+
+        # Completar el envío
+        self.completar_envio()
+
+        return {
+            'success': True,
+            'emails_enviados': emails_enviados,
+            'emails_fallidos': emails_fallidos,
+            'total_suscriptores': len(suscriptores)
+        }
+
+
+class NewsletterLog(models.Model):
+    """Modelo para registrar envíos individuales de newsletter"""
+    TIPO_CHOICES = [
+        ('envio', 'Envío'),
+        ('apertura', 'Apertura'),
+        ('clic', 'Clic'),
+        ('rebote', 'Rebote'),
+        ('cancelacion', 'Cancelación'),
+    ]
+
+    campaign = models.ForeignKey(NewsletterCampaign, on_delete=models.CASCADE,
+                                 related_name='logs', help_text="Campaña relacionada")
+    suscriptor = models.ForeignKey(NewsletterSubscription, on_delete=models.CASCADE,
+                                   related_name='logs', help_text="Suscriptor")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    fecha = models.DateTimeField(default=timezone.now)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+    url_clic = models.URLField(blank=True, null=True, help_text="URL donde se hizo clic")
+
+    class Meta:
+        verbose_name = "Log Newsletter"
+        verbose_name_plural = "Logs Newsletter"
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.campaign.titulo} - {self.suscriptor.email} - {self.tipo}"
+
+
+# ===== SISTEMA DE NOTIFICACIONES POR EMAIL =====
+
+class EmailTemplate(models.Model):
+    """Plantillas reutilizables para emails del sistema"""
+    TIPO_CHOICES = [
+        ('registro', 'Registro de Usuario'),
+        ('recuperacion', 'Recuperación de Contraseña'),
+        ('pedido_confirmacion', 'Confirmación de Pedido'),
+        ('pedido_actualizacion', 'Actualización de Pedido'),
+        ('pedido_envio', 'Pedido Enviado'),
+        ('pedido_entrega', 'Pedido Entregado'),
+        ('bienvenida', 'Bienvenida'),
+        ('newsletter_bienvenida', 'Bienvenida Newsletter'),
+        ('carrito_abandonado', 'Carrito Abandonado'),
+        ('producto_descuento', 'Producto con Descuento'),
+        ('puntos_acumulados', 'Puntos de Lealtad'),
+        ('custom', 'Personalizado'),
+    ]
+
+    nombre = models.CharField(max_length=100, unique=True, help_text="Nombre identificador de la plantilla")
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES, default='custom')
+    asunto = models.CharField(max_length=200, help_text="Asunto del email")
+    contenido_html = models.TextField(help_text="Contenido HTML de la plantilla")
+    contenido_texto = models.TextField(blank=True, null=True, help_text="Versión texto plano")
+    variables_disponibles = models.JSONField(default=dict, blank=True,
+                                           help_text="Variables disponibles en la plantilla (JSON)")
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(default=timezone.now)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Plantilla de Email"
+        verbose_name_plural = "Plantillas de Email"
+        ordering = ['tipo', 'nombre']
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.nombre}"
+
+    def render_asunto(self, contexto=None):
+        """Renderiza el asunto con variables de contexto"""
+        if not contexto:
+            contexto = {}
+        try:
+            from django.template import Template, Context
+            template = Template(self.asunto)
+            return template.render(Context(contexto))
+        except Exception:
+            return self.asunto
+
+    def render_contenido(self, contexto=None):
+        """Renderiza el contenido HTML con variables de contexto"""
+        if not contexto:
+            contexto = {}
+        try:
+            from django.template import Template, Context
+            template = Template(self.contenido_html)
+            return template.render(Context(contexto))
+        except Exception:
+            return self.contenido_html
+
+
+class EmailNotification(models.Model):
+    """Registro de notificaciones por email enviadas"""
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('enviado', 'Enviado'),
+        ('fallido', 'Fallido'),
+        ('reintentando', 'Reintentando'),
+    ]
+
+    PRIORIDAD_CHOICES = [
+        ('baja', 'Baja'),
+        ('normal', 'Normal'),
+        ('alta', 'Alta'),
+        ('urgente', 'Urgente'),
+    ]
+
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notificaciones_email')
+    tipo = models.CharField(max_length=50, help_text="Tipo de notificación")
+    email_destino = models.EmailField()
+    asunto = models.CharField(max_length=200)
+    contenido_html = models.TextField()
+    contenido_texto = models.TextField(blank=True, null=True)
+
+    # Metadatos
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    prioridad = models.CharField(max_length=20, choices=PRIORIDAD_CHOICES, default='normal')
+    intentos_envio = models.IntegerField(default=0)
+    max_intentos = models.IntegerField(default=3)
+
+    # Fechas
+    fecha_creacion = models.DateTimeField(default=timezone.now)
+    fecha_envio = models.DateTimeField(blank=True, null=True)
+    fecha_programada = models.DateTimeField(blank=True, null=True,
+                                          help_text="Fecha programada para envío")
+
+    # Relaciones opcionales
+    pedido = models.ForeignKey('Pedido', on_delete=models.SET_NULL, blank=True, null=True,
+                              related_name='notificaciones')
+    producto = models.ForeignKey('Producto', on_delete=models.SET_NULL, blank=True, null=True,
+                                related_name='notificaciones')
+
+    # Información adicional
+    metadata = models.JSONField(default=dict, blank=True,
+                              help_text="Información adicional en JSON")
+    error_mensaje = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Notificación por Email"
+        verbose_name_plural = "Notificaciones por Email"
+        ordering = ['-fecha_creacion']
+        indexes = [
+            models.Index(fields=['estado', 'prioridad']),
+            models.Index(fields=['fecha_programada']),
+            models.Index(fields=['usuario', 'tipo']),
+        ]
+
+    def __str__(self):
+        return f"{self.tipo} - {self.usuario.email} - {self.estado}"
+
+    @property
+    def puede_reintentar(self):
+        """Verifica si se puede reintentar el envío"""
+        return self.intentos_envio < self.max_intentos and self.estado in ['pendiente', 'fallido']
+
+    def marcar_enviado(self):
+        """Marca la notificación como enviada"""
+        self.estado = 'enviado'
+        self.fecha_envio = timezone.now()
+        self.save()
+
+    def marcar_fallido(self, error=None):
+        """Marca la notificación como fallida"""
+        self.estado = 'fallido'
+        if error:
+            self.error_mensaje = str(error)
+        self.intentos_envio += 1
+        self.save()
+
+    def programar_envio(self, fecha):
+        """Programa el envío para una fecha específica"""
+        self.fecha_programada = fecha
+        self.estado = 'pendiente'
+        self.save()
+
+
+class EmailQueue(models.Model):
+    """Cola de emails pendientes de envío"""
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('procesando', 'Procesando'),
+        ('enviado', 'Enviado'),
+        ('fallido', 'Fallido'),
+    ]
+
+    notificacion = models.OneToOneField(EmailNotification, on_delete=models.CASCADE,
+                                      related_name='cola')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    prioridad = models.IntegerField(default=0, help_text="Prioridad numérica (mayor = más prioritario)")
+    fecha_creacion = models.DateTimeField(default=timezone.now)
+    fecha_procesamiento = models.DateTimeField(blank=True, null=True)
+    bloqueado_hasta = models.DateTimeField(blank=True, null=True,
+                                         help_text="Fecha hasta la que está bloqueado")
+
+    class Meta:
+        verbose_name = "Email en Cola"
+        verbose_name_plural = "Emails en Cola"
+        ordering = ['-prioridad', 'fecha_creacion']
+        indexes = [
+            models.Index(fields=['estado', 'bloqueado_hasta']),
+            models.Index(fields=['prioridad']),
+        ]
+
+    def __str__(self):
+        return f"Cola: {self.notificacion} - {self.estado}"
+
+    @property
+    def puede_procesar(self):
+        """Verifica si el email puede ser procesado"""
+        if self.estado != 'pendiente':
+            return False
+        if self.bloqueado_hasta and timezone.now() < self.bloqueado_hasta:
+            return False
+        return True
+
+    def marcar_procesando(self):
+        """Marca el email como procesando"""
+        self.estado = 'procesando'
+        self.fecha_procesamiento = timezone.now()
+        self.save()
+
+    def marcar_enviado(self):
+        """Marca el email como enviado"""
+        self.estado = 'enviado'
+        self.notificacion.marcar_enviado()
+        self.save()
+
+    def marcar_fallido(self, error=None, reintentar=True):
+        """Marca el email como fallido"""
+        self.estado = 'fallido'
+        self.notificacion.marcar_fallido(error)
+
+        if reintentar and self.notificacion.puede_reintentar:
+            # Reagendar para reintento
+            from datetime import timedelta
+            delay = timedelta(minutes=5 * self.notificacion.intentos_envio)  # Backoff exponencial
+            self.bloqueado_hasta = timezone.now() + delay
+            self.estado = 'pendiente'
+            self.save()
+        else:
+            self.save()

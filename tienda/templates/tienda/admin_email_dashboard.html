@@ -1,0 +1,319 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+
+{% block title %}Dashboard de Email{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">📧 Dashboard de Email</h1>
+            <p class="text-muted">Métricas y reportes de emails enviados</p>
+        </div>
+        <div>
+            <select class="form-select" id="periodoSelect" onchange="cambiarPeriodo(this.value)">
+                <option value="1d" {% if periodo == '1d' %}selected{% endif %}>Últimas 24 horas</option>
+                <option value="7d" {% if periodo == '7d' %}selected{% endif %}>Últimos 7 días</option>
+                <option value="30d" {% if periodo == '30d' %}selected{% endif %}>Últimos 30 días</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Estadísticas principales -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Emails
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_emails }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-envelope fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Emails Enviados
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.emails_enviados }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Pendientes
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.emails_pendientes }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Tasa de Éxito
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.tasa_exito }}%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de emails por día -->
+    <div class="row mb-4">
+        <div class="col-xl-8">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Emails por Día</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="emailsChart" width="100%" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Emails por Tipo</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="tiposChart" width="100%" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de tipos de email -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Rendimiento por Tipo de Email</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Tipo de Email</th>
+                                    <th>Total</th>
+                                    <th>Enviados</th>
+                                    <th>Fallidos</th>
+                                    <th>Tasa Éxito</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tipo in tipos_email %}
+                                <tr>
+                                    <td>{{ tipo.tipo|title }}</td>
+                                    <td>{{ tipo.total }}</td>
+                                    <td>{{ tipo.enviados }}</td>
+                                    <td>{{ tipo.fallidos }}</td>
+                                    <td>
+                                        {% if tipo.total > 0 %}
+                                            {{ tipo.enviados|div:tipo.total|mul:100|floatformat:1 }}%
+                                        {% else %}
+                                            0%
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emails recientes -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Emails Recientes</h6>
+                    <a href="{% url 'admin_newsletter_dashboard' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-newspaper"></i> Ver Newsletter
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Tipo</th>
+                                    <th>Asunto</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for email in emails_recientes %}
+                                <tr>
+                                    <td>
+                                        {% if email.usuario %}
+                                            {{ email.usuario.username }}
+                                        {% else %}
+                                            <em>Sin usuario</em>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-secondary">{{ email.tipo|title }}</span>
+                                    </td>
+                                    <td>{{ email.asunto|truncatechars:50 }}</td>
+                                    <td>
+                                        {% if email.estado == 'enviado' %}
+                                            <span class="badge badge-success">Enviado</span>
+                                        {% elif email.estado == 'pendiente' %}
+                                            <span class="badge badge-warning">Pendiente</span>
+                                        {% elif email.estado == 'fallido' %}
+                                            <span class="badge badge-danger">Fallido</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">{{ email.estado|title }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ email.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'admin_email_detalle' email.id %}" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if email.estado == 'fallido' %}
+                                        <button onclick="reenviarEmail({{ email.id }})" class="btn btn-sm btn-outline-warning ml-1">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Datos para los gráficos
+const emailsPorDia = {{ emails_por_dia|safe }};
+const tiposEmail = {{ tipos_email|safe }};
+
+// Gráfico de emails por día
+const ctxEmails = document.getElementById('emailsChart').getContext('2d');
+new Chart(ctxEmails, {
+    type: 'line',
+    data: {
+        labels: emailsPorDia.map(d => d.dia),
+        datasets: [{
+            label: 'Enviados',
+            data: emailsPorDia.map(d => d.enviados),
+            borderColor: 'rgb(40, 167, 69)',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            tension: 0.1
+        }, {
+            label: 'Fallidos',
+            data: emailsPorDia.map(d => d.fallidos),
+            borderColor: 'rgb(220, 53, 69)',
+            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+// Gráfico de tipos de email
+const ctxTipos = document.getElementById('tiposChart').getContext('2d');
+new Chart(ctxTipos, {
+    type: 'doughnut',
+    data: {
+        labels: tiposEmail.map(t => t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1)),
+        datasets: [{
+            data: tiposEmail.map(t => t.total),
+            backgroundColor: [
+                'rgb(255, 99, 132)',
+                'rgb(54, 162, 235)',
+                'rgb(255, 205, 86)',
+                'rgb(75, 192, 192)',
+                'rgb(153, 102, 255)',
+                'rgb(255, 159, 64)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true
+    }
+});
+
+function cambiarPeriodo(periodo) {
+    window.location.href = `?periodo=${periodo}`;
+}
+
+function reenviarEmail(emailId) {
+    if (confirm('¿Estás seguro de que quieres reenviar este email?')) {
+        fetch(`/admin/email/${emailId}/reenviar/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Email agregado a la cola de envío');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

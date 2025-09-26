@@ -1,0 +1,114 @@
+{% extends 'tienda/emails/base_email.html' %}
+{% load static %}
+
+{% block title %}Confirmación de Pedido #{{ pedido.id }}{% endblock %}
+
+{% block content %}
+<h1 style="color: #28a745; text-align: center;">¡Pedido Confirmado!</h1>
+
+<p>Hola <strong>{{ user.get_full_name|default:user.username }}</strong>,</p>
+
+<p>¡Gracias por tu compra! Tu pedido ha sido confirmado y está siendo procesado. A continuación encontrarás los detalles de tu compra.</p>
+
+<!-- Información del pedido -->
+<div class="email-card">
+    <div class="email-card-header">
+        <strong>Información del Pedido</strong>
+    </div>
+    <div class="email-card-body">
+        <table class="email-table">
+            <tr>
+                <td><strong>Número de pedido:</strong></td>
+                <td>#{{ pedido.id }}</td>
+            </tr>
+            <tr>
+                <td><strong>Fecha:</strong></td>
+                <td>{{ pedido.fecha_pedido|date:"d/m/Y H:i" }}</td>
+            </tr>
+            <tr>
+                <td><strong>Estado:</strong></td>
+                <td>
+                    <span class="status-badge status-{% if pedido.estado == 'confirmado' %}success{% elif pedido.estado == 'enviado' %}info{% elif pedido.estado == 'entregado' %}success{% else %}warning{% endif %}">
+                        {{ pedido.get_estado_display }}
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>Método de pago:</strong></td>
+                <td>{{ pedido.get_metodo_pago_display }}</td>
+            </tr>
+            {% if pedido.direccion_envio %}
+            <tr>
+                <td><strong>Dirección de envío:</strong></td>
+                <td>{{ pedido.direccion_envio }}</td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<!-- Productos -->
+<div class="email-card">
+    <div class="email-card-header">
+        <strong>Productos Comprados</strong>
+    </div>
+    <div class="email-card-body">
+        {% for item in pedido.items.all %}
+        <div style="border-bottom: 1px solid #e0e0e0; padding: 15px 0; display: table; width: 100%;">
+            <div style="display: table-cell; width: 80px; vertical-align: top;">
+                {% if item.producto.imagen_url %}
+                <img src="{{ item.producto.imagen_url }}" alt="{{ item.producto.nombre }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+                {% endif %}
+            </div>
+            <div style="display: table-cell; padding-left: 15px; vertical-align: top;">
+                <div style="font-weight: bold; margin-bottom: 5px;">{{ item.producto.nombre }}</div>
+                <div style="color: #666; font-size: 14px;">SKU: {{ item.producto.sku|default:"N/A" }}</div>
+                <div style="color: #666; font-size: 14px;">Cantidad: {{ item.cantidad }}</div>
+            </div>
+            <div style="display: table-cell; text-align: right; vertical-align: top; font-weight: bold;">
+                ${{ item.precio_unitario }}
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Totales -->
+        <div style="border-top: 2px solid #e0e0e0; margin-top: 20px; padding-top: 15px;">
+            <div style="display: table; width: 100%;">
+                <div style="display: table-cell; text-align: right;">
+                    <div style="margin-bottom: 5px;"><strong>Subtotal:</strong> ${{ pedido.subtotal }}</div>
+                    {% if pedido.impuestos %}
+                    <div style="margin-bottom: 5px;"><strong>Impuestos:</strong> ${{ pedido.impuestos }}</div>
+                    {% endif %}
+                    {% if pedido.envio %}
+                    <div style="margin-bottom: 5px;"><strong>Envío:</strong> ${{ pedido.envio }}</div>
+                    {% endif %}
+                    <div style="font-size: 18px; color: #28a745;"><strong>Total: ${{ pedido.total }}</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Próximos pasos -->
+<div style="background: #e7f3ff; border: 1px solid #b3d9ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h3 style="margin-top: 0; color: #0066cc;">¿Qué sucede ahora?</h3>
+    <ol style="margin-bottom: 0;">
+        <li><strong>Procesamiento:</strong> Estamos preparando tu pedido para envío</li>
+        <li><strong>Confirmación de envío:</strong> Te notificaremos cuando tu pedido sea enviado</li>
+        <li><strong>Seguimiento:</strong> Recibirás un número de seguimiento para rastrear tu paquete</li>
+        <li><strong>Entrega:</strong> Te avisaremos cuando tu pedido llegue a tu dirección</li>
+    </ol>
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ SITE_URL }}{% url 'pedido_detalle' pedido.id %}" class="email-button">Ver Detalles del Pedido</a>
+    <br><br>
+    <a href="{{ SITE_URL }}{% url 'historial_pedidos' %}" class="email-button email-button-secondary">Ver Todos mis Pedidos</a>
+</div>
+
+<p>Si tienes alguna pregunta sobre tu pedido, puedes responder a este email o contactar con nuestro servicio de atención al cliente.</p>
+
+<p style="margin-bottom: 0;">¡Gracias por elegir E-commerce IA!</p>
+<p style="margin-bottom: 0;">Saludos cordiales,<br>
+<strong>El equipo de E-commerce IA</strong></p>
+{% endblock %}

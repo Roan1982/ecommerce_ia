@@ -1,0 +1,55 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Cancelar Suscripción{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h3 class="mb-0">
+                        <i class="bi bi-x-circle me-2"></i>
+                        Cancelar Suscripción al Newsletter
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center mb-4">
+                        Si ya no deseas recibir nuestros emails, puedes cancelar tu suscripción fácilmente.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                <i class="bi bi-envelope me-1"></i>Email de suscripción
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small">
+                                    {{ form.email.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="bi bi-x-circle me-2"></i>
+                                Cancelar Suscripción
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <small class="text-muted">
+                            Una vez cancelada la suscripción, dejarás de recibir nuestros emails de marketing.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

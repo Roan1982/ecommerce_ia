@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-rcfj=uozjc@$=w8rhh+-43-*xsc_a+s6yt5#jm05h(tx*p$tf!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -62,7 +62,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                # 'tienda.context_processors.carrito_context',
+                'tienda.context_processors.carrito_context',
             ],
         },
     },
@@ -120,6 +120,11 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'tienda' / 'static',
 ]
+
+# Email configuration
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Para desarrollo
+DEFAULT_FROM_EMAIL = 'noreply@ecommerceia.com'
+SITE_URL = 'http://127.0.0.1:8000'  # URL del sitio para enlaces en emails
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

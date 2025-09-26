@@ -76,6 +76,42 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
+        /* Tabla de usuarios moderna */
+        .table-users {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        }
+        .table-users thead th {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-weight: 600;
+            border: none;
+            vertical-align: middle;
+        }
+        .table-users tbody tr {
+            transition: background 0.2s;
+        }
+        .table-users tbody tr:hover {
+            background: #f0f4ff;
+        }
+        .table-users td, .table-users th {
+            padding: 0.85rem 1rem;
+            vertical-align: middle;
+        }
+        .table-users .action-icon {
+            color: #764ba2;
+            font-size: 1.2rem;
+            margin-right: 0.5rem;
+            transition: color 0.2s;
+        }
+        .table-users .action-icon:hover {
+            color: #007bff;
+        }
+        .table-users .text-muted {
+            color: #b0b0b0 !important;
+        }
+
         .btn-admin {
             background: linear-gradient(45deg, #007bff, #0056b3);
             border: none;

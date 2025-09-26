@@ -99,121 +99,84 @@
 {% endblock %}
 
 {% block filters %}
-{% if cl.has_filters %}
-<div class="card card-admin mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">
-            <i class="bi bi-funnel me-2"></i>
-            {% trans 'Filters' %}
-        </h5>
-    </div>
-    <div class="card-body">
-        {% for spec in cl.filter_specs %}
-            {% admin_list_filter cl spec %}
-        {% endfor %}
-        {% if cl.has_active_filters %}
-        <div class="mt-3">
-            <a href="{{ cl.get_query_string|cut:'e' }}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-x-circle me-1"></i>
-                {% trans 'Clear all filters' %}
-            </a>
-        </div>
-        {% endif %}
-    </div>
+<div class="card mb-4">
+  <div class="card-header bg-light">
+    <h6 class="mb-0">
+      <i class="bi bi-funnel me-2"></i>
+      Filtros y búsqueda
+    </h6>
+  </div>
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% for spec in cl.filter_specs %}
+      <div class="col-md-3">
+        {% admin_list_filter cl spec %}
+      </div>
+      {% endfor %}
+      <div class="col-md-3">
+        <input type="text" name="q" value="{{ cl.query }}" class="form-control" placeholder="Buscar...">
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary me-2">
+          <i class="bi bi-search me-1"></i> Buscar
+        </button>
+        <a href="{{ cl.get_query_string|cut:'e' }}" class="btn btn-outline-secondary">
+          <i class="bi bi-x-circle me-1"></i> Limpiar
+        </a>
+      </div>
+    </form>
+  </div>
 </div>
-{% endif %}
 {% endblock %}
   </div>
 
-  {% block result_list %}
-    {% if cl.formset or action_form %}
-      <div class="results">
+{% block result_list %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+            <i class="bi bi-list me-2"></i>
+            {{ cl.opts.verbose_name_plural|capfirst }}
+        </h6>
+        <span class="badge bg-primary">{{ cl.result_count }} resultados</span>
+    </div>
+    <div class="card-body p-0">
         {% admin_actions %}
-        {% result_list cl %}
-        {% if cl.formset and cl.result_count %}
-          {% if cl.paginator.num_pages > 1 %}
-          <div class="d-flex justify-content-center mt-3">
-            <nav aria-label="Paginación">
-              <ul class="pagination">
+        <div class="table-responsive">
+            {% result_list cl %}
+        </div>
+    </div>
+    {% if cl.paginator.num_pages > 1 %}
+    <div class="card-footer bg-white">
+        <nav aria-label="Paginación">
+            <ul class="pagination justify-content-center mb-0">
                 {% if cl.page_obj.has_previous %}
-                  <li class="page-item">
+                <li class="page-item">
                     <a class="page-link" href="?page={{ cl.page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                      <i class="bi bi-chevron-left"></i> Anterior
+                        <i class="bi bi-chevron-left"></i> Anterior
                     </a>
-                  </li>
+                </li>
                 {% endif %}
-
                 {% for num in cl.paginator.page_range %}
-                  {% if num >= cl.page_obj.number|add:'-2' and num <= cl.page_obj.number|add:'2' %}
-                    {% if cl.page_obj.number == num %}
-                      <li class="page-item active">
-                        <span class="page-link">{{ num }}</span>
-                      </li>
-                    {% else %}
-                      <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
-                      </li>
+                    {% if num >= cl.page_obj.number|add:'-2' and num <= cl.page_obj.number|add:'2' %}
+                        {% if cl.page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% else %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a></li>
+                        {% endif %}
                     {% endif %}
-                  {% endif %}
                 {% endfor %}
-
                 {% if cl.page_obj.has_next %}
-                  <li class="page-item">
+                <li class="page-item">
                     <a class="page-link" href="?page={{ cl.page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                      Siguiente <i class="bi bi-chevron-right"></i>
+                        Siguiente <i class="bi bi-chevron-right"></i>
                     </a>
-                  </li>
+                </li>
                 {% endif %}
-              </ul>
-            </nav>
-          </div>
-          {% endif %}
-        {% endif %}
-      </div>
-    {% else %}
-      <div class="results">
-        {% result_list cl %}
-        {% if cl.result_count %}
-          {% if cl.paginator.num_pages > 1 %}
-          <div class="d-flex justify-content-center mt-3">
-            <nav aria-label="Paginación">
-              <ul class="pagination">
-                {% if cl.page_obj.has_previous %}
-                  <li class="page-item">
-                    <a class="page-link" href="?page={{ cl.page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                      <i class="bi bi-chevron-left"></i> Anterior
-                    </a>
-                  </li>
-                {% endif %}
-
-                {% for num in cl.paginator.page_range %}
-                  {% if num >= cl.page_obj.number|add:'-2' and num <= cl.page_obj.number|add:'2' %}
-                    {% if cl.page_obj.number == num %}
-                      <li class="page-item active">
-                        <span class="page-link">{{ num }}</span>
-                      </li>
-                    {% else %}
-                      <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
-                      </li>
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-
-                {% if cl.page_obj.has_next %}
-                  <li class="page-item">
-                    <a class="page-link" href="?page={{ cl.page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
-                      Siguiente <i class="bi bi-chevron-right"></i>
-                    </a>
-                  </li>
-                {% endif %}
-              </ul>
-            </nav>
-          </div>
-          {% endif %}
-        {% endif %}
-      </div>
+            </ul>
+        </nav>
+    </div>
     {% endif %}
-  {% endblock %}
+</div>
+{% endblock %}
 </div>
 {% endblock %}

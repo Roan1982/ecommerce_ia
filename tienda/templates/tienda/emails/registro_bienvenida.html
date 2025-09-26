@@ -1,0 +1,32 @@
+{% extends 'tienda/emails/base_email.html' %}
+{% load static %}
+
+{% block title %}Bienvenido a E-commerce IA{% endblock %}
+
+{% block content %}
+<h1 style="color: #667eea; text-align: center;">¡Bienvenido a E-commerce IA!</h1>
+
+<p>Hola <strong>{{ user.get_full_name|default:user.username }}</strong>,</p>
+
+<p>¡Gracias por registrarte en E-commerce IA! Tu cuenta ha sido creada exitosamente y ya puedes empezar a disfrutar de todas nuestras funcionalidades.</p>
+
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h3 style="margin-top: 0; color: #667eea;">¿Qué puedes hacer ahora?</h3>
+    <ul style="margin-bottom: 0;">
+        <li><strong>Comprar productos:</strong> Explora nuestro catálogo con recomendaciones personalizadas por IA</li>
+        <li><strong>Programa de lealtad:</strong> Acumula puntos con cada compra y canjéalos por descuentos</li>
+        <li><strong>Wishlist inteligente:</strong> Guarda productos y recibe alertas de precios</li>
+        <li><strong>Comparador de productos:</strong> Compara características y precios fácilmente</li>
+        <li><strong>Newsletter personalizado:</strong> Recibe ofertas exclusivas basadas en tus intereses</li>
+    </ul>
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ SITE_URL }}{% url 'productos' %}" class="email-button">Explorar Productos</a>
+</div>
+
+<p>Si tienes alguna pregunta, no dudes en contactarnos. ¡Estamos aquí para ayudarte!</p>
+
+<p style="margin-bottom: 0;">Saludos cordiales,<br>
+<strong>El equipo de E-commerce IA</strong></p>
+{% endblock %}

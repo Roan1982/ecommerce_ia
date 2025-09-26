@@ -3,9 +3,18 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, UserChangeForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos
-from .forms import ProductoForm, CuponForm, ProfileForm
+from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.conf import settings
+from .services.email_service import EmailService
+from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos, ComparacionProductos, NewsletterSubscription, NewsletterCampaign, NewsletterLog, EmailTemplate, EmailNotification, EmailQueue
+from .forms import ProductoForm, CuponForm, ProfileForm, NewsletterSubscriptionForm, NewsletterUnsubscribeForm, NewsletterCampaignForm, NewsletterTestForm
 from .recomendador import RecomendadorIA
+from .services.email_service import EmailService
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.db import models, transaction
@@ -32,6 +41,15 @@ def registro(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
+
+            # Enviar email de bienvenida
+            try:
+                email_service = EmailService()
+                email_service.enviar_bienvenida_registro(user)
+            except Exception as e:
+                # No fallar el registro si hay error con el email
+                pass
+
             return redirect('home')
     else:
         form = UserCreationForm()
@@ -91,6 +109,13 @@ def productos(request):
     # Obtener IDs de productos en wishlist del usuario para mostrar estado correcto
     wishlist_product_ids = set(Wishlist.objects.filter(usuario=request.user).values_list('producto_id', flat=True))
 
+    # Obtener IDs de productos en comparación del usuario para mostrar estado correcto
+    try:
+        comparacion = ComparacionProductos.objects.get(usuario=request.user)
+        comparacion_product_ids = set(comparacion.productos.values_list('id', flat=True))
+    except ComparacionProductos.DoesNotExist:
+        comparacion_product_ids = set()
+
     response = render(request, 'tienda/productos.html', {
         'productos': productos,
         'query': query,
@@ -98,6 +123,7 @@ def productos(request):
         'ordenar_por': ordenar_por,
         'categorias': categorias,
         'wishlist_product_ids': wishlist_product_ids,
+        'comparacion_product_ids': comparacion_product_ids,
     })
 
     # Agregar headers para evitar cache del navegador
@@ -689,8 +715,24 @@ def procesar_pedido(request):
             puntos_ganados = profile.otorgar_puntos_por_compra(subtotal, f"Compra #{pedido.id}")
             if puntos_ganados > 0:
                 messages.info(request, f'¡Has ganado {puntos_ganados} puntos de fidelidad por tu compra!')
+
+                # Enviar email de notificación de puntos
+                try:
+                    email_service = EmailService()
+                    email_service.enviar_notificacion_puntos(request.user, puntos_ganados, f"Compra #{pedido.id}")
+                except Exception as e:
+                    # No fallar si hay error con el email de puntos
+                    pass
         except Exception as e:
             # No fallar el pedido si hay error con puntos
+            pass
+
+        # Enviar email de confirmación de pedido
+        try:
+            email_service = EmailService()
+            email_service.enviar_confirmacion_pedido(pedido)
+        except Exception as e:
+            # No fallar el pedido si hay error con el email
             pass
 
         messages.success(request, _('¡Pedido realizado exitosamente! Número de pedido: %(pedido_id)d') % {'pedido_id': pedido.id})
@@ -1446,6 +1488,14 @@ def admin_cambiar_estado_pedido(request, pedido_id):
         pedido.estado = nuevo_estado
         pedido.save()
 
+        # Enviar email de actualización de estado de pedido
+        try:
+            email_service = EmailService()
+            email_service.enviar_actualizacion_pedido(pedido)
+        except Exception as e:
+            # No fallar la actualización si hay error con el email
+            pass
+
         return JsonResponse({
             'success': True,
             'nuevo_estado': pedido.get_estado_display(),
@@ -2100,6 +2150,163 @@ def wishlist_count(request):
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 
+# ===== SISTEMA DE COMPARACIÓN DE PRODUCTOS =====
+
+@login_required
+def comparacion_productos(request):
+    """Vista para mostrar la comparación de productos"""
+    try:
+        comparacion = request.user.comparacion
+        productos = comparacion.productos_ordenados
+    except ComparacionProductos.DoesNotExist:
+        comparacion = None
+        productos = []
+
+    # Si no hay productos suficientes para comparar, mostrar mensaje
+    if len(productos) < 2:
+        return render(request, 'tienda/comparacion.html', {
+            'productos': productos,
+            'mensaje': 'Agrega al menos 2 productos para comparar.',
+            'puede_agregar_mas': True,
+        })
+
+    # Preparar datos para comparación
+    productos_comparacion = []
+    for producto in productos:
+        productos_comparacion.append({
+            'producto': producto,
+            'caracteristicas': {
+                'Precio': f"${producto.precio}",
+                'Categoría': producto.categoria,
+                'Stock': producto.stock,
+                'Estado': producto.get_estado_display(),
+                'Peso': f"{producto.peso} kg" if producto.peso else "N/A",
+                'Dimensiones': producto.dimensiones or "N/A",
+                'SKU': producto.sku or "N/A",
+                'Calificación': f"{producto.promedio_calificacion}★ ({producto.total_resenas} reseñas)" if producto.total_resenas > 0 else "Sin reseñas",
+            }
+        })
+
+    return render(request, 'tienda/comparacion.html', {
+        'productos_comparacion': productos_comparacion,
+        'productos': productos,
+        'puede_agregar_mas': comparacion.puede_agregar_mas if comparacion else True,
+    })
+
+@login_required
+def agregar_a_comparacion(request, producto_id):
+    """Vista para agregar un producto a la comparación"""
+    if request.method == 'POST':
+        try:
+            producto = Producto.objects.get(id=producto_id)
+
+            # Obtener o crear comparación para el usuario
+            comparacion, created = ComparacionProductos.objects.get_or_create(
+                usuario=request.user,
+                defaults={}
+            )
+
+            try:
+                comparacion.agregar_producto(producto)
+                messages.success(request, f'"{producto.nombre}" agregado a comparación.')
+            except ValueError as e:
+                messages.warning(request, str(e))
+
+        except Producto.DoesNotExist:
+            messages.error(request, 'Producto no encontrado.')
+
+    return redirect(request.META.get('HTTP_REFERER', 'productos'))
+
+@login_required
+def quitar_de_comparacion(request, producto_id):
+    """Vista para quitar un producto de la comparación"""
+    if request.method == 'POST':
+        try:
+            comparacion = request.user.comparacion
+            producto = Producto.objects.get(id=producto_id)
+            comparacion.quitar_producto(producto)
+            messages.success(request, f'"{producto.nombre}" removido de comparación.')
+
+        except (ComparacionProductos.DoesNotExist, Producto.DoesNotExist):
+            messages.error(request, 'Error al remover producto de comparación.')
+
+    return redirect('comparacion_productos')
+
+@login_required
+def limpiar_comparacion(request):
+    """Vista para limpiar todos los productos de la comparación"""
+    if request.method == 'POST':
+        try:
+            comparacion = request.user.comparacion
+            comparacion.limpiar()
+            messages.success(request, 'Comparación limpiada exitosamente.')
+        except ComparacionProductos.DoesNotExist:
+            messages.warning(request, 'No hay productos para limpiar.')
+
+    return redirect('comparacion_productos')
+
+@login_required
+def toggle_comparacion(request, producto_id):
+    """Vista AJAX para agregar/quitar producto de comparación"""
+    if request.method == 'POST':
+        try:
+            producto = Producto.objects.get(id=producto_id)
+
+            # Obtener o crear comparación para el usuario
+            comparacion, created = ComparacionProductos.objects.get_or_create(
+                usuario=request.user,
+                defaults={}
+            )
+
+            if comparacion.productos.filter(id=producto.id).exists():
+                # Si existe, lo quitamos
+                comparacion.quitar_producto(producto)
+                return JsonResponse({
+                    'success': True,
+                    'action': 'removed',
+                    'message': f'"{producto.nombre}" removido de comparación.',
+                    'count': comparacion.productos.count()
+                })
+            else:
+                # Si no existe, lo agregamos (si hay espacio)
+                try:
+                    comparacion.agregar_producto(producto)
+                    return JsonResponse({
+                        'success': True,
+                        'action': 'added',
+                        'message': f'"{producto.nombre}" agregado a comparación.',
+                        'count': comparacion.productos.count(),
+                        'can_add_more': comparacion.puede_agregar_mas
+                    })
+                except ValueError as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    })
+
+        except Producto.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Producto no encontrado.'
+            })
+
+    return JsonResponse({
+        'success': False,
+        'error': 'Método no permitido.'
+    })
+
+@login_required
+def comparacion_count(request):
+    """Vista AJAX para obtener el conteo de productos en comparación"""
+    if request.method == 'GET':
+        try:
+            count = request.user.comparacion.productos.count()
+        except ComparacionProductos.DoesNotExist:
+            count = 0
+        return JsonResponse({'count': count})
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
 # ===== SISTEMA DE PUNTOS DE FIDELIDAD =====
 
 @login_required
@@ -2229,4 +2436,1160 @@ def canjear_puntos(request):
     return render(request, 'tienda/canjear_puntos.html', {
         'profile': profile,
         'opciones_canje': opciones_canje,
+    })
+
+
+# ===== VISTAS DE NEWSLETTER =====
+
+from .forms import NewsletterSubscriptionForm, NewsletterUnsubscribeForm, NewsletterCampaignForm, NewsletterTestForm
+from .models import NewsletterSubscription, NewsletterCampaign, NewsletterLog
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.conf import settings
+from django.urls import reverse
+import threading
+
+
+def suscribir_newsletter(request):
+    """Vista para suscribirse al newsletter"""
+    if request.method == 'POST':
+        form = NewsletterSubscriptionForm(request.POST)
+        if form.is_valid():
+            subscription = form.save(commit=False)
+            subscription.generar_token_confirmacion()
+            subscription.save()
+
+            # Enviar email de confirmación
+            enviar_email_confirmacion(subscription)
+
+            messages.success(request, '¡Suscripción registrada! Revisa tu email para confirmar.')
+            return redirect('home')
+    else:
+        form = NewsletterSubscriptionForm()
+
+    return render(request, 'tienda/newsletter_suscribir.html', {
+        'form': form,
+    })
+
+
+def confirmar_newsletter(request, token):
+    """Vista para confirmar suscripción al newsletter"""
+    try:
+        subscription = NewsletterSubscription.objects.get(token_confirmacion=token, activo=True)
+        subscription.confirmar_suscripcion()
+        messages.success(request, '¡Suscripción confirmada! Ahora recibirás nuestros newsletters.')
+    except NewsletterSubscription.DoesNotExist:
+        messages.error(request, 'Enlace de confirmación inválido o expirado.')
+
+    return redirect('home')
+
+
+def cancelar_newsletter(request):
+    """Vista para cancelar suscripción al newsletter"""
+    if request.method == 'POST':
+        form = NewsletterUnsubscribeForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            subscription = NewsletterSubscription.objects.get(email=email, activo=True)
+            subscription.cancelar_suscripcion()
+            messages.success(request, 'Suscripción cancelada exitosamente.')
+            return redirect('home')
+    else:
+        form = NewsletterUnsubscribeForm()
+
+    return render(request, 'tienda/newsletter_cancelar.html', {
+        'form': form,
+    })
+
+
+def newsletter_unsubscribe_direct(request, email_b64):
+    """Vista para cancelar suscripción directamente desde email (enlace único)"""
+    import base64
+    try:
+        email = base64.b64decode(email_b64).decode('utf-8')
+        subscription = NewsletterSubscription.objects.get(email=email, activo=True)
+        subscription.cancelar_suscripcion()
+        messages.success(request, 'Suscripción cancelada exitosamente.')
+    except Exception:
+        messages.error(request, 'Error al cancelar la suscripción.')
+
+    return redirect('home')
+
+
+@login_required
+def admin_newsletter(request):
+    """Vista administrativa para gestionar newsletter"""
+    if not request.user.is_staff:
+        messages.error(request, 'No tienes permisos para acceder a esta página.')
+        return redirect('home')
+
+    # Estadísticas generales
+    stats = {
+        'total_suscriptores': NewsletterSubscription.objects.filter(activo=True).count(),
+        'suscriptores_confirmados': NewsletterSubscription.objects.filter(activo=True, confirmado=True).count(),
+        'campanas_totales': NewsletterCampaign.objects.count(),
+        'campanas_enviadas': NewsletterCampaign.objects.filter(estado='enviado').count(),
+    }
+
+    # Campañas recientes
+    campanas_recientes = NewsletterCampaign.objects.all()[:5]
+
+    return render(request, 'tienda/admin_newsletter.html', {
+        'stats': stats,
+        'campanas_recientes': campanas_recientes,
+    })
+
+
+@login_required
+def admin_newsletter_suscriptores(request):
+    """Vista para gestionar suscriptores"""
+    if not request.user.is_staff:
+        messages.error(request, 'No tienes permisos para acceder a esta página.')
+        return redirect('home')
+
+    # Filtros
+    estado_filter = request.GET.get('estado', 'todos')
+    frecuencia_filter = request.GET.get('frecuencia', 'todos')
+
+    suscriptores = NewsletterSubscription.objects.all()
+
+    if estado_filter == 'activos':
+        suscriptores = suscriptores.filter(activo=True, confirmado=True)
+    elif estado_filter == 'pendientes':
+        suscriptores = suscriptores.filter(activo=True, confirmado=False)
+    elif estado_filter == 'inactivos':
+        suscriptores = suscriptores.filter(activo=False)
+
+    if frecuencia_filter != 'todos':
+        suscriptores = suscriptores.filter(frecuencia=frecuencia_filter)
+
+    return render(request, 'tienda/admin_newsletter_suscriptores.html', {
+        'suscriptores': suscriptores,
+        'filtros': {
+            'estado': estado_filter,
+            'frecuencia': frecuencia_filter,
+        }
+    })
+
+
+@login_required
+def admin_newsletter_campanas(request):
+    """Vista para gestionar campañas"""
+    if not request.user.is_staff:
+        messages.error(request, 'No tienes permisos para acceder a esta página.')
+        return redirect('home')
+
+    campanas = NewsletterCampaign.objects.all().order_by('-fecha_creacion')
+
+    return render(request, 'tienda/admin_newsletter_campanas.html', {
+        'campanas': campanas,
+    })
+
+
+@login_required
+def admin_crear_campana(request):
+    """Vista para crear nueva campaña"""
+    if not request.user.is_staff:
+        messages.error(request, 'No tienes permisos para acceder a esta página.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        titulo = request.POST.get('titulo')
+        asunto = request.POST.get('asunto')
+        descripcion = request.POST.get('descripcion', '')
+        contenido_html = request.POST.get('contenido_html')
+        contenido_texto = request.POST.get('contenido_texto', '')
+        fecha_envio = request.POST.get('fecha_envio')
+        segmento = request.POST.get('segmento', 'todos')
+        prioridad = request.POST.get('prioridad', 'normal')
+        tracking_aperturas = request.POST.get('tracking_aperturas') == 'on'
+        tracking_clics = request.POST.get('tracking_clics') == 'on'
+        accion = request.POST.get('accion')
+
+        # Validación básica
+        if not titulo or not asunto or not contenido_html:
+            messages.error(request, 'Los campos título, asunto y contenido HTML son obligatorios.')
+            return redirect('admin_crear_campana')
+
+        # Crear campaña
+        campana = NewsletterCampaign.objects.create(
+            titulo=titulo,
+            asunto=asunto,
+            descripcion=descripcion,
+            contenido_html=contenido_html,
+            contenido_texto=contenido_texto,
+            segmento=segmento,
+            prioridad=prioridad,
+            tracking_aperturas=tracking_aperturas,
+            tracking_clics=tracking_clics,
+            creado_por=request.user
+        )
+
+        if fecha_envio:
+            try:
+                campana.fecha_envio = fecha_envio
+                campana.estado = 'programado'
+                campana.save()
+                messages.success(request, f'Campaña "{campana.titulo}" programada para envío.')
+            except ValueError:
+                messages.error(request, 'Fecha de envío inválida.')
+                return redirect('admin_crear_campana')
+        elif accion == 'enviar_ahora':
+            # Iniciar envío inmediato
+            campana.iniciar_envio()
+            campana.save()
+            messages.success(request, f'Campaña "{campana.titulo}" creada y envío iniciado.')
+            # Aquí se debería iniciar el envío en background
+        else:
+            messages.success(request, f'Campaña "{campana.titulo}" guardada como borrador.')
+
+        return redirect('admin_newsletter_campanas')
+
+    return render(request, 'tienda/admin_campana_form.html', {
+        'campana': None
+    })
+
+
+@login_required
+def admin_editar_campana(request, campana_id):
+    """Vista para editar campaña existente"""
+    if not request.user.is_staff:
+        messages.error(request, 'No tienes permisos para acceder a esta página.')
+        return redirect('home')
+
+    try:
+        campana = NewsletterCampaign.objects.get(id=campana_id)
+    except NewsletterCampaign.DoesNotExist:
+        messages.error(request, 'Campaña no encontrada.')
+        return redirect('admin_newsletter_campanas')
+
+    if request.method == 'POST':
+        titulo = request.POST.get('titulo')
+        asunto = request.POST.get('asunto')
+        descripcion = request.POST.get('descripcion', '')
+        contenido_html = request.POST.get('contenido_html')
+        contenido_texto = request.POST.get('contenido_texto', '')
+        fecha_envio = request.POST.get('fecha_envio')
+        segmento = request.POST.get('segmento', 'todos')
+        prioridad = request.POST.get('prioridad', 'normal')
+        tracking_aperturas = request.POST.get('tracking_aperturas') == 'on'
+        tracking_clics = request.POST.get('tracking_clics') == 'on'
+        accion = request.POST.get('accion')
+
+        # Validación básica
+        if not titulo or not asunto or not contenido_html:
+            messages.error(request, 'Los campos título, asunto y contenido HTML son obligatorios.')
+            return redirect('admin_editar_campana', campana_id=campana_id)
+
+        # Solo permitir edición si está en borrador
+        if campana.estado not in ['borrador', 'programado']:
+            messages.error(request, 'No se puede editar una campaña que ya se está enviando o ha sido enviada.')
+            return redirect('admin_newsletter_campanas')
+
+        # Actualizar campaña
+        campana.titulo = titulo
+        campana.asunto = asunto
+        campana.descripcion = descripcion
+        campana.contenido_html = contenido_html
+        campana.contenido_texto = contenido_texto
+        campana.segmento = segmento
+        campana.prioridad = prioridad
+        campana.tracking_aperturas = tracking_aperturas
+        campana.tracking_clics = tracking_clics
+
+        if fecha_envio and accion == 'programar':
+            try:
+                campana.fecha_envio = fecha_envio
+                campana.estado = 'programado'
+                messages.success(request, f'Campaña "{campana.titulo}" programada para envío.')
+            except ValueError:
+                messages.error(request, 'Fecha de envío inválida.')
+                return redirect('admin_editar_campana', campana_id=campana_id)
+        elif accion == 'enviar_ahora' and campana.estado == 'borrador':
+            campana.fecha_envio = None
+            campana.estado = 'enviando'
+            campana.fecha_envio = timezone.now()
+            messages.success(request, f'Campaña "{campana.titulo}" enviada.')
+            # Aquí se debería iniciar el envío en background
+        else:
+            messages.success(request, f'Campaña "{campana.titulo}" actualizada.')
+
+        campana.save()
+        return redirect('admin_newsletter_campanas')
+
+    return render(request, 'tienda/admin_campana_form.html', {
+        'campana': campana
+    })
+
+
+@login_required
+def admin_enviar_campana(request, campana_id):
+    """Vista para enviar campaña en background"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        campana = NewsletterCampaign.objects.get(id=campana_id)
+        if campana.estado not in ['borrador', 'programado']:
+            return JsonResponse({'success': False, 'error': 'La campaña no está en estado válido para envío'})
+
+        # Iniciar envío en background
+        campana.iniciar_envio()
+        campana.save()
+
+        thread = threading.Thread(target=enviar_campana_background, args=[campana.id])
+        thread.daemon = True
+        thread.start()
+
+        return JsonResponse({'success': True, 'mensaje': 'Envío de campaña iniciado en background'})
+
+    except NewsletterCampaign.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Campaña no encontrada'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def admin_enviar_campana_directo(request, campana_id):
+    """Vista para enviar campaña de newsletter de forma directa (síncrona)"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        campana = NewsletterCampaign.objects.get(id=campana_id)
+
+        if campana.estado not in ['borrador', 'programado']:
+            return JsonResponse({'success': False, 'error': 'La campaña no está en estado válido para envío'})
+
+        # Usar el método send_campaign del modelo
+        resultado = campana.send_campaign()
+
+        if resultado['success']:
+            return JsonResponse({
+                'success': True,
+                'mensaje': f'Campaña enviada exitosamente. {resultado["emails_enviados"]} emails enviados.',
+                'emails_enviados': resultado['emails_enviados'],
+                'emails_fallidos': resultado['emails_fallidos'],
+                'total_suscriptores': resultado['total_suscriptores']
+            })
+        else:
+            # Marcar como fallida si hubo error
+            campana.estado = 'fallido'
+            campana.save()
+            return JsonResponse({
+                'success': False,
+                'error': f'Error enviando campaña: {resultado.get("error", "Error desconocido")}'
+            })
+
+    except NewsletterCampaign.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Campaña no encontrada'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def admin_test_campana(request, campana_id):
+    """Vista para enviar campaña de prueba"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    if request.method == 'POST':
+        form = NewsletterTestForm(request.POST)
+        if form.is_valid():
+            try:
+                campana = NewsletterCampaign.objects.get(id=campana_id)
+                email_prueba = form.cleaned_data['email_prueba']
+
+                # Enviar email de prueba
+                enviar_newsletter_individual(campana, email_prueba, es_prueba=True)
+
+                return JsonResponse({'success': True, 'mensaje': f'Email de prueba enviado a {email_prueba}'})
+
+            except NewsletterCampaign.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Campaña no encontrada'})
+        else:
+            return JsonResponse({'success': False, 'error': 'Email inválido'})
+
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+
+@login_required
+def admin_eliminar_campana(request, campana_id):
+    """Vista AJAX para eliminar campaña"""
+    if not request.user.is_staff or request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        campana = NewsletterCampaign.objects.get(id=campana_id)
+        if campana.estado == 'enviando':
+            return JsonResponse({'success': False, 'error': 'No se puede eliminar una campaña que se está enviando'})
+
+        titulo = campana.titulo
+        campana.delete()
+
+        return JsonResponse({'success': True, 'mensaje': f'Campaña "{titulo}" eliminada'})
+
+    except NewsletterCampaign.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Campaña no encontrada'})
+
+
+# ===== FUNCIONES AUXILIARES PARA NEWSLETTER =====
+
+def enviar_email_confirmacion(subscription):
+    """Envía email de confirmación de suscripción"""
+    subject = 'Confirma tu suscripción al newsletter'
+    confirm_url = reverse('confirmar_newsletter', kwargs={'token': subscription.token_confirmacion})
+    full_confirm_url = f"{settings.SITE_URL}{confirm_url}"
+
+    context = {
+        'subscription': subscription,
+        'confirm_url': full_confirm_url,
+    }
+
+    html_message = render_to_string('tienda/emails/newsletter_confirmacion.html', context)
+    plain_message = strip_tags(html_message)
+
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[subscription.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+    except Exception as e:
+        # Log error but don't break the flow
+        print(f"Error enviando email de confirmación: {e}")
+
+
+def enviar_campana_background(campana_id):
+    """Función para enviar campaña en background"""
+    try:
+        campana = NewsletterCampaign.objects.get(id=campana_id)
+
+        # Usar el método send_campaign del modelo
+        resultado = campana.send_campaign()
+
+        if resultado['success']:
+            print(f"Campaña '{campana.titulo}' enviada exitosamente. {resultado['emails_enviados']} emails enviados, {resultado['emails_fallidos']} fallidos.")
+        else:
+            print(f"Error enviando campaña '{campana.titulo}': {resultado.get('error', 'Error desconocido')}")
+
+    except Exception as e:
+        print(f"Error en envío de campaña: {e}")
+
+
+def enviar_newsletter_individual(campana, email, es_prueba=False):
+    """Envía newsletter individual"""
+    try:
+        # Obtener suscriptor si no es prueba
+        suscriptor = None
+        if not es_prueba:
+            try:
+                suscriptor = NewsletterSubscription.objects.get(email=email)
+            except NewsletterSubscription.DoesNotExist:
+                return
+
+        # Generar URLs de tracking
+        unsubscribe_url = generar_unsubscribe_url(email)
+
+        context = {
+            'campana': campana,
+            'suscriptor': suscriptor,
+            'unsubscribe_url': unsubscribe_url,
+            'es_prueba': es_prueba,
+        }
+
+        html_content = render_to_string('tienda/emails/newsletter_template.html', context)
+        text_content = strip_tags(html_content)
+
+        # Crear email
+        email_msg = EmailMultiAlternatives(
+            subject=campana.asunto,
+            body=text_content,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email]
+        )
+        email_msg.attach_alternative(html_content, "text/html")
+
+        # Enviar
+        email_msg.send()
+
+    except Exception as e:
+        print(f"Error enviando newsletter a {email}: {e}")
+
+
+def enviar_newsletter_campana(campana):
+    """Envía newsletter a todos los suscriptores de una campaña"""
+    try:
+        # Obtener suscriptores según el segmento de la campaña
+        suscriptores = campana.obtener_suscriptores_target()
+
+        emails_enviados = 0
+        emails_fallidos = 0
+
+        for suscriptor in suscriptores:
+            try:
+                # Generar URLs de tracking
+                unsubscribe_url = generar_unsubscribe_url(suscriptor.email)
+
+                context = {
+                    'campana': campana,
+                    'suscriptor': suscriptor,
+                    'unsubscribe_url': unsubscribe_url,
+                    'es_prueba': False,
+                }
+
+                # Renderizar contenido
+                html_content = render_to_string('tienda/emails/newsletter_template.html', context)
+                text_content = strip_tags(html_content)
+
+                # Crear email con tracking si está habilitado
+                subject = campana.asunto
+                if campana.tracking_aperturas or campana.tracking_clics:
+                    # Agregar tracking de apertura (pixel transparente)
+                    if campana.tracking_aperturas:
+                        # Crear log de envío para tracking
+                        log_envio = NewsletterLog.objects.create(
+                            campaign=campana,
+                            suscriptor=suscriptor,
+                            tipo='envio'
+                        )
+                        # Agregar pixel de tracking al HTML
+                        tracking_pixel = f'<img src="{settings.SITE_URL}/newsletter/tracking/open/{log_envio.id}/" width="1" height="1" style="display:none;" alt="" />'
+                        html_content = html_content.replace('</body>', f'{tracking_pixel}</body>')
+
+                    # Agregar tracking de clics si está habilitado
+                    if campana.tracking_clics:
+                        # Aquí se podrían procesar los links para agregar tracking
+                        # Por simplicidad, se omite en esta implementación básica
+                        pass
+
+                # Crear y enviar email
+                email_msg = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_content,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[suscriptor.email]
+                )
+                email_msg.attach_alternative(html_content, "text/html")
+
+                # Enviar email
+                email_msg.send()
+
+                # Registrar envío exitoso
+                NewsletterLog.objects.create(
+                    campaign=campana,
+                    suscriptor=suscriptor,
+                    tipo='envio'
+                )
+
+                emails_enviados += 1
+
+                # Actualizar contador en campaña
+                campana.enviados += 1
+                campana.save()
+
+            except Exception as e:
+                print(f"Error enviando newsletter a {suscriptor.email}: {e}")
+                emails_fallidos += 1
+                continue
+
+        # Completar campaña
+        campana.completar_envio()
+
+        return {
+            'success': True,
+            'emails_enviados': emails_enviados,
+            'emails_fallidos': emails_fallidos,
+            'total_suscriptores': len(suscriptores)
+        }
+
+    except Exception as e:
+        print(f"Error enviando campaña de newsletter: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+def generar_unsubscribe_url(email):
+    """Genera URL de cancelación de suscripción"""
+    import base64
+    email_b64 = base64.b64encode(email.encode()).decode()
+    return reverse('newsletter_unsubscribe_direct', kwargs={'email_b64': email_b64})
+
+
+def tracking_newsletter_open(request, log_id):
+    """Tracking de apertura de newsletter (pixel transparente)"""
+    try:
+        log = NewsletterLog.objects.get(id=log_id)
+        if log.tipo == 'envio':
+            # Registrar apertura
+            NewsletterLog.objects.create(
+                campaign=log.campaign,
+                suscriptor=log.suscriptor,
+                tipo='apertura',
+                ip_address=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT')
+            )
+            # Incrementar contador
+            log.campaign.abiertos += 1
+            log.campaign.save()
+    except NewsletterLog.DoesNotExist:
+        pass
+
+    # Devolver pixel transparente
+    from django.http import HttpResponse
+    response = HttpResponse(content_type='image/gif')
+    response.write(b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;')
+    return response
+
+
+def tracking_newsletter_click(request, log_id, url):
+    """Tracking de clics en newsletter"""
+    try:
+        log = NewsletterLog.objects.get(id=log_id)
+        if log.tipo == 'envio':
+            # Registrar clic
+            NewsletterLog.objects.create(
+                campaign=log.campaign,
+                suscriptor=log.suscriptor,
+                tipo='clic',
+                url_clic=url,
+                ip_address=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT')
+            )
+            # Incrementar contador
+            log.campaign.clics += 1
+            log.campaign.save()
+    except NewsletterLog.DoesNotExist:
+        pass
+
+    # Redirigir a URL original
+    from django.http import HttpResponseRedirect
+    return HttpResponseRedirect(url)
+
+
+def get_client_ip(request):
+    """Obtiene la IP del cliente"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
+@login_required
+def admin_cancelar_campana(request, campana_id):
+    """Vista AJAX para cancelar campaña programada"""
+    if not request.user.is_staff or request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        campana = NewsletterCampaign.objects.get(id=campana_id)
+        if campana.estado != 'programado':
+            return JsonResponse({'success': False, 'error': 'Solo se pueden cancelar campañas programadas'})
+
+        campana.estado = 'cancelado'
+        campana.save()
+
+        return JsonResponse({'success': True, 'mensaje': f'Campaña "{campana.titulo}" cancelada'})
+
+    except NewsletterCampaign.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Campaña no encontrada'})
+
+
+@login_required
+def admin_duplicar_campana(request, campana_id):
+    """Vista AJAX para duplicar campaña"""
+    if not request.user.is_staff or request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        campana_original = NewsletterCampaign.objects.get(id=campana_id)
+
+        # Crear copia
+        campana = NewsletterCampaign.objects.create(
+            titulo=f"{campana_original.titulo} (Copia)",
+            asunto=campana_original.asunto,
+            descripcion=campana_original.descripcion,
+            contenido_html=campana_original.contenido_html,
+            contenido_texto=campana_original.contenido_texto,
+            segmento=campana_original.segmento,
+            prioridad=campana_original.prioridad,
+            tracking_aperturas=campana_original.tracking_aperturas,
+            tracking_clics=campana_original.tracking_clics,
+            creado_por=request.user,
+            estado='borrador'
+        )
+
+        return JsonResponse({'success': True, 'mensaje': f'Campaña duplicada como "{campana.titulo}"'})
+
+    except NewsletterCampaign.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Campaña no encontrada'})
+
+
+@login_required
+def admin_activar_suscriptor(request, suscriptor_id):
+    """Vista AJAX para activar suscriptor"""
+    if not request.user.is_staff or request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        suscriptor = NewsletterSubscription.objects.get(id=suscriptor_id)
+        suscriptor.activo = True
+        suscriptor.save()
+
+        return JsonResponse({'success': True, 'mensaje': f'Suscriptor {suscriptor.email} activado'})
+
+    except NewsletterSubscription.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Suscriptor no encontrado'})
+
+
+@login_required
+def admin_desactivar_suscriptor(request, suscriptor_id):
+    """Vista AJAX para desactivar suscriptor"""
+    if not request.user.is_staff or request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        suscriptor = NewsletterSubscription.objects.get(id=suscriptor_id)
+        suscriptor.activo = False
+        suscriptor.save()
+
+        return JsonResponse({'success': True, 'mensaje': f'Suscriptor {suscriptor.email} desactivado'})
+
+    except NewsletterSubscription.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Suscriptor no encontrado'})
+
+
+@login_required
+def admin_eliminar_suscriptor(request, suscriptor_id):
+    """Vista AJAX para eliminar suscriptor"""
+    if not request.user.is_staff or request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        suscriptor = NewsletterSubscription.objects.get(id=suscriptor_id)
+        email = suscriptor.email
+        suscriptor.delete()
+
+        return JsonResponse({'success': True, 'mensaje': f'Suscriptor {email} eliminado'})
+
+    except NewsletterSubscription.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Suscriptor no encontrado'})
+
+
+@login_required
+def admin_reenviar_confirmacion(request, suscriptor_id):
+    """Vista AJAX para reenviar confirmación"""
+    if not request.user.is_staff or request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        suscriptor = NewsletterSubscription.objects.get(id=suscriptor_id)
+        if suscriptor.confirmado:
+            return JsonResponse({'success': False, 'error': 'El suscriptor ya está confirmado'})
+
+        # Reenviar email de confirmación
+        enviar_email_confirmacion(suscriptor)
+
+        return JsonResponse({'success': True, 'mensaje': f'Email de confirmación reenviado a {suscriptor.email}'})
+
+    except NewsletterSubscription.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Suscriptor no encontrado'})
+
+
+@login_required
+def admin_exportar_suscriptores(request):
+    """Vista para exportar suscriptores a CSV"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    # Aplicar filtros similares a la vista de suscriptores
+    suscriptores = NewsletterSubscription.objects.all()
+
+    busqueda = request.GET.get('busqueda')
+    if busqueda:
+        suscriptores = suscriptores.filter(
+            models.Q(email__icontains=busqueda) | models.Q(nombre__icontains=busqueda)
+        )
+
+    estado = request.GET.get('estado')
+    if estado == 'activo':
+        suscriptores = suscriptores.filter(activo=True)
+    elif estado == 'inactivo':
+        suscriptores = suscriptores.filter(activo=False)
+
+    confirmado = request.GET.get('confirmado')
+    if confirmado == 'si':
+        suscriptores = suscriptores.filter(confirmado=True)
+    elif confirmado == 'no':
+        suscriptores = suscriptores.filter(confirmado=False)
+
+    frecuencia = request.GET.get('frecuencia')
+    if frecuencia:
+        suscriptores = suscriptores.filter(frecuencia=frecuencia)
+
+    # Crear respuesta CSV
+    from django.http import HttpResponse
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="suscriptores_newsletter.csv"'
+
+    import csv
+    writer = csv.writer(response)
+    writer.writerow(['Email', 'Nombre', 'Activo', 'Confirmado', 'Frecuencia', 'Fecha Suscripción'])
+
+    for suscriptor in suscriptores:
+        writer.writerow([
+            suscriptor.email,
+            suscriptor.nombre or '',
+            'Sí' if suscriptor.activo else 'No',
+            'Sí' if suscriptor.confirmado else 'No',
+            suscriptor.frecuencia,
+            suscriptor.fecha_suscripcion.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+
+    return response
+
+
+@login_required
+def admin_enviar_test_newsletter(request):
+    """Vista AJAX para enviar email de prueba"""
+    if not request.user.is_staff or request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        email = request.POST.get('email')
+        asunto = request.POST.get('asunto')
+        contenido_html = request.POST.get('contenido_html')
+
+        if not email or not asunto or not contenido_html:
+            return JsonResponse({'success': False, 'error': 'Faltan datos requeridos'})
+
+        # Enviar email de prueba
+        email_msg = EmailMultiAlternatives(
+            subject=f"[PRUEBA] {asunto}",
+            body=strip_tags(contenido_html),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email]
+        )
+        email_msg.attach_alternative(contenido_html, "text/html")
+        email_msg.send()
+
+        return JsonResponse({'success': True, 'mensaje': f'Email de prueba enviado a {email}'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+# ========================================
+# VISTAS DE RECUPERACIÓN DE CONTRASEÑA
+# ========================================
+
+def password_reset_request(request):
+    """Vista para solicitar recuperación de contraseña"""
+    if request.method == 'POST':
+        form = PasswordResetForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            try:
+                user = User.objects.get(email=email)
+                # Generar token y UID
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+
+                # Construir URL de recuperación
+                reset_url = request.build_absolute_uri(
+                    reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+                )
+
+                # Enviar email de recuperación
+                try:
+                    email_service = EmailService()
+                    email_service.enviar_recuperacion_password(user, reset_url)
+                    messages.success(request, _('Se ha enviado un email con instrucciones para recuperar tu contraseña.'))
+                except Exception as e:
+                    messages.error(request, _('Error al enviar el email. Por favor intenta nuevamente.'))
+
+            except User.DoesNotExist:
+                # No revelar si el email existe o no por seguridad
+                messages.success(request, _('Si existe una cuenta con ese email, recibirás instrucciones para recuperar tu contraseña.'))
+
+            return redirect('password_reset_done')
+    else:
+        form = PasswordResetForm()
+
+    return render(request, 'tienda/password_reset.html', {'form': form})
+
+
+def password_reset_done(request):
+    """Vista mostrada después de solicitar recuperación de contraseña"""
+    return render(request, 'tienda/password_reset_done.html')
+
+
+def password_reset_confirm(request, uidb64=None, token=None):
+    """Vista para confirmar recuperación de contraseña y establecer nueva contraseña"""
+    try:
+        # Decodificar UID
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    # Verificar token
+    if user is not None and default_token_generator.check_token(user, token):
+        if request.method == 'POST':
+            form = SetPasswordForm(user, request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, _('Tu contraseña ha sido cambiada exitosamente.'))
+                return redirect('password_reset_complete')
+        else:
+            form = SetPasswordForm(user)
+    else:
+        messages.error(request, _('El enlace de recuperación es inválido o ha expirado.'))
+        return redirect('password_reset_request')
+
+    return render(request, 'tienda/password_reset_confirm.html', {'form': form})
+
+
+def password_reset_complete(request):
+    """Vista mostrada después de completar recuperación de contraseña"""
+    return render(request, 'tienda/password_reset_complete.html')
+
+
+# ========================================
+# DASHBOARD DE REPORTES DE EMAIL
+# ========================================
+
+@login_required
+def admin_email_dashboard(request):
+    """Dashboard principal de reportes de email"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros de fecha
+    periodo = request.GET.get('periodo', '7d')
+    fecha_hasta = timezone.now()
+
+    if periodo == '1d':
+        fecha_desde = fecha_hasta - timedelta(days=1)
+    elif periodo == '7d':
+        fecha_desde = fecha_hasta - timedelta(days=7)
+    elif periodo == '30d':
+        fecha_desde = fecha_hasta - timedelta(days=30)
+    else:
+        fecha_desde = fecha_hasta - timedelta(days=7)
+
+    # Estadísticas generales
+    stats = {
+        'total_emails': EmailNotification.objects.filter(fecha_creacion__gte=fecha_desde).count(),
+        'emails_enviados': EmailNotification.objects.filter(
+            fecha_creacion__gte=fecha_desde, estado='enviado'
+        ).count(),
+        'emails_pendientes': EmailNotification.objects.filter(
+            fecha_creacion__gte=fecha_desde, estado='pendiente'
+        ).count(),
+        'emails_fallidos': EmailNotification.objects.filter(
+            fecha_creacion__gte=fecha_desde, estado='fallido'
+        ).count(),
+        'tasa_exito': 0,
+    }
+
+    if stats['total_emails'] > 0:
+        stats['tasa_exito'] = round((stats['emails_enviados'] / stats['total_emails']) * 100, 1)
+
+    # Estadísticas por tipo de email
+    tipos_email = EmailNotification.objects.filter(
+        fecha_creacion__gte=fecha_desde
+    ).values('tipo').annotate(
+        total=Count('id'),
+        enviados=Count('id', filter=models.Q(estado='enviado')),
+        fallidos=Count('id', filter=models.Q(estado='fallido'))
+    ).order_by('-total')
+
+    # Emails por día (últimos 7 días)
+    emails_por_dia = []
+    for i in range(7):
+        fecha = fecha_hasta - timedelta(days=i)
+        fecha_inicio = fecha.replace(hour=0, minute=0, second=0, microsecond=0)
+        fecha_fin = fecha.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        emails_dia = EmailNotification.objects.filter(
+            fecha_creacion__gte=fecha_inicio,
+            fecha_creacion__lte=fecha_fin
+        ).aggregate(
+            total=Count('id'),
+            enviados=Count('id', filter=models.Q(estado='enviado')),
+            fallidos=Count('id', filter=models.Q(estado='fallido'))
+        )
+
+        emails_por_dia.append({
+            'fecha': fecha.strftime('%Y-%m-%d'),
+            'dia': fecha.strftime('%a'),
+            'total': emails_dia['total'],
+            'enviados': emails_dia['enviados'],
+            'fallidos': emails_dia['fallidos']
+        })
+
+    emails_por_dia.reverse()
+
+    # Emails más recientes
+    emails_recientes = EmailNotification.objects.select_related('usuario').order_by('-fecha_creacion')[:10]
+
+    # Estadísticas de newsletter
+    newsletter_stats = {
+        'campanas_activas': NewsletterCampaign.objects.filter(estado='enviando').count(),
+        'campanas_completadas': NewsletterCampaign.objects.filter(
+            estado='enviado', fecha_creacion__gte=fecha_desde
+        ).count(),
+        'total_suscriptores': NewsletterSubscription.objects.filter(activo=True).count(),
+        'suscriptores_confirmados': NewsletterSubscription.objects.filter(
+            activo=True, confirmado=True
+        ).count(),
+    }
+
+    return render(request, 'tienda/admin_email_dashboard.html', {
+        'stats': stats,
+        'tipos_email': tipos_email,
+        'emails_por_dia': emails_por_dia,
+        'emails_recientes': emails_recientes,
+        'newsletter_stats': newsletter_stats,
+        'periodo': periodo,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+    })
+
+
+@login_required
+def admin_email_detalle(request, email_id):
+    """Vista detallada de un email específico"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    try:
+        email = EmailNotification.objects.select_related('usuario', 'pedido', 'producto').get(id=email_id)
+    except EmailNotification.DoesNotExist:
+        messages.error(request, 'Email no encontrado.')
+        return redirect('admin_email_dashboard')
+
+    # Historial de envíos para este usuario y tipo
+    historial_similar = EmailNotification.objects.filter(
+        usuario=email.usuario,
+        tipo=email.tipo
+    ).exclude(id=email.id).order_by('-fecha_creacion')[:5]
+
+    return render(request, 'tienda/admin_email_detalle.html', {
+        'email': email,
+        'historial_similar': historial_similar,
+    })
+
+
+@login_required
+def admin_email_reenviar(request, email_id):
+    """Reenviar un email específico"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    try:
+        email_original = EmailNotification.objects.get(id=email_id)
+
+        # Crear nueva notificación
+        email_service = EmailService()
+        nueva_notificacion = EmailNotification.objects.create(
+            usuario=email_original.usuario,
+            tipo=email_original.tipo,
+            email_destino=email_original.email_destino,
+            asunto=f"REENVÍO: {email_original.asunto}",
+            contenido_html=email_original.contenido_html,
+            contenido_texto=email_original.contenido_texto,
+            prioridad=email_original.prioridad,
+        )
+
+        # Agregar a cola
+        EmailQueue.objects.create(
+            notificacion=nueva_notificacion,
+            prioridad=EmailService._get_prioridad_numero(email_original.prioridad)
+        )
+
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Email agregado a la cola de envío'
+        })
+
+    except EmailNotification.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Email no encontrado'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def admin_newsletter_dashboard(request):
+    """Dashboard específico para newsletter"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Estadísticas de newsletter
+    stats = {
+        'total_suscriptores': NewsletterSubscription.objects.count(),
+        'suscriptores_activos': NewsletterSubscription.objects.filter(activo=True).count(),
+        'suscriptores_confirmados': NewsletterSubscription.objects.filter(activo=True, confirmado=True).count(),
+        'campanas_total': NewsletterCampaign.objects.count(),
+        'campanas_activas': NewsletterCampaign.objects.filter(estado='enviando').count(),
+        'emails_newsletter_enviados': NewsletterLog.objects.filter(tipo='envio').count(),
+        'tasa_apertura_promedio': 0,
+        'tasa_clic_promedio': 0,
+    }
+
+    # Calcular tasas promedio
+    campanas_con_metricas = NewsletterCampaign.objects.exclude(enviados=0)
+    if campanas_con_metricas.exists():
+        stats['tasa_apertura_promedio'] = round(
+            campanas_con_metricas.aggregate(avg=models.Avg('abiertos'))['avg'] or 0, 1
+        )
+        stats['tasa_clic_promedio'] = round(
+            campanas_con_metricas.aggregate(avg=models.Avg('clics'))['avg'] or 0, 1
+        )
+
+    # Campañas recientes
+    campanas_recientes = NewsletterCampaign.objects.order_by('-fecha_creacion')[:5]
+
+    # Suscriptores recientes
+    suscriptores_recientes = NewsletterSubscription.objects.order_by('-fecha_suscripcion')[:10]
+
+    # Actividad por día (últimos 7 días)
+    actividad_dias = []
+    for i in range(7):
+        fecha = timezone.now() - timedelta(days=i)
+        fecha_inicio = fecha.replace(hour=0, minute=0, second=0, microsecond=0)
+        fecha_fin = fecha.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        actividad = NewsletterLog.objects.filter(
+            fecha__gte=fecha_inicio,
+            fecha__lte=fecha_fin
+        ).values('tipo').annotate(count=Count('id'))
+
+        actividad_dias.append({
+            'fecha': fecha.strftime('%Y-%m-%d'),
+            'dia': fecha.strftime('%a'),
+            'envios': next((item['count'] for item in actividad if item['tipo'] == 'envio'), 0),
+            'aperturas': next((item['count'] for item in actividad if item['tipo'] == 'apertura'), 0),
+            'clics': next((item['count'] for item in actividad if item['tipo'] == 'clic'), 0),
+        })
+
+    actividad_dias.reverse()
+
+    return render(request, 'tienda/admin_newsletter_dashboard.html', {
+        'stats': stats,
+        'campanas_recientes': campanas_recientes,
+        'suscriptores_recientes': suscriptores_recientes,
+        'actividad_dias': actividad_dias,
     })

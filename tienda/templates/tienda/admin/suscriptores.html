@@ -1,0 +1,179 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+
+{% block title %}Suscriptores del Newsletter{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-users"></i> Suscriptores del Newsletter
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'exportar_suscriptores' %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-download"></i> Exportar CSV
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-primary"><i class="fas fa-users"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Total Suscriptores</span>
+                                    <span class="info-box-number">{{ total_suscriptores }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-success"><i class="fas fa-check-circle"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Confirmados</span>
+                                    <span class="info-box-number">{{ suscriptores_confirmados }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-warning"><i class="fas fa-clock"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Pendientes</span>
+                                    <span class="info-box-number">{{ suscriptores_pendientes }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-danger"><i class="fas fa-times-circle"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Cancelados</span>
+                                    <span class="info-box-number">{{ suscriptores_cancelados }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Nombre</th>
+                                    <th>Estado</th>
+                                    <th>Fecha Suscripción</th>
+                                    <th>Fecha Confirmación</th>
+                                    <th>Último Email</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for suscriptor in suscriptores %}
+                                <tr>
+                                    <td>{{ suscriptor.email }}</td>
+                                    <td>{{ suscriptor.nombre|default:"-" }}</td>
+                                    <td>
+                                        {% if suscriptor.estado == 'confirmado' %}
+                                            <span class="badge badge-success">Confirmado</span>
+                                        {% elif suscriptor.estado == 'pendiente' %}
+                                            <span class="badge badge-warning">Pendiente</span>
+                                        {% elif suscriptor.estado == 'cancelado' %}
+                                            <span class="badge badge-danger">Cancelado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ suscriptor.fecha_suscripcion|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        {% if suscriptor.fecha_confirmacion %}
+                                            {{ suscriptor.fecha_confirmacion|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if suscriptor.ultimo_email_enviado %}
+                                            {{ suscriptor.ultimo_email_enviado|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            {% if suscriptor.estado == 'pendiente' %}
+                                            <form method="post" action="{% url 'reenviar_confirmacion' suscriptor.id %}" style="display: inline;">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-warning" title="Reenviar confirmación">
+                                                    <i class="fas fa-envelope"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                            <form method="post" action="{% url 'eliminar_suscriptor' suscriptor.id %}" style="display: inline;" onsubmit="return confirm('¿Estás seguro de eliminar este suscriptor?')">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center">No hay suscriptores registrados</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if suscriptores.has_other_pages %}
+                    <div class="d-flex justify-content-center">
+                        <nav aria-label="Paginación de suscriptores">
+                            <ul class="pagination">
+                                {% if suscriptores.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ suscriptores.previous_page_number }}">Anterior</a>
+                                </li>
+                                {% endif %}
+
+                                {% for num in suscriptores.paginator.page_range %}
+                                {% if suscriptores.number == num %}
+                                <li class="page-item active">
+                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                </li>
+                                {% elif num > suscriptores.number|add:'-3' and num < suscriptores.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                </li>
+                                {% endif %}
+                                {% endfor %}
+
+                                {% if suscriptores.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ suscriptores.next_page_number }}">Siguiente</a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-refresh stats every 30 seconds
+    setInterval(function() {
+        location.reload();
+    }, 30000);
+});
+</script>
+{% endblock %}

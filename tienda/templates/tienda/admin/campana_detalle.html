@@ -1,0 +1,270 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+
+{% block title %}Detalles de Campaña: {{ campana.asunto }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-bar"></i> Detalles de Campaña: {{ campana.asunto }}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'admin_campanas' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </a>
+                        {% if campana.estado == 'enviada' %}
+                        <a href="{% url 'duplicar_campana' campana.id %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-copy"></i> Duplicar
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Información General -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Información General</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <strong>Asunto:</strong><br>
+                                            {{ campana.asunto }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Estado:</strong><br>
+                                            {% if campana.estado == 'enviada' %}
+                                                <span class="badge badge-success">Enviada</span>
+                                            {% elif campana.estado == 'programada' %}
+                                                <span class="badge badge-warning">Programada</span>
+                                            {% elif campana.estado == 'borrador' %}
+                                                <span class="badge badge-secondary">Borrador</span>
+                                            {% elif campana.estado == 'enviando' %}
+                                                <span class="badge badge-info">Enviando...</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Fecha Creación:</strong><br>
+                                            {{ campana.fecha_creacion|date:"d/m/Y H:i" }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Fecha Envío:</strong><br>
+                                            {% if campana.fecha_envio %}
+                                                {{ campana.fecha_envio|date:"d/m/Y H:i" }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estadísticas -->
+                    {% if campana.estado == 'enviada' %}
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-primary"><i class="fas fa-users"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Destinatarios</span>
+                                    <span class="info-box-number">{{ campana.obtener_total_destinatarios }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-success"><i class="fas fa-envelope-open"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Aperturas</span>
+                                    <span class="info-box-number">{{ campana.obtener_total_aperturas }}</span>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-success" style="width: {{ campana.obtener_tasa_apertura }}%"></div>
+                                    </div>
+                                    <span class="progress-description">{{ campana.obtener_tasa_apertura|floatformat:1 }}% tasa de apertura</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-info"><i class="fas fa-mouse-pointer"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Clics</span>
+                                    <span class="info-box-number">{{ campana.obtener_total_clics }}</span>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-info" style="width: {{ campana.obtener_tasa_clics }}%"></div>
+                                    </div>
+                                    <span class="progress-description">{{ campana.obtener_tasa_clics|floatformat:1 }}% tasa de clics</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-warning"><i class="fas fa-chart-line"></i></span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">CTR</span>
+                                    <span class="info-box-number">{{ campana.obtener_ctr|floatformat:1 }}%</span>
+                                    <span class="progress-description">Click-through rate</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Contenido de la Campaña -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Contenido de la Campaña</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f8f9fa;">
+                                        {{ campana.contenido|safe }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Productos Destacados -->
+                    {% if campana.productos_destacados.exists %}
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Productos Destacados</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        {% for producto in campana.productos_destacados.all %}
+                                        <div class="col-md-3 mb-3">
+                                            <div class="card h-100">
+                                                {% if producto.imagen %}
+                                                <img src="{{ producto.imagen.url }}" class="card-img-top" alt="{{ producto.nombre }}" style="height: 150px; object-fit: cover;">
+                                                {% endif %}
+                                                <div class="card-body">
+                                                    <h6 class="card-title">{{ producto.nombre }}</h6>
+                                                    <p class="card-text">${{ producto.precio }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Logs de la Campaña -->
+                    {% if logs %}
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Logs de Envío</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <thead>
+                                                <tr>
+                                                    <th>Fecha/Hora</th>
+                                                    <th>Suscriptor</th>
+                                                    <th>Acción</th>
+                                                    <th>Detalles</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for log in logs %}
+                                                <tr>
+                                                    <td>{{ log.fecha|date:"d/m/Y H:i:s" }}</td>
+                                                    <td>{{ log.suscriptor.email }}</td>
+                                                    <td>
+                                                        {% if log.accion == 'enviado' %}
+                                                            <span class="badge badge-success">Enviado</span>
+                                                        {% elif log.accion == 'abierto' %}
+                                                            <span class="badge badge-info">Abierto</span>
+                                                        {% elif log.accion == 'click' %}
+                                                            <span class="badge badge-primary">Clic</span>
+                                                        {% elif log.accion == 'rebote' %}
+                                                            <span class="badge badge-danger">Rebote</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if log.accion == 'click' and log.url_destino %}
+                                                            <a href="{{ log.url_destino }}" target="_blank">{{ log.url_destino|truncatechars:50 }}</a>
+                                                        {% else %}
+                                                            {{ log.detalles|default:"-" }}
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {% if logs.has_other_pages %}
+                                    <div class="d-flex justify-content-center mt-3">
+                                        <nav aria-label="Paginación de logs">
+                                            <ul class="pagination pagination-sm">
+                                                {% if logs.has_previous %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ logs.previous_page_number }}">Anterior</a>
+                                                </li>
+                                                {% endif %}
+
+                                                {% for num in logs.paginator.page_range %}
+                                                {% if logs.number == num %}
+                                                <li class="page-item active">
+                                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                                </li>
+                                                {% elif num > logs.number|add:'-3' and num < logs.number|add:'3' %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                                </li>
+                                                {% endif %}
+                                                {% endfor %}
+
+                                                {% if logs.has_next %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ logs.next_page_number }}">Siguiente</a>
+                                                </li>
+                                                {% endif %}
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-refresh para campañas enviando
+    {% if campana.estado == 'enviando' %}
+    setInterval(function() {
+        location.reload();
+    }, 5000);
+    {% endif %}
+});
+</script>
+{% endblock %}

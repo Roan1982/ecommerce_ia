@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ campana.asunto }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0;
+            background: #f4f4f4;
+        }
+        .container {
+            background: white;
+            margin: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 10px 0;
+            transition: opacity 0.2s;
+        }
+        .button:hover {
+            opacity: 0.9;
+        }
+        .cta-section {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            margin: 30px -30px -40px -30px;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+        }
+        .social-links {
+            margin: 20px 0;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #666;
+            text-decoration: none;
+            font-size: 20px;
+        }
+        .unsubscribe {
+            color: #666;
+            font-size: 11px;
+            margin-top: 20px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">E-commerce IA</div>
+            <div class="tagline">Sistema de recomendaciones inteligentes</div>
+        </div>
+
+        <div class="content">
+            <h1>{{ campana.asunto }}</h1>
+
+            <div>
+                {{ campana.contenido_html|safe }}
+            </div>
+
+            <div class="cta-section">
+                <h2>¡Descubre más productos!</h2>
+                <p>Explora nuestro catálogo completo con recomendaciones personalizadas</p>
+                <a href="{% if es_prueba %}#{% else %}{{ SITE_URL }}{% url 'productos' %}?utm_source=newsletter&utm_medium=email&utm_campaign={{ campana.id }}{% endif %}" class="button" style="background: white; color: #f5576c;">Ver Productos</a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="social-links">
+                <a href="#" style="color: #667eea;">📘 Facebook</a>
+                <a href="#" style="color: #1da1f2;">🐦 Twitter</a>
+                <a href="#" style="color: #e4405f;">📷 Instagram</a>
+            </div>
+
+            <p><strong>E-commerce IA</strong></p>
+            <p>Sistema de recomendaciones inteligentes con IA</p>
+            <p>Recibe ofertas exclusivas y recomendaciones personalizadas</p>
+
+            <div class="unsubscribe">
+                <p>
+                    ¿No quieres recibir más newsletters?
+                    <a href="{{ unsubscribe_url }}">Cancelar suscripción</a>
+                </p>
+                {% if suscriptor %}
+                <p>Este email fue enviado a {{ suscriptor.email }}</p>
+                {% endif %}
+                {% if es_prueba %}
+                <p><em>Este es un email de prueba</em></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

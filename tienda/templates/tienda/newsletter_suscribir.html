@@ -1,0 +1,118 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Suscribirse al Newsletter{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center">
+                    <h3 class="mb-0">
+                        <i class="bi bi-envelope-paper me-2"></i>
+                        Suscríbete a nuestro Newsletter
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center mb-4">
+                        Recibe las últimas novedades, ofertas exclusivas y recomendaciones personalizadas directamente en tu email.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                <i class="bi bi-envelope me-1"></i>Email *
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small">
+                                    {{ form.email.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.nombre.id_for_label }}" class="form-label">
+                                <i class="bi bi-person me-1"></i>Nombre (opcional)
+                            </label>
+                            {{ form.nombre }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.frecuencia.id_for_label }}" class="form-label">
+                                <i class="bi bi-calendar-event me-1"></i>Frecuencia de envío
+                            </label>
+                            {{ form.frecuencia }}
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="bi bi-check-circle me-1"></i>Preferencias de contenido
+                            </label>
+                            <div class="form-check">
+                                {{ form.recibir_ofertas }}
+                                <label class="form-check-label" for="{{ form.recibir_ofertas.id_for_label }}">
+                                    Recibir ofertas y promociones
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                {{ form.recibir_novedades }}
+                                <label class="form-check-label" for="{{ form.recibir_novedades.id_for_label }}">
+                                    Recibir novedades de productos
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                {{ form.recibir_recomendaciones }}
+                                <label class="form-check-label" for="{{ form.recibir_recomendaciones.id_for_label }}">
+                                    Recibir recomendaciones personalizadas
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle me-2"></i>
+                                Suscribirme
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <small class="text-muted">
+                            Al suscribirte, aceptas recibir emails de marketing. Puedes cancelar tu suscripción en cualquier momento.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Beneficios -->
+            <div class="row mt-4 g-3">
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="bi bi-gift text-primary" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Ofertas Exclusivas</h6>
+                        <small class="text-muted">Descuentos especiales solo para suscriptores</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="bi bi-star text-warning" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Novedades</h6>
+                        <small class="text-muted">Sé el primero en conocer nuevos productos</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="bi bi-robot text-info" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Recomendaciones IA</h6>
+                        <small class="text-muted">Sugerencias personalizadas basadas en tus gustos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

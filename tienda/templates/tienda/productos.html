@@ -168,6 +168,12 @@
                                         title="{% if producto.id in wishlist_product_ids %}{% trans 'Quitar de lista de deseos' %}{% else %}{% trans 'Agregar a lista de deseos' %}{% endif %}">
                                     <i class="bi bi-heart{% if producto.id in wishlist_product_ids %}-fill{% endif %}"></i>
                                 </button>
+                                <button type="button" class="btn {% if producto.id in comparacion_product_ids %}btn-info{% else %}btn-outline-info{% endif %} btn-sm comparacion-btn"
+                                        data-producto-id="{{ producto.id }}"
+                                        {% if not puede_agregar_mas and producto.id not in comparacion_product_ids %}disabled{% endif %}
+                                        title="{% if producto.id in comparacion_product_ids %}{% trans 'Quitar de comparación' %}{% else %}{% trans 'Agregar a comparación' %}{% endif %}">
+                                    <i class="bi bi-arrow-left-right{% if producto.id in comparacion_product_ids %}-fill{% endif %}"></i>
+                                </button>
                             {% endif %}
                             <a href="{% url 'agregar_al_carrito' producto.id %}" class="btn btn-outline-primary btn-sm"
                                {% if not producto.en_stock %}disabled{% endif %} title="{% trans 'Agregar al carrito' %}">
@@ -299,19 +305,19 @@ function showToast(message, type) {
     }, 3000);
 }
 
-// Función para actualizar contador de wishlist
-function updateWishlistCount() {
-    fetch('/wishlist/count/')
+// Función para actualizar contador de comparación
+function updateComparacionCount() {
+    fetch('/comparacion/count/')
         .then(response => response.json())
         .then(data => {
-            const wishlistLink = document.querySelector('a[href*="wishlist"]');
-            if (wishlistLink) {
-                let badge = wishlistLink.querySelector('.badge');
+            const comparacionLinks = document.querySelectorAll('a[href*="comparacion"]');
+            comparacionLinks.forEach(link => {
+                let badge = link.querySelector('.badge');
                 if (data.count > 0) {
                     if (!badge) {
                         badge = document.createElement('span');
-                        badge.className = 'badge bg-danger ms-2';
-                        wishlistLink.appendChild(badge);
+                        badge.className = 'badge bg-info ms-2';
+                        link.appendChild(badge);
                     }
                     badge.textContent = data.count;
                 } else {
@@ -319,9 +325,77 @@ function updateWishlistCount() {
                         badge.remove();
                     }
                 }
+            });
+        })
+        .catch(error => console.error('Error updating comparacion count:', error));
+}
+
+// Funcionalidad AJAX para comparación de productos
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.comparacion-btn')) {
+        e.preventDefault();
+        const button = e.target.closest('.comparacion-btn');
+        const productoId = button.getAttribute('data-producto-id');
+        const icon = button.querySelector('i');
+        const originalIcon = icon.className;
+
+        // Cambiar icono a loading
+        icon.className = 'bi bi-hourglass-split';
+
+        // Hacer petición AJAX
+        fetch(`/comparacion/toggle/${productoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Cambiar apariencia del botón según la acción
+                if (data.action === 'added') {
+                    button.classList.remove('btn-outline-info');
+                    button.classList.add('btn-info');
+                    icon.className = 'bi bi-arrow-left-right-fill';
+                    button.setAttribute('title', 'Quitar de comparación');
+
+                    // Mostrar mensaje de éxito
+                    showToast(data.message, 'success');
+                } else {
+                    button.classList.remove('btn-info');
+                    button.classList.add('btn-outline-info');
+                    icon.className = 'bi bi-arrow-left-right';
+                    button.setAttribute('title', 'Agregar a comparación');
+
+                    // Mostrar mensaje de éxito
+                    showToast(data.message, 'success');
+                }
+
+                // Actualizar contador de comparación en navbar
+                updateComparacionCount();
+
+                // Actualizar estado de botones si se alcanzó el límite
+                if (data.puede_agregar_mas === false) {
+                    document.querySelectorAll('.comparacion-btn:not(.btn-info)').forEach(btn => {
+                        btn.disabled = true;
+                    });
+                } else {
+                    document.querySelectorAll('.comparacion-btn').forEach(btn => {
+                        btn.disabled = false;
+                    });
+                }
+            } else {
+                showToast(data.error || 'Error al actualizar la comparación', 'error');
+                icon.className = originalIcon;
             }
         })
-        .catch(error => console.error('Error updating wishlist count:', error));
-}
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error de conexión', 'error');
+            icon.className = originalIcon;
+        });
+    }
+});
 </script>
 {% endblock %}

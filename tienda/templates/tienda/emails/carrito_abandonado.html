@@ -1,0 +1,102 @@
+{% extends 'tienda/emails/base_email.html' %}
+{% load static %}
+
+{% block title %}No olvides completar tu compra{% endblock %}
+
+{% block content %}
+<h1 style="color: #ffc107; text-align: center;">¿Olvidaste algo en tu carrito?</h1>
+
+<p>Hola <strong>{{ user.get_full_name|default:user.username }}</strong>,</p>
+
+<p>Vimos que dejaste algunos productos en tu carrito de compras. ¡No queremos que te pierdas estas ofertas!</p>
+
+<!-- Productos en el carrito -->
+<div class="email-card">
+    <div class="email-card-header">
+        <strong>Productos en tu carrito</strong>
+    </div>
+    <div class="email-card-body">
+        {% for item in carrito_items %}
+        <div style="border-bottom: 1px solid #e0e0e0; padding: 15px 0; display: table; width: 100%;">
+            <div style="display: table-cell; width: 80px; vertical-align: top;">
+                {% if item.producto.imagen_url %}
+                <img src="{{ item.producto.imagen_url }}" alt="{{ item.producto.nombre }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+                {% endif %}
+            </div>
+            <div style="display: table-cell; padding-left: 15px; vertical-align: top;">
+                <div style="font-weight: bold; margin-bottom: 5px;">{{ item.producto.nombre }}</div>
+                <div style="color: #666; font-size: 14px;">Cantidad: {{ item.cantidad }}</div>
+                {% if item.producto.stock_bajo %}
+                <div style="color: #dc3545; font-size: 12px; font-weight: bold;">¡Últimas unidades!</div>
+                {% endif %}
+            </div>
+            <div style="display: table-cell; text-align: right; vertical-align: top;">
+                <div style="font-weight: bold; font-size: 16px; color: #28a745;">${{ item.subtotal }}</div>
+                {% if item.producto.precio_anterior %}
+                <div style="text-decoration: line-through; color: #666; font-size: 12px;">${{ item.producto.precio_anterior }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Total -->
+        <div style="border-top: 2px solid #e0e0e0; margin-top: 20px; padding-top: 15px; text-align: right;">
+            <div style="font-size: 18px; font-weight: bold; color: #28a745;">Total: ${{ total_carrito }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recomendaciones personalizadas -->
+{% if recomendaciones %}
+<div class="email-card">
+    <div class="email-card-header">
+        <strong>✨ Recomendaciones para ti</strong>
+    </div>
+    <div class="email-card-body">
+        <p style="margin-top: 0;">Basado en los productos de tu carrito, te recomendamos:</p>
+
+        <div class="product-grid">
+            {% for producto in recomendaciones %}
+            <div class="product-item">
+                {% if producto.imagen_url %}
+                <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}" class="product-image">
+                {% endif %}
+                <div class="product-info">
+                    <div class="product-title">{{ producto.nombre }}</div>
+                    <div class="product-price">${{ producto.precio }}</div>
+                    <a href="{{ SITE_URL }}{% url 'producto_detalle' producto.id %}?utm_source=carrito&utm_medium=email&utm_campaign=abandonado" class="email-button" style="font-size: 12px; padding: 8px 16px;">Ver Producto</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Oferta especial -->
+<div style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: white; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center;">
+    <h3 style="margin-top: 0; color: white;">🎁 ¡Oferta especial por tiempo limitado!</h3>
+    <p style="margin-bottom: 15px;">Completa tu compra ahora y recibe un <strong>10% de descuento adicional</strong> en tu próximo pedido.</p>
+    <p style="font-size: 24px; font-weight: bold; margin: 10px 0;">Código: <span style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px;">CARRITO10</span></p>
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ SITE_URL }}{% url 'carrito' %}" class="email-button">Completar Compra Ahora</a>
+</div>
+
+<div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0;">
+    <h4 style="margin-top: 0; color: #495057;">¿Por qué comprar con nosotros?</h4>
+    <ul style="margin-bottom: 0; color: #6c757d;">
+        <li>🚚 Envío gratuito en compras superiores a $50</li>
+        <li>🔒 Pago seguro con múltiples métodos</li>
+        <li>🔄 Devoluciones gratuitas en 30 días</li>
+        <li>🤖 Recomendaciones personalizadas con IA</li>
+        <li>⭐ Programa de puntos de fidelidad</li>
+    </ul>
+</div>
+
+<p>Si ya no estás interesado en estos productos, no te preocupes. Tu carrito se mantendrá guardado por si cambias de opinión.</p>
+
+<p style="margin-bottom: 0;">¡Esperamos verte pronto de vuelta!<br>
+<strong>El equipo de E-commerce IA</strong></p>
+{% endblock %}

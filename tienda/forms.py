@@ -1,5 +1,5 @@
 from django import forms
-from .models import Producto, Cupon, Profile
+from .models import Producto, Cupon, Profile, NewsletterSubscription, NewsletterCampaign
 
 
 class ProductoAdminForm(forms.ModelForm):
@@ -140,3 +140,125 @@ class ProfileForm(forms.ModelForm):
                 'placeholder': 'Cuéntanos un poco sobre ti...'
             }),
         }
+
+
+# ===== FORMULARIOS DE NEWSLETTER =====
+
+class NewsletterSubscriptionForm(forms.ModelForm):
+    """Formulario para suscripción al newsletter"""
+    class Meta:
+        model = NewsletterSubscription
+        fields = ['email', 'nombre', 'frecuencia', 'recibir_ofertas', 'recibir_novedades', 'recibir_recomendaciones']
+        widgets = {
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'tu@email.com',
+                'required': True
+            }),
+            'nombre': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Tu nombre (opcional)'
+            }),
+            'frecuencia': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'recibir_ofertas': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'recibir_novedades': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'recibir_recomendaciones': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+        }
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if NewsletterSubscription.objects.filter(email=email, activo=True).exists():
+            raise forms.ValidationError('Este email ya está suscrito al newsletter.')
+        return email
+
+
+class NewsletterUnsubscribeForm(forms.Form):
+    """Formulario para cancelar suscripción"""
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'tu@email.com',
+            'required': True
+        })
+    )
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        try:
+            subscription = NewsletterSubscription.objects.get(email=email, activo=True)
+            if not subscription.confirmado:
+                raise forms.ValidationError('Esta suscripción no está confirmada.')
+        except NewsletterSubscription.DoesNotExist:
+            raise forms.ValidationError('No se encontró una suscripción activa con este email.')
+        return email
+
+
+class NewsletterCampaignForm(forms.ModelForm):
+    """Formulario para crear/editar campañas de newsletter"""
+    class Meta:
+        model = NewsletterCampaign
+        fields = ['titulo', 'asunto', 'contenido_html', 'contenido_texto',
+                 'fecha_programada', 'frecuencia_target', 'solo_confirmados',
+                 'tracking_aperturas', 'tracking_clics']
+        widgets = {
+            'titulo': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Título de la campaña'
+            }),
+            'asunto': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Asunto del email'
+            }),
+            'contenido_html': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 15,
+                'id': 'contenido_html',
+                'placeholder': 'Contenido HTML del newsletter...'
+            }),
+            'contenido_texto': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 8,
+                'placeholder': 'Versión texto plano (opcional)...'
+            }),
+            'fecha_programada': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local'
+            }),
+            'frecuencia_target': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'solo_confirmados': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'tracking_aperturas': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'tracking_clics': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Hacer campos opcionales
+        self.fields['contenido_texto'].required = False
+        self.fields['fecha_programada'].required = False
+        self.fields['frecuencia_target'].required = False
+
+
+class NewsletterTestForm(forms.Form):
+    """Formulario para enviar newsletter de prueba"""
+    email_prueba = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'email@prueba.com'
+        })
+    )

@@ -1,0 +1,326 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Editar Campaña{% else %}Crear Nueva Campaña{% endif %}{% endblock %}
+
+{% block extra_head %}
+<!-- TinyMCE Editor -->
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-edit"></i>
+                        {% if form.instance.pk %}Editar Campaña{% else %}Crear Nueva Campaña{% endif %}
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{% url 'admin_newsletter' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </a>
+                    </div>
+                </div>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <!-- Asunto -->
+                                <div class="form-group">
+                                    <label for="{{ form.asunto.id_for_label }}">Asunto del Email *</label>
+                                    {{ form.asunto }}
+                                    {% if form.asunto.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.asunto.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        El asunto que verán los suscriptores en su bandeja de entrada
+                                    </small>
+                                </div>
+
+                                <!-- Contenido -->
+                                <div class="form-group">
+                                    <label for="{{ form.contenido.id_for_label }}">Contenido del Newsletter *</label>
+                                    {{ form.contenido }}
+                                    {% if form.contenido.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.contenido.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Contenido HTML del newsletter. Puedes usar el editor para dar formato.
+                                    </small>
+                                </div>
+
+                                <!-- Productos Destacados -->
+                                <div class="form-group">
+                                    <label for="{{ form.productos_destacados.id_for_label }}">Productos Destacados</label>
+                                    {{ form.productos_destacados }}
+                                    {% if form.productos_destacados.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.productos_destacados.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Selecciona productos que quieres destacar en esta campaña
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <!-- Estado -->
+                                <div class="form-group">
+                                    <label for="{{ form.estado.id_for_label }}">Estado</label>
+                                    {{ form.estado }}
+                                    {% if form.estado.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.estado.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Fecha Programada -->
+                                <div class="form-group" id="fechaProgramadaGroup" style="{% if form.instance.estado != 'programada' %}display: none;{% endif %}">
+                                    <label for="{{ form.fecha_programada.id_for_label }}">Fecha Programada</label>
+                                    {{ form.fecha_programada }}
+                                    {% if form.fecha_programada.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.fecha_programada.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Información de la Campaña -->
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title">Información de la Campaña</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if form.instance.pk %}
+                                        <p><strong>Creada:</strong> {{ form.instance.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                                        {% if form.instance.fecha_envio %}
+                                        <p><strong>Enviada:</strong> {{ form.instance.fecha_envio|date:"d/m/Y H:i" }}</p>
+                                        {% endif %}
+                                        <p><strong>Destinatarios estimados:</strong> {{ form.instance.obtener_total_destinatarios }}</p>
+                                        {% endif %}
+
+                                        <div id="previewInfo">
+                                            <p><strong>Destinatarios estimados:</strong> Calculando...</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Acciones Rápidas -->
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title">Acciones</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <button type="button" class="btn btn-info btn-block mb-2" onclick="previewNewsletter()">
+                                            <i class="fas fa-eye"></i> Vista Previa
+                                        </button>
+                                        <button type="button" class="btn btn-warning btn-block mb-2" onclick="testEmail()">
+                                            <i class="fas fa-envelope"></i> Enviar Prueba
+                                        </button>
+                                        {% if form.instance.pk and form.instance.estado == 'borrador' %}
+                                        <button type="button" class="btn btn-success btn-block" onclick="sendNow()">
+                                            <i class="fas fa-paper-plane"></i> Enviar Ahora
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i>
+                            {% if form.instance.pk %}Guardar Cambios{% else %}Crear Campaña{% endif %}
+                        </button>
+                        <a href="{% url 'admin_newsletter' %}" class="btn btn-secondary ml-2">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Vista Previa -->
+<div class="modal fade" id="previewModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Vista Previa del Newsletter</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <iframe id="previewFrame" style="width: 100%; height: 500px; border: none;"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Enviar Prueba -->
+<div class="modal fade" id="testEmailModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Enviar Email de Prueba</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="testEmailForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="testEmail">Email de prueba</label>
+                        <input type="email" class="form-control" id="testEmail" required>
+                        <small class="form-text text-muted">Ingresa tu email para recibir la prueba</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">Enviar Prueba</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Inicializar TinyMCE
+    tinymce.init({
+        selector: '#{{ form.contenido.id_for_label }}',
+        height: 400,
+        menubar: false,
+        plugins: 'lists link image code',
+        toolbar: 'bold italic underline | bullist numlist | link image | code',
+        content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }'
+    });
+
+    // Inicializar Select2 para productos
+    $('#{{ form.productos_destacados.id_for_label }}').select2({
+        placeholder: 'Selecciona productos destacados...',
+        allowClear: true,
+        ajax: {
+            url: '{% url "buscar_productos_ajax" %}',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return {
+                    q: params.term
+                };
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            },
+            cache: true
+        },
+        minimumInputLength: 2
+    });
+
+    // Mostrar/ocultar fecha programada
+    $('#{{ form.estado.id_for_label }}').change(function() {
+        if ($(this).val() === 'programada') {
+            $('#fechaProgramadaGroup').show();
+        } else {
+            $('#fechaProgramadaGroup').hide();
+        }
+    });
+
+    // Calcular destinatarios estimados
+    function updateDestinatariosEstimados() {
+        // Esta función se llamaría vía AJAX para calcular destinatarios
+        $('#previewInfo').html('<p><strong>Destinatarios estimados:</strong> Calculando...</p>');
+    }
+
+    updateDestinatariosEstimados();
+});
+
+function previewNewsletter() {
+    // Obtener contenido del editor
+    var content = tinymce.get('{{ form.contenido.id_for_label }}').getContent();
+    var subject = $('#{{ form.asunto.id_for_label }}').val();
+
+    // Crear preview HTML
+    var previewHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Preview - ${subject}</title>
+            <style>
+                body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+                .preview-notice { background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin-bottom: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class="preview-notice">
+                <strong>Vista Previa</strong> - Así se verá el newsletter en el email del suscriptor
+            </div>
+            <h1>${subject}</h1>
+            ${content}
+        </body>
+        </html>
+    `;
+
+    var blob = new Blob([previewHtml], {type: 'text/html'});
+    var url = URL.createObjectURL(blob);
+
+    $('#previewFrame').attr('src', url);
+    $('#previewModal').modal('show');
+}
+
+function testEmail() {
+    $('#testEmailModal').modal('show');
+}
+
+$('#testEmailForm').submit(function(e) {
+    e.preventDefault();
+    var email = $('#testEmail').val();
+
+    // Aquí iría la lógica AJAX para enviar email de prueba
+    alert('Email de prueba enviado a: ' + email);
+    $('#testEmailModal').modal('hide');
+});
+
+function sendNow() {
+    if (confirm('¿Enviar esta campaña ahora a todos los suscriptores confirmados?')) {
+        // Cambiar estado y enviar
+        $('#{{ form.estado.id_for_label }}').val('enviada');
+        $('form').submit();
+    }
+}
+</script>
+{% endblock %}

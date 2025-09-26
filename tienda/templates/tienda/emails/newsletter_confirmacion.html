@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirma tu suscripción</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .button {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+        }
+        .unsubscribe {
+            color: #666;
+            font-size: 11px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>¡Bienvenido a E-commerce IA!</h1>
+        <p>Confirma tu suscripción al newsletter</p>
+    </div>
+
+    <div class="content">
+        <h2>Hola{% if subscription.nombre %}, {{ subscription.nombre }}{% endif %}!</h2>
+
+        <p>Gracias por suscribirte a nuestro newsletter. Para completar tu suscripción y empezar a recibir nuestras novedades, ofertas exclusivas y recomendaciones personalizadas, necesitas confirmar tu email.</p>
+
+        <p>Haz clic en el botón de abajo para confirmar tu suscripción:</p>
+
+        <div style="text-align: center;">
+            <a href="{{ confirm_url }}" class="button">Confirmar Suscripción</a>
+        </div>
+
+        <p>Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
+        <p style="word-break: break-all; background: #e9ecef; padding: 10px; border-radius: 4px;">{{ confirm_url }}</p>
+
+        <p><strong>¿Qué recibirás?</strong></p>
+        <ul>
+            <li>Novedades de productos antes que nadie</li>
+            <li>Ofertas y descuentos exclusivos</li>
+            <li>Recomendaciones personalizadas con IA</li>
+            <li>Consejos y guías de compra</li>
+        </ul>
+
+        <p>Si no te suscribiste a nuestro newsletter, puedes ignorar este email.</p>
+
+        <div class="unsubscribe">
+            <p>¿No quieres recibir más emails nuestros? <a href="{{ SITE_URL }}{% url 'cancelar_newsletter' %}">Cancelar suscripción</a></p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>E-commerce IA - Sistema de recomendaciones inteligentes</p>
+        <p>Este email fue enviado a {{ subscription.email }}</p>
+    </div>
+</body>
+</html>

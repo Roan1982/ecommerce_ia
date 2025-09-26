@@ -1,0 +1,77 @@
+{% extends 'tienda/emails/base_email.html' %}
+{% load static %}
+
+{% block title %}¡Oferta especial en productos de tu wishlist!{% endblock %}
+
+{% block content %}
+<h1 style="color: #e74c3c; text-align: center;">🔥 ¡Ofertas en tu Wishlist!</h1>
+
+<p>Hola <strong>{{ user.get_full_name|default:user.username }}</strong>,</p>
+
+<p>¡Buenas noticias! Algunos productos de tu lista de deseos tienen descuentos especiales. ¡Es el momento perfecto para comprar!</p>
+
+<!-- Productos con descuento -->
+<div class="email-card">
+    <div class="email-card-header">
+        <strong>Productos con descuento en tu Wishlist</strong>
+    </div>
+    <div class="email-card-body">
+        {% for producto in productos_descuento %}
+        <div style="border: 2px solid #e74c3c; border-radius: 8px; padding: 15px; margin: 15px 0; background: #fff5f5;">
+            <div style="display: table; width: 100%;">
+                <div style="display: table-cell; width: 100px; vertical-align: top;">
+                    {% if producto.imagen_url %}
+                    <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 6px;">
+                    {% endif %}
+                </div>
+                <div style="display: table-cell; padding-left: 15px; vertical-align: top;">
+                    <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">{{ producto.nombre }}</div>
+                    <div style="color: #666; font-size: 14px; margin-bottom: 10px;">{{ producto.descripcion|truncatechars:100 }}</div>
+
+                    <div style="margin-bottom: 10px;">
+                        <span style="text-decoration: line-through; color: #666; margin-right: 10px;">Antes: ${{ producto.precio_anterior }}</span>
+                        <span style="font-size: 18px; font-weight: bold; color: #e74c3c;">Ahora: ${{ producto.precio }}</span>
+                    </div>
+
+                    <div style="background: #e74c3c; color: white; display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
+                        -{{ descuento }}% OFF
+                    </div>
+
+                    {% if producto.stock_bajo %}
+                    <div style="color: #dc3545; font-size: 12px; font-weight: bold;">⚠️ ¡Últimas unidades disponibles!</div>
+                    {% endif %}
+                </div>
+                <div style="display: table-cell; text-align: right; vertical-align: top; width: 120px;">
+                    <a href="{{ SITE_URL }}{% url 'producto_detalle' producto.id %}?utm_source=wishlist&utm_medium=email&utm_campaign=descuento" class="email-button" style="margin-bottom: 5px;">Ver Detalles</a>
+                    <br>
+                    <a href="{{ SITE_URL }}{% url 'agregar_carrito' producto.id %}?utm_source=wishlist&utm_medium=email&utm_campaign=descuento" class="email-button" style="background: #28a745;">Comprar Ahora</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Información adicional -->
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h3 style="margin-top: 0; color: #495057;">💡 Consejos para ahorrar más</h3>
+    <ul style="margin-bottom: 0; color: #6c757d;">
+        <li><strong>Programa de puntos:</strong> Acumula puntos con cada compra para canjear por descuentos</li>
+        <li><strong>Cupones mensuales:</strong> Recibe cupones exclusivos en tu cumpleaños</li>
+        <li><strong>Ofertas flash:</strong> Mantente atento a nuestras ofertas por tiempo limitado</li>
+        <li><strong>Recomendaciones IA:</strong> Te sugerimos productos basados en tus intereses</li>
+    </ul>
+</div>
+
+<!-- Call to action -->
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ SITE_URL }}{% url 'wishlist' %}" class="email-button">Ver Mi Wishlist Completa</a>
+    <br><br>
+    <a href="{{ SITE_URL }}{% url 'productos' %}?utm_source=wishlist&utm_medium=email&utm_campaign=descuento" class="email-button email-button-secondary">Explorar Más Ofertas</a>
+</div>
+
+<p>Estas ofertas son exclusivas para ti y pueden cambiar en cualquier momento. ¡No esperes para aprovecharlas!</p>
+
+<p style="margin-bottom: 0;">¡Felices compras!<br>
+<strong>El equipo de E-commerce IA</strong></p>
+{% endblock %}

@@ -1,0 +1,297 @@
+{% extends 'tienda/admin_base.html' %}
+{% load static %}
+
+{% block title %}{% if campana %}Editar Campaña{% else %}Crear Nueva Campaña{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                {% if campana %}✏️ Editar Campaña{% else %}➕ Crear Nueva Campaña{% endif %}
+            </h1>
+            <p class="text-muted">
+                {% if campana %}Modificar campaña existente{% else %}Crear una nueva campaña de newsletter{% endif %}
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'admin_newsletter_campanas' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <!-- Información básica -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">📋 Información Básica</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="titulo">Título de la Campaña *</label>
+                                    <input type="text" class="form-control" id="titulo" name="titulo"
+                                           value="{{ campana.titulo|default:'' }}" required>
+                                    <small class="form-text text-muted">Nombre interno de la campaña</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="asunto">Asunto del Email *</label>
+                                    <input type="text" class="form-control" id="asunto" name="asunto"
+                                           value="{{ campana.asunto|default:'' }}" required>
+                                    <small class="form-text text-muted">Línea de asunto que verán los destinatarios</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="descripcion">Descripción</label>
+                            <textarea class="form-control" id="descripcion" name="descripcion" rows="3">{{ campana.descripcion|default:'' }}</textarea>
+                            <small class="form-text text-muted">Descripción opcional de la campaña</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contenido del email -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">📧 Contenido del Email</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="contenido_html">Contenido HTML *</label>
+                            <textarea class="form-control" id="contenido_html" name="contenido_html" rows="15" required>{{ campana.contenido_html|default:'' }}</textarea>
+                            <small class="form-text text-muted">
+                                Contenido HTML del email. Puedes usar variables como {{ nombre }}, {{ email }}, {{ unsubscribe_url }}
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label for="contenido_texto">Contenido Texto Plano</label>
+                            <textarea class="form-control" id="contenido_texto" name="contenido_texto" rows="8">{{ campana.contenido_texto|default:'' }}</textarea>
+                            <small class="form-text text-muted">Versión texto plano del email (opcional)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuración de envío -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">⚙️ Configuración de Envío</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="fecha_envio">Fecha de Envío</label>
+                                    <input type="datetime-local" class="form-control" id="fecha_envio" name="fecha_envio"
+                                           value="{% if campana.fecha_envio %}{{ campana.fecha_envio|date:'Y-m-d\TH:i' }}{% endif %}">
+                                    <small class="form-text text-muted">Deja vacío para enviar inmediatamente</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="segmento">Segmento de Destinatarios</label>
+                                    <select class="form-control" id="segmento" name="segmento">
+                                        <option value="todos" {% if campana.segmento == 'todos' or not campana %}selected{% endif %}>Todos los suscriptores activos</option>
+                                        <option value="confirmados" {% if campana.segmento == 'confirmados' %}selected{% endif %}>Solo suscriptores confirmados</option>
+                                        <option value="diarios" {% if campana.segmento == 'diarios' %}selected{% endif %}>Frecuencia diaria</option>
+                                        <option value="semanales" {% if campana.segmento == 'semanales' %}selected{% endif %}>Frecuencia semanal</option>
+                                        <option value="mensuales" {% if campana.segmento == 'mensuales' %}selected{% endif %}>Frecuencia mensual</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="prioridad">Prioridad</label>
+                                    <select class="form-control" id="prioridad" name="prioridad">
+                                        <option value="baja" {% if campana.prioridad == 'baja' %}selected{% endif %}>Baja</option>
+                                        <option value="normal" {% if campana.prioridad == 'normal' or not campana %}selected{% endif %}>Normal</option>
+                                        <option value="alta" {% if campana.prioridad == 'alta' %}selected{% endif %}>Alta</option>
+                                        <option value="urgente" {% if campana.prioridad == 'urgente' %}selected{% endif %}>Urgente</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="tracking_aperturas" name="tracking_aperturas"
+                                   {% if campana.tracking_aperturas or not campana %}checked{% endif %}>
+                            <label class="form-check-label" for="tracking_aperturas">
+                                Habilitar tracking de aperturas
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="tracking_clics" name="tracking_clics"
+                                   {% if campana.tracking_clics or not campana %}checked{% endif %}>
+                            <label class="form-check-label" for="tracking_clics">
+                                Habilitar tracking de clics
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vista previa -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">👁️ Vista Previa</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button type="button" class="btn btn-outline-info btn-block" onclick="mostrarVistaPrevia()">
+                                    <i class="fas fa-eye"></i> Ver Vista Previa
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <button type="button" class="btn btn-outline-success btn-block" onclick="enviarTest()">
+                                    <i class="fas fa-paper-plane"></i> Enviar Email de Prueba
+                                </button>
+                            </div>
+                        </div>
+                        <div id="vista-previa" class="mt-3" style="display: none;">
+                            <iframe id="preview-frame" width="100%" height="400" frameborder="0"></iframe>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Acciones -->
+                <div class="card shadow mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                {% if campana %}
+                                <button type="submit" name="accion" value="guardar" class="btn btn-primary btn-block">
+                                    <i class="fas fa-save"></i> Guardar Cambios
+                                </button>
+                                {% else %}
+                                <button type="submit" name="accion" value="guardar" class="btn btn-primary btn-block">
+                                    <i class="fas fa-save"></i> Guardar Borrador
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {% if campana and campana.estado == 'borrador' %}
+                                <button type="submit" name="accion" value="programar" class="btn btn-success btn-block">
+                                    <i class="fas fa-clock"></i> Programar Envío
+                                </button>
+                                {% elif campana and campana.estado == 'programado' %}
+                                <button type="submit" name="accion" value="enviar_ahora" class="btn btn-success btn-block">
+                                    <i class="fas fa-paper-plane"></i> Enviar Ahora
+                                </button>
+                                {% else %}
+                                <button type="submit" name="accion" value="enviar_ahora" class="btn btn-success btn-block">
+                                    <i class="fas fa-paper-plane"></i> Crear y Enviar
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para email de prueba -->
+<div class="modal fade" id="testEmailModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Enviar Email de Prueba</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="testEmailForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="test_email">Email de Prueba</label>
+                        <input type="email" class="form-control" id="test_email" required>
+                        <small class="form-text text-muted">Ingresa tu email para recibir la prueba</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Enviar Prueba</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Editor de texto enriquecido para el contenido HTML
+document.addEventListener('DOMContentLoaded', function() {
+    // Aquí se podría integrar un editor WYSIWYG como TinyMCE o CKEditor
+    // Por ahora usamos un textarea básico
+});
+
+function mostrarVistaPrevia() {
+    const contenidoHTML = document.getElementById('contenido_html').value;
+    const previewFrame = document.getElementById('preview-frame');
+    const vistaPrevia = document.getElementById('vista-previa');
+
+    if (contenidoHTML.trim() === '') {
+        alert('Ingresa contenido HTML primero');
+        return;
+    }
+
+    // Crear una vista previa básica
+    const previewDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+    previewDoc.open();
+    previewDoc.write(contenidoHTML);
+    previewDoc.close();
+
+    vistaPrevia.style.display = 'block';
+}
+
+function enviarTest() {
+    $('#testEmailModal').modal('show');
+}
+
+document.getElementById('testEmailForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const testEmail = document.getElementById('test_email').value;
+    const contenidoHTML = document.getElementById('contenido_html').value;
+    const asunto = document.getElementById('asunto').value;
+
+    if (!testEmail || !contenidoHTML || !asunto) {
+        alert('Completa todos los campos');
+        return;
+    }
+
+    // Enviar email de prueba
+    fetch('/admin/newsletter/enviar-test/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            email: testEmail,
+            asunto: asunto,
+            contenido_html: contenidoHTML
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Email de prueba enviado exitosamente');
+            $('#testEmailModal').modal('hide');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error al enviar email de prueba');
+    });
+});
+</script>
+
+{% endblock %}
