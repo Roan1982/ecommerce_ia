@@ -1108,7 +1108,7 @@ class ProductoAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ("Información Básica", {
-            "fields": ("nombre", "descripcion", "precio", "categoria", "imagen_url")
+            "fields": ("nombre", "descripcion", "precio", "categoria", "imagen_url", "imagen_file")
         }),
         ("Inventario", {
             "fields": ("stock", "stock_minimo", "sku", "estado"),

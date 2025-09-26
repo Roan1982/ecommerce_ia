@@ -121,6 +121,10 @@ STATICFILES_DIRS = [
     BASE_DIR / 'tienda' / 'static',
 ]
 
+# Media files (Uploaded files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Para desarrollo
 DEFAULT_FROM_EMAIL = 'noreply@ecommerceia.com'
