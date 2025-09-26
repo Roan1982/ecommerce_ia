@@ -223,6 +223,21 @@ class DireccionEnvio(models.Model):
     def __str__(self):
         return f"{self.nombre_direccion} - {self.nombre_completo}"
 
+    @property
+    def esta_completa(self):
+        """Verifica si la dirección de envío está completa para poder enviar pedidos"""
+        campos_requeridos = [
+            self.nombre_direccion,
+            self.nombre_completo,
+            self.calle,
+            self.numero,
+            self.ciudad,
+            self.provincia,
+            self.codigo_postal,
+            self.telefono,
+        ]
+        return all(campos_requeridos) and all(str(campo).strip() for campo in campos_requeridos)
+
     class Meta:
         verbose_name = "Dirección de Envío"
         verbose_name_plural = "Direcciones de Envío"
@@ -356,6 +371,11 @@ class Pedido(models.Model):
     def cupones_aplicados_count(self):
         """Devuelve el número de cupones aplicados"""
         return self.cupones_aplicadas.count()
+
+    @property
+    def puede_ser_enviado(self):
+        """Verifica si el pedido puede ser enviado (tiene dirección completa)"""
+        return self.direccion_envio and self.direccion_envio.esta_completa
 
     class Meta:
         verbose_name = "Pedido"
@@ -1358,6 +1378,7 @@ class EmailTemplate(models.Model):
         ('carrito_abandonado', 'Carrito Abandonado'),
         ('producto_descuento', 'Producto con Descuento'),
         ('puntos_acumulados', 'Puntos de Lealtad'),
+        ('contribucion_confirmada', 'Confirmación de Contribución'),
         ('custom', 'Personalizado'),
     ]
 

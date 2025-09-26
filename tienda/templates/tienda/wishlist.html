@@ -13,11 +13,11 @@
 
             {% if wishlist_items %}
                 <div class="row">
-                    {% for item in wishlist_items %}
-                    <div class="col-lg-4 col-md-6 mb-4">
+                    {% for wishlist_entry in wishlist_data %}
+            <div class="col-lg-4 col-md-6 mb-4">
                         <div class="card h-100 shadow-sm">
-                            {% if item.producto.imagen_url %}
-                                <img src="{{ item.producto.imagen_url }}" class="card-img-top" alt="{{ item.producto.nombre }}" style="height: 200px; object-fit: cover;">
+                            {% if wishlist_entry.item.producto.imagen_url %}
+                                <img src="{{ wishlist_entry.item.producto.imagen_url }}" class="card-img-top" alt="{{ wishlist_entry.item.producto.nombre }}" style="height: 200px; object-fit: cover;">
                             {% else %}
                                 <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
                                     <i class="fas fa-image fa-3x text-muted"></i>
@@ -25,29 +25,61 @@
                             {% endif %}
 
                             <div class="card-body d-flex flex-column">
-                                <h5 class="card-title">{{ item.producto.nombre }}</h5>
-                                <p class="card-text text-muted small">{{ item.producto.descripcion|truncatechars:100 }}</p>
+                                <h5 class="card-title">{{ wishlist_entry.item.producto.nombre }}</h5>
+                                <p class="card-text text-muted small">{{ wishlist_entry.item.producto.descripcion|truncatechars:100 }}</p>
+
+                                <!-- Información de contribuciones -->
+                                {% if wishlist_entry.contribuciones_data %}
+                                <div class="contribuciones-info mb-2 p-2 bg-light rounded">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="text-primary fw-bold">
+                                            <i class="fas fa-users"></i> Contribuciones Activas
+                                        </small>
+                                        <span class="badge bg-success">Meta: ${{ wishlist_entry.item.contribucion_objetivo|floatformat:0 }}</span>
+                                    </div>
+                                    <div class="progress mb-2" style="height: 6px;">
+                                        <div class="progress-bar bg-success" role="progressbar"
+                                             style="width: {{ wishlist_entry.contribuciones_data.progreso }}%"
+                                             aria-valuenow="{{ wishlist_entry.contribuciones_data.progreso }}"
+                                             aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <small class="text-success">
+                                            <i class="fas fa-dollar-sign"></i> ${{ wishlist_entry.contribuciones_data.total_contribuido|floatformat:0 }}
+                                        </small>
+                                        <small class="text-info">
+                                            <i class="fas fa-user-friends"></i> {{ wishlist_entry.contribuciones_data.num_contribuidores }} contribuyentes
+                                        </small>
+                                    </div>
+                                    {% if wishlist_entry.contribuciones_data.meta_alcanzada %}
+                                    <div class="alert alert-success mt-2 py-1 px-2 small">
+                                        <i class="fas fa-check-circle"></i> ¡Meta alcanzada! Se generará un pedido automáticamente.
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
 
                                 <div class="mt-auto">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="h5 text-primary mb-0">${{ item.producto.precio }}</span>
-                                        {% if item.producto.en_stock %}
+                                        <span class="h5 text-primary mb-0">${{ wishlist_entry.item.producto.precio }}</span>
+                                        {% if wishlist_entry.item.producto.en_stock %}
                                             <span class="badge bg-success">En Stock</span>
                                         {% else %}
                                             <span class="badge bg-danger">Agotado</span>
                                         {% endif %}
                                     </div>
 
-                                    <div class="d-flex gap-2">
-                                        <a href="{% url 'producto_detalle' item.producto.id %}" class="btn btn-outline-primary btn-sm flex-fill">
+                                    <!-- Botones de acción -->
+                                    <div class="d-flex gap-2 mb-2">
+                                        <a href="{% url 'producto_detalle' wishlist_entry.item.producto.id %}" class="btn btn-outline-primary btn-sm flex-fill">
                                             <i class="fas fa-eye"></i> Ver Detalles
                                         </a>
-                                        {% if item.producto.en_stock %}
-                                            <a href="{% url 'agregar_al_carrito' item.producto.id %}" class="btn btn-success btn-sm">
+                                        {% if wishlist_entry.item.producto.en_stock %}
+                                            <a href="{% url 'agregar_al_carrito' wishlist_entry.item.producto.id %}" class="btn btn-success btn-sm">
                                                 <i class="fas fa-cart-plus"></i>
                                             </a>
                                         {% endif %}
-                                        <form method="post" action="{% url 'quitar_de_wishlist' item.producto.id %}" class="d-inline">
+                                        <form method="post" action="{% url 'quitar_de_wishlist' wishlist_entry.item.producto.id %}" class="d-inline">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-outline-danger btn-sm" title="Quitar de lista de deseos">
                                                 <i class="fas fa-trash"></i>
@@ -55,8 +87,30 @@
                                         </form>
                                     </div>
 
+                                    <!-- Controles de contribuciones -->
+                                    <div class="contribuciones-controls">
+                                        {% if wishlist_entry.item.permitir_contribuciones %}
+                                            <div class="d-flex gap-2">
+                                                <a href="{% url 'gestionar_contribuciones_wishlist' wishlist_entry.item.id %}" class="btn btn-outline-info btn-sm flex-fill" title="Gestionar contribuciones">
+                                                    <i class="fas fa-cog"></i> Gestionar
+                                                </a>
+                                                <button type="button" class="btn btn-outline-warning btn-sm toggle-contribuciones"
+                                                        data-wishlist-id="{{ wishlist_entry.item.id }}" data-action="disable" title="Desactivar contribuciones">
+                                                    <i class="fas fa-eye-slash"></i> Ocultar
+                                                </button>
+                                            </div>
+                                        {% else %}
+                                            <button type="button" class="btn btn-outline-success btn-sm toggle-contribuciones w-100"
+                                                    data-wishlist-id="{{ wishlist_entry.item.id }}" data-action="enable" 
+                                                    data-precio="{{ wishlist_entry.item.producto.precio }}"
+                                                    title="Permitir contribuciones de otros usuarios">
+                                                <i class="fas fa-users"></i> Permitir Contribuciones
+                                            </button>
+                                        {% endif %}
+                                    </div>
+
                                     <small class="text-muted mt-2 d-block">
-                                        Agregado: {{ item.fecha_agregado|date:"d/m/Y" }}
+                                        Agregado: {{ wishlist_entry.item.fecha_agregado|date:"d/m/Y" }}
                                     </small>
                                 </div>
                             </div>
@@ -100,5 +154,200 @@
     padding: 0.25rem 0.5rem;
     font-size: 0.875rem;
 }
+
+.contribuciones-info {
+    border-left: 3px solid #007bff;
+}
+
+.toggle-contribuciones {
+    transition: all 0.2s ease;
+}
+
+.toggle-contribuciones:hover {
+    transform: scale(1.05);
+}
 </style>
+
+<script>
+// Verificar que jQuery esté disponible
+if (typeof jQuery === 'undefined') {
+    console.error('jQuery no está cargado. Cargando desde CDN...');
+    // Cargar jQuery dinámicamente si no está disponible
+    var script = document.createElement('script');
+    script.src = 'https://code.jquery.com/jquery-3.7.1.min.js';
+    script.onload = function() {
+        console.log('jQuery cargado dinámicamente');
+        initializeWishlistJS();
+    };
+    document.head.appendChild(script);
+} else {
+    // jQuery ya está disponible
+    jQuery(document).ready(function($) {
+        initializeWishlistJS();
+    });
+}
+
+function initializeWishlistJS() {
+    // Función para obtener el token CSRF
+    function getCSRFToken() {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, 'csrftoken'.length + 1) === ('csrftoken' + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring('csrftoken'.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Manejar toggle de contribuciones
+    jQuery('.toggle-contribuciones').click(function() {
+        const button = jQuery(this);
+        const wishlistId = button.data('wishlist-id');
+        const action = button.data('action');
+        const card = button.closest('.card');
+        const productoNombre = card.find('.card-title').text().trim();
+        const productoPrecio = button.data('precio');
+
+        if (action === 'enable') {
+            // Mostrar modal para configurar contribuciones
+            mostrarModalConfiguracion(wishlistId, productoNombre, productoPrecio);
+        } else if (action === 'disable') {
+            // Confirmar desactivación
+            if (confirm(`¿Estás seguro de que quieres desactivar las contribuciones para "${productoNombre}"? Los usuarios ya no podrán contribuir.`)) {
+                toggleContribuciones(wishlistId, action, button);
+            }
+        }
+    });
+
+    function mostrarModalConfiguracion(wishlistId, productoNombre, productoPrecio) {
+        // Convertir precio de formato español (con coma) a formato internacional (con punto)
+        let precioFormateado = productoPrecio;
+        if (typeof productoPrecio === 'string') {
+            precioFormateado = productoPrecio.replace(',', '.');
+        }
+
+        // Crear modal dinámicamente
+        const modalHtml = `
+            <div class="modal fade" id="configContribucionesModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Configurar Contribuciones</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                <div class="modal-body">
+                    <p><strong>Producto:</strong> ${productoNombre}</p>
+                    <div class="mb-3">
+                        <label for="metaContribucion" class="form-label">Meta de Contribución ($)</label>
+                        <input type="number" class="form-control" id="metaContribucion" min="1" step="0.01" value="${precioFormateado || ''}" placeholder="Ej: 50000">
+                        <div class="form-text">Monto objetivo que deben alcanzar las contribuciones para generar un pedido automáticamente.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcionContribucion" class="form-label">Mensaje para Contribuyentes (Opcional)</label>
+                        <textarea class="form-control" id="descripcionContribucion" rows="3" placeholder="Explica por qué necesitas ayuda para comprar este producto..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="activarContribucionesBtn">Activar Contribuciones</button>
+                </div>
+            </div>
+        </div>
+    </div>
+        `;        // Agregar modal al body
+        jQuery('body').append(modalHtml);
+
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('configContribucionesModal'));
+        modal.show();
+
+        // Manejar activación
+        jQuery('#activarContribucionesBtn').click(function() {
+            const meta = jQuery('#metaContribucion').val();
+            const descripcion = jQuery('#descripcionContribucion').val();
+
+            if (!meta || meta <= 0) {
+                alert('Por favor ingresa una meta de contribución válida.');
+                return;
+            }
+
+            // Enviar datos
+            activarContribuciones(wishlistId, meta, descripcion, modal);
+        });
+
+        // Limpiar modal al cerrar
+        jQuery('#configContribucionesModal').on('hidden.bs.modal', function() {
+            jQuery(this).remove();
+        });
+    }
+
+    function activarContribuciones(wishlistId, meta, descripcion, modal) {
+        const button = jQuery('#activarContribucionesBtn');
+        const originalText = button.text();
+
+        button.prop('disabled', true);
+        button.html('<i class="fas fa-spinner fa-spin"></i> Activando...');
+
+        jQuery.ajax({
+            url: `/wishlist/${wishlistId}/toggle-contribuciones/`,
+            type: 'POST',
+            data: {
+                'action': 'enable',
+                'meta_contribucion': meta,
+                'descripcion': descripcion,
+                'csrfmiddlewaretoken': getCSRFToken()
+            },
+            success: function(response) {
+                if (response.success) {
+                    modal.hide();
+                    location.reload(); // Recargar para mostrar cambios
+                } else {
+                    alert('Error: ' + (response.error || 'Error desconocido'));
+                    button.prop('disabled', false);
+                    button.text(originalText);
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error al procesar la solicitud');
+                button.prop('disabled', false);
+                button.text(originalText);
+            }
+        });
+    }
+
+    function toggleContribuciones(wishlistId, action, button) {
+        const originalText = button.html();
+        button.prop('disabled', true);
+        button.html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
+
+        jQuery.ajax({
+            url: `/wishlist/${wishlistId}/toggle-contribuciones/`,
+            type: 'POST',
+            data: {
+                'action': action,
+                'csrfmiddlewaretoken': getCSRFToken()
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload(); // Recargar para mostrar cambios
+                } else {
+                    alert('Error: ' + (response.error || 'Error desconocido'));
+                    button.prop('disabled', false);
+                    button.html(originalText);
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error al procesar la solicitud');
+                button.prop('disabled', false);
+                button.html(originalText);
+            }
+        });
+    }
+}
+</script>
 {% endblock %}

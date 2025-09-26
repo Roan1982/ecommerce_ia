@@ -45,6 +45,7 @@ urlpatterns = [
     path('wishlist/quitar/<int:producto_id>/', views.quitar_de_wishlist, name='quitar_de_wishlist'),
     path('wishlist/toggle/<int:producto_id>/', views.toggle_wishlist, name='toggle_wishlist'),
     path('wishlist/count/', views.wishlist_count, name='wishlist_count'),
+    path('wishlist/<int:wishlist_id>/toggle-contribuciones/', views.toggle_contribuciones_wishlist, name='toggle_contribuciones_wishlist'),
     # Sistema de Contribuciones a Wishlist
     path('wishlists-contribuciones/', views.wishlists_con_contribuciones, name='wishlists_con_contribuciones'),
     path('wishlist/<int:wishlist_id>/contribucion/', views.wishlist_detalle_contribucion, name='wishlist_detalle_contribucion'),

@@ -21,7 +21,7 @@ from django.db import models, transaction
 from django import forms
 from django.http import JsonResponse
 from django.contrib.auth.models import User
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth, TruncDay
 import pandas as pd
 from datetime import date, timedelta
@@ -901,6 +901,10 @@ def pedido_detalle(request, pedido_id):
         pedido = Pedido.objects.get(id=pedido_id, usuario=request.user)
         productos = PedidoProducto.objects.filter(pedido=pedido).select_related('producto')
 
+        # Verificar si el pedido puede ser enviado
+        if not pedido.puede_ser_enviado:
+            messages.warning(request, _('Tu dirección de envío está incompleta. Completa tu dirección para que podamos procesar el envío de este pedido.'))
+
         return render(request, 'tienda/pedido_detalle.html', {
             'pedido': pedido,
             'productos': productos
@@ -1050,6 +1054,11 @@ def remover_cupon(request):
 def historial_pedidos(request):
     """Vista para mostrar el historial de pedidos del usuario"""
     pedidos = Pedido.objects.filter(usuario=request.user).select_related('direccion_envio', 'metodo_pago').order_by('-fecha_creacion')
+
+    # Verificar si hay pedidos que no pueden ser enviados
+    pedidos_sin_envio = [pedido for pedido in pedidos if not pedido.puede_ser_enviado]
+    if pedidos_sin_envio:
+        messages.warning(request, _('Algunos de tus pedidos tienen direcciones de envío incompletas. Completa tu dirección para que podamos procesar los envíos.'))
 
     return render(request, 'tienda/historial_pedidos.html', {
         'pedidos': pedidos
@@ -2343,6 +2352,56 @@ def wishlist_count(request):
     count = Wishlist.objects.filter(usuario=request.user).count()
     return JsonResponse({'count': count})
 
+@login_required
+def toggle_contribuciones_wishlist(request, wishlist_id):
+    """Vista AJAX para activar/desactivar contribuciones en una wishlist"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+    try:
+        wishlist = Wishlist.objects.get(id=wishlist_id, usuario=request.user)
+    except Wishlist.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Lista de deseos no encontrada'})
+
+    action = request.POST.get('action')
+
+    if action == 'enable':
+        # Activar contribuciones - pedir meta de contribución
+        meta_contribucion = request.POST.get('meta_contribucion')
+        descripcion = request.POST.get('descripcion', '')
+
+        if not meta_contribucion:
+            return JsonResponse({'success': False, 'error': 'Debe especificar una meta de contribución'})
+
+        try:
+            meta_contribucion = float(meta_contribucion)
+            if meta_contribucion <= 0:
+                raise ValueError("La meta debe ser mayor a cero")
+            if meta_contribucion < wishlist.producto.precio:
+                return JsonResponse({'success': False, 'error': f'La meta debe ser al menos ${wishlist.producto.precio}'})
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Meta de contribución inválida'})
+
+        wishlist.permitir_contribuciones = True
+        wishlist.contribucion_objetivo = meta_contribucion
+        wishlist.descripcion_contribucion = descripcion
+        wishlist.fecha_modificacion = timezone.now()
+        wishlist.save()
+
+        messages.success(request, f'Contribuciones activadas para "{wishlist.producto.nombre}". Meta: ${meta_contribucion}')
+
+    elif action == 'disable':
+        # Desactivar contribuciones
+        wishlist.permitir_contribuciones = False
+        wishlist.save()
+
+        messages.success(request, f'Contribuciones desactivadas para "{wishlist.producto.nombre}"')
+
+    else:
+        return JsonResponse({'success': False, 'error': 'Acción no válida'})
+
+    return JsonResponse({'success': True})
+
 # ===== SISTEMA DE CONTRIBUCIONES A WISHLIST =====
 
 @login_required
@@ -2510,6 +2569,14 @@ def contribuir_wishlist(request, wishlist_id):
 @login_required
 def historial_contribuciones(request):
     """Vista para mostrar el historial de contribuciones del usuario"""
+    from django.core.paginator import Paginator
+    from django.db.models import Q
+
+    # Obtener parámetros de filtrado
+    estado_filtro = request.GET.get('estado', '')
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+
     # Contribuciones realizadas
     contribuciones_realizadas = ContribucionWishlist.objects.filter(
         usuario_contribuyente=request.user
@@ -2520,8 +2587,52 @@ def historial_contribuciones(request):
         wishlist_item__usuario=request.user
     ).select_related('usuario_contribuyente', 'wishlist_item__producto').order_by('-fecha_contribucion')
 
-    # Estadísticas
-    stats = {
+    # Aplicar filtros si existen
+    filtros = Q()
+
+    # Filtro por estado
+    if estado_filtro:
+        filtros &= Q(estado=estado_filtro)
+
+    # Filtro por fecha desde
+    if fecha_desde:
+        filtros &= Q(fecha_contribucion__date__gte=fecha_desde)
+
+    # Filtro por fecha hasta
+    if fecha_hasta:
+        filtros &= Q(fecha_contribucion__date__lte=fecha_hasta)
+
+    # Aplicar filtros a ambas querysets
+    if filtros:
+        contribuciones_realizadas = contribuciones_realizadas.filter(filtros)
+        contribuciones_recibidas = contribuciones_recibidas.filter(filtros)
+
+    # Combinar todas las contribuciones para mostrar en la tabla
+    contribuciones_ids = set()
+    contribuciones = []
+
+    # Agregar contribuciones realizadas
+    for contrib in contribuciones_realizadas:
+        if contrib.id not in contribuciones_ids:
+            contribuciones.append(contrib)
+            contribuciones_ids.add(contrib.id)
+
+    # Agregar contribuciones recibidas
+    for contrib in contribuciones_recibidas:
+        if contrib.id not in contribuciones_ids:
+            contribuciones.append(contrib)
+            contribuciones_ids.add(contrib.id)
+
+    # Ordenar por fecha descendente
+    contribuciones.sort(key=lambda x: x.fecha_contribucion, reverse=True)
+
+    # Implementar paginación
+    paginator = Paginator(contribuciones, 20)  # 20 contribuciones por página
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Estadísticas TOTALES (sin filtros)
+    stats_totales = {
         'total_contribuido': contribuciones_realizadas.filter(estado='completado').aggregate(
             total=Sum('monto')
         )['total'] or 0,
@@ -2532,10 +2643,37 @@ def historial_contribuciones(request):
         'num_contribuciones_recibidas': contribuciones_recibidas.filter(estado='completado').count(),
     }
 
+    # Estadísticas FILTRADAS (con filtros aplicados)
+    stats_filtradas = {
+        'total_contribuido': contribuciones_realizadas.filter(estado='completado').aggregate(
+            total=Sum('monto')
+        )['total'] or 0,
+        'num_contribuciones_realizadas': contribuciones_realizadas.filter(estado='completado').count(),
+        'total_recibido': contribuciones_recibidas.filter(estado='completado').aggregate(
+            total=Sum('monto')
+        )['total'] or 0,
+        'num_contribuciones_recibidas': contribuciones_recibidas.filter(estado='completado').count(),
+    }
+
+    # Estadísticas para la plantilla (usar totales para mostrar siempre las estadísticas generales)
+    total_contribuciones = len(contribuciones)  # Cantidad de contribuciones FILTRADAS
+    total_contribuciones_totales = stats_totales['num_contribuciones_realizadas'] + stats_totales['num_contribuciones_recibidas']  # Cantidad TOTAL
+    total_monto = stats_totales['total_contribuido']  # Total contribuido (siempre total)
+    wishlists_unicas = contribuciones_realizadas.values('wishlist_item').distinct().count()  # Wishlists únicas TOTALES
+    contribuciones_exitosas = stats_totales['num_contribuciones_realizadas']  # Contribuciones exitosas TOTALES
+
     return render(request, 'tienda/historial_contribuciones.html', {
+        'contribuciones': page_obj.object_list,  # Lista de contribuciones de la página actual
         'contribuciones_realizadas': contribuciones_realizadas,
         'contribuciones_recibidas': contribuciones_recibidas,
-        'stats': stats,
+        'stats': stats_totales,  # Estadísticas totales para mostrar siempre
+        'total_contribuciones': total_contribuciones,
+        'total_contribuciones_totales': total_contribuciones_totales,
+        'total_monto': total_monto,
+        'wishlists_unicas': wishlists_unicas,
+        'contribuciones_exitosas': contribuciones_exitosas,
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
     })
 
 @login_required

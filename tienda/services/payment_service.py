@@ -6,7 +6,7 @@ import uuid
 from decimal import Decimal
 from django.conf import settings
 from django.utils import timezone
-from tienda.models import ContribucionWishlist
+from tienda.models import ContribucionWishlist, Wishlist
 from tienda.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
@@ -45,8 +45,10 @@ class PaymentService:
                 contribucion.fecha_pago = timezone.now()
                 contribucion.save()
 
+                # Obtener wishlist de forma segura
+                wishlist = Wishlist.objects.get(id=contribucion.wishlist_item_id)
+
                 # Verificar si se alcanzó la meta
-                wishlist = contribucion.wishlist_item
                 if wishlist.objetivo_alcanzado and not hasattr(wishlist, '_pedido_generado'):
                     # Generar pedido automáticamente si se alcanzó la meta
                     PaymentService._generar_pedido_automatico(wishlist)
@@ -122,23 +124,26 @@ class PaymentService:
         Envía notificaciones por email relacionadas con la contribución
         """
         try:
+            # Obtener wishlist de forma segura
+            wishlist = Wishlist.objects.get(id=contribucion.wishlist_item_id)
+
             # Notificación al contribuyente
             EmailService.crear_notificacion(
                 tipo='contribucion_confirmada',
                 usuario=contribucion.usuario_contribuyente,
                 contexto={
                     'contribucion': contribucion,
-                    'wishlist': contribucion.wishlist_item,
+                    'wishlist': wishlist,
                 }
             )
 
             # Notificación al propietario de la wishlist
             EmailService.crear_notificacion(
                 tipo='nueva_contribucion',
-                usuario=contribucion.wishlist_item.usuario,
+                usuario=wishlist.usuario,
                 contexto={
                     'contribucion': contribucion,
-                    'wishlist': contribucion.wishlist_item,
+                    'wishlist': wishlist,
                 }
             )
 
@@ -175,7 +180,7 @@ class PaymentService:
             bool: True si el reembolso fue exitoso
         """
         try:
-            if contribucion.estado != 'completada':
+            if contribucion.estado != 'completado':
                 return False
 
             # Simular reembolso (en producción usar API del gateway)
@@ -183,13 +188,16 @@ class PaymentService:
             contribucion.notas = f"Reembolsado: {motivo}"
             contribucion.save()
 
+            # Obtener wishlist de forma segura
+            wishlist = Wishlist.objects.get(id=contribucion.wishlist_item_id)
+
             # Enviar notificación de reembolso
             EmailService.crear_notificacion(
                 tipo='contribucion_reembolsada',
                 usuario=contribucion.usuario_contribuyente,
                 contexto={
                     'contribucion': contribucion,
-                    'wishlist': contribucion.wishlist_item,
+                    'wishlist': wishlist,
                     'motivo': motivo,
                 }
             )
