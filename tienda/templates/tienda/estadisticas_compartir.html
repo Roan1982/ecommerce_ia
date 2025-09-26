@@ -1,0 +1,297 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Estadísticas de Compartir - {{ wishlist.producto.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Estadísticas de Compartir
+                    </h4>
+                    <a href="{% url 'compartir_wishlist' wishlist.id %}" class="btn btn-light btn-sm">
+                        <i class="fas fa-share-alt me-1"></i> Compartir
+                    </a>
+                </div>
+                <div class="card-body">
+                    <!-- Información del producto -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            {% if wishlist.producto.imagen %}
+                                <img src="{{ wishlist.producto.imagen.url }}" alt="{{ wishlist.producto.nombre }}"
+                                     class="img-fluid rounded">
+                            {% else %}
+                                <div class="bg-light d-flex align-items-center justify-content-center rounded"
+                                     style="height: 150px;">
+                                    <i class="fas fa-image fa-2x text-muted"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <h5>{{ wishlist.producto.nombre }}</h5>
+                            <p class="text-muted mb-2">{{ wishlist.producto.descripcion|truncatechars:100 }}</p>
+                            <div class="row">
+                                <div class="col-sm-4">
+                                    <p class="mb-1"><strong>Precio:</strong> ${{ wishlist.producto.precio }}</p>
+                                    <p class="mb-1"><strong>Meta:</strong> ${{ wishlist.monto_objetivo }}</p>
+                                </div>
+                                <div class="col-sm-4">
+                                    <p class="mb-1"><strong>Progreso:</strong>
+                                        <span class="badge bg-{{ wishlist.porcentaje_completado|floatformat:0 >= 100 and 'success' or wishlist.porcentaje_completado|floatformat:0 >= 50 and 'warning' or 'danger' }}">
+                                            {{ wishlist.porcentaje_completado|floatformat:1 }}%
+                                        </span>
+                                    </p>
+                                    <p class="mb-1"><strong>Contribuciones:</strong> {{ wishlist.total_contribuciones }}</p>
+                                </div>
+                                <div class="col-sm-4">
+                                    <p class="mb-1"><strong>Código de referido:</strong></p>
+                                    <code class="bg-light px-2 py-1 rounded">{{ wishlist.codigo_referido }}</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estadísticas principales -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card border-primary">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-share-alt fa-2x text-primary mb-2"></i>
+                                    <h3 class="text-primary mb-1">{{ wishlist.veces_compartido }}</h3>
+                                    <small class="text-muted">Total Compartidos</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-info">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-eye fa-2x text-info mb-2"></i>
+                                    <h3 class="text-info mb-1">{{ total_visitas_referidas }}</h3>
+                                    <small class="text-muted">Visitas por Referido</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-hand-holding-heart fa-2x text-success mb-2"></i>
+                                    <h3 class="text-success mb-1">{{ total_contribuciones_referidas }}</h3>
+                                    <small class="text-muted">Contribuciones por Referido</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-warning">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-percentage fa-2x text-warning mb-2"></i>
+                                    <h3 class="text-warning mb-1">{{ wishlist.porcentaje_completado|floatformat:1 }}%</h3>
+                                    <small class="text-muted">Completado</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estadísticas por plataforma -->
+                    {% if estadisticas_plataforma %}
+                    <div class="mb-4">
+                        <h5 class="mb-3">Compartidos por Plataforma</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Plataforma</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th class="text-center">Porcentaje</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for stat in estadisticas_plataforma %}
+                                    <tr>
+                                        <td>
+                                            <i class="fab fa-{{ stat.plataforma|lower }} me-2"></i>
+                                            {{ stat.plataforma|title }}
+                                        </td>
+                                        <td class="text-center">{{ stat.total }}</td>
+                                        <td class="text-center">
+                                            {{ stat.total|mul:100|div:wishlist.veces_compartido|floatformat:1 }}%
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Referidos -->
+                    {% if referidos %}
+                    <div class="mb-4">
+                        <h5 class="mb-3">Personas que llegaron por tu referido</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Fecha de Visita</th>
+                                        <th>¿Contribuyó?</th>
+                                        <th>Monto Contribuido</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for referido in referidos %}
+                                    <tr>
+                                        <td>
+                                            {% if referido.usuario_referido %}
+                                                {{ referido.usuario_referido.get_full_name|default:referido.usuario_referido.username }}
+                                            {% else %}
+                                                <em>Anónimo</em>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ referido.fecha_visita|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            {% if referido.contribucion_realizada %}
+                                                <span class="badge bg-success">Sí</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">No</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if referido.monto_contribuido %}
+                                                ${{ referido.monto_contribuido }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Contribuciones por referido -->
+                    {% if contribuciones_referidas %}
+                    <div class="mb-4">
+                        <h5 class="mb-3">Contribuciones generadas por referidos</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Contribuyente</th>
+                                        <th>Fecha</th>
+                                        <th>Monto</th>
+                                        <th>Estado</th>
+                                        <th>Referidor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for contribucion in contribuciones_referidas %}
+                                    <tr>
+                                        <td>{{ contribucion.usuario_contribuyente.get_full_name|default:contribucion.usuario_contribuyente.username }}</td>
+                                        <td>{{ contribucion.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                                        <td>${{ contribucion.monto }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ contribucion.estado == 'completado' and 'success' or contribucion.estado == 'pendiente' and 'warning' or 'danger' }}">
+                                                {{ contribucion.get_estado_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if contribucion.referido_origen %}
+                                                {{ contribucion.referido_origen.usuario_referidor.get_full_name|default:contribucion.referido_origen.usuario_referidor.username }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Enlace de compartir -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-link me-2"></i>Enlace de compartir</h6>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="enlaceEstadisticas"
+                                   value="{{ wishlist.url_compartir }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copiarEnlaceEstadisticas()">
+                                <i class="fas fa-copy"></i> Copiar
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            Este enlace incluye tu código de referido único
+                        </small>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="{% url 'wishlist_detalle_contribucion' wishlist.id %}"
+                           class="btn btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i> Ver Lista
+                        </a>
+                        <a href="{% url 'compartir_wishlist' wishlist.id %}"
+                           class="btn btn-outline-success">
+                            <i class="fas fa-share-alt me-1"></i> Compartir Más
+                        </a>
+                        <a href="{% url 'wishlists_con_contribuciones' %}"
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Volver
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+function copiarEnlaceEstadisticas() {
+    const enlaceInput = document.getElementById('enlaceEstadisticas');
+    enlaceInput.select();
+    enlaceInput.setSelectionRange(0, 99999);
+
+    navigator.clipboard.writeText(enlaceInput.value).then(function() {
+        // Mostrar mensaje de éxito
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> ¡Copiado!';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-success');
+
+        setTimeout(function() {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    });
+}
+</script>
+
+<style>
+.card {
+    border: none;
+    border-radius: 10px;
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+{% endblock %}

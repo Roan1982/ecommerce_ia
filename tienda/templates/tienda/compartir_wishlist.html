@@ -1,0 +1,262 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Compartir Lista de Deseos - {{ wishlist.producto.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-share-alt me-2"></i>
+                        Compartir Lista de Deseos
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Información del producto -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            {% if wishlist.producto.imagen %}
+                                <img src="{{ wishlist.producto.imagen.url }}" alt="{{ wishlist.producto.nombre }}"
+                                     class="img-fluid rounded">
+                            {% else %}
+                                <div class="bg-light d-flex align-items-center justify-content-center rounded"
+                                     style="height: 200px;">
+                                    <i class="fas fa-image fa-3x text-muted"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-8">
+                            <h5>{{ wishlist.producto.nombre }}</h5>
+                            <p class="text-muted mb-2">{{ wishlist.producto.descripcion|truncatechars:150 }}</p>
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <p class="mb-1"><strong>Precio:</strong> ${{ wishlist.producto.precio }}</p>
+                                    <p class="mb-1"><strong>Meta:</strong> ${{ wishlist.monto_objetivo }}</p>
+                                </div>
+                                <div class="col-sm-6">
+                                    <p class="mb-1"><strong>Progreso:</strong>
+                                        <span class="badge bg-{{ wishlist.porcentaje_completado|floatformat:0 >= 100 and 'success' or wishlist.porcentaje_completado|floatformat:0 >= 50 and 'warning' or 'danger' }}">
+                                            {{ wishlist.porcentaje_completado|floatformat:1 }}%
+                                        </span>
+                                    </p>
+                                    <p class="mb-1"><strong>Contribuciones:</strong> {{ wishlist.total_contribuciones }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Barra de progreso -->
+                    <div class="mb-4">
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar {{ wishlist.porcentaje_completado|floatformat:0 >= 100 and 'bg-success' or wishlist.porcentaje_completado|floatformat:0 >= 50 and 'bg-warning' or 'bg-danger' }}"
+                                 role="progressbar"
+                                 style="width: {{ wishlist.porcentaje_completado }}%"
+                                 aria-valuenow="{{ wishlist.porcentaje_completado }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                ${{ wishlist.total_contribuciones }} / ${{ wishlist.monto_objetivo }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enlaces de compartir -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Comparte en redes sociales</h5>
+                        <div class="row g-2">
+                            <!-- WhatsApp -->
+                            <div class="col-md-6 col-lg-4">
+                                <a href="{{ enlaces_compartir.whatsapp }}" target="_blank"
+                                   class="btn btn-success w-100 d-flex align-items-center justify-content-center p-3"
+                                   onclick="registrarCompartir('whatsapp')">
+                                    <i class="fab fa-whatsapp fa-lg me-2"></i>
+                                    WhatsApp
+                                </a>
+                            </div>
+
+                            <!-- Telegram -->
+                            <div class="col-md-6 col-lg-4">
+                                <a href="{{ enlaces_compartir.telegram }}" target="_blank"
+                                   class="btn btn-info w-100 d-flex align-items-center justify-content-center p-3"
+                                   onclick="registrarCompartir('telegram')">
+                                    <i class="fab fa-telegram fa-lg me-2"></i>
+                                    Telegram
+                                </a>
+                            </div>
+
+                            <!-- X (Twitter) -->
+                            <div class="col-md-6 col-lg-4">
+                                <a href="{{ enlaces_compartir.twitter }}" target="_blank"
+                                   class="btn btn-dark w-100 d-flex align-items-center justify-content-center p-3"
+                                   onclick="registrarCompartir('twitter')">
+                                    <i class="fab fa-twitter fa-lg me-2"></i>
+                                    X (Twitter)
+                                </a>
+                            </div>
+
+                            <!-- Facebook -->
+                            <div class="col-md-6 col-lg-4">
+                                <a href="{{ enlaces_compartir.facebook }}" target="_blank"
+                                   class="btn btn-primary w-100 d-flex align-items-center justify-content-center p-3"
+                                   onclick="registrarCompartir('facebook')">
+                                    <i class="fab fa-facebook fa-lg me-2"></i>
+                                    Facebook
+                                </a>
+                            </div>
+
+                            <!-- Instagram -->
+                            <div class="col-md-6 col-lg-4">
+                                <a href="{{ enlaces_compartir.instagram }}" target="_blank"
+                                   class="btn btn-danger w-100 d-flex align-items-center justify-content-center p-3"
+                                   onclick="registrarCompartir('instagram')">
+                                    <i class="fab fa-instagram fa-lg me-2"></i>
+                                    Instagram
+                                </a>
+                            </div>
+
+                            <!-- TikTok -->
+                            <div class="col-md-6 col-lg-4">
+                                <a href="{{ enlaces_compartir.tiktok }}" target="_blank"
+                                   class="btn btn-dark w-100 d-flex align-items-center justify-content-center p-3"
+                                   onclick="registrarCompartir('tiktok')">
+                                    <i class="fab fa-tiktok fa-lg me-2"></i>
+                                    TikTok
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enlace directo -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Enlace directo</h5>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="enlaceDirecto"
+                                   value="{{ enlaces_compartir.url }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copiarEnlace()">
+                                <i class="fas fa-copy"></i> Copiar
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            Comparte este enlace para que otros puedan contribuir a tu lista de deseos
+                        </small>
+                    </div>
+
+                    <!-- Estadísticas -->
+                    <div class="row text-center mb-4">
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h4 class="text-primary mb-1">{{ wishlist.veces_compartido }}</h4>
+                                <small class="text-muted">Compartidos</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h4 class="text-info mb-1">{{ wishlist.veces_visitado_via_referido }}</h4>
+                                <small class="text-muted">Visitas por referido</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h4 class="text-success mb-1">{{ wishlist.veces_contribuido_via_referido }}</h4>
+                                <small class="text-muted">Contribuciones por referido</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <h4 class="text-warning mb-1">{{ wishlist.porcentaje_completado|floatformat:1 }}%</h4>
+                                <small class="text-muted">Completado</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="{% url 'wishlist_detalle_contribucion' wishlist.id %}"
+                           class="btn btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i> Ver Lista
+                        </a>
+                        <a href="{% url 'estadisticas_compartir_wishlist' wishlist.id %}"
+                           class="btn btn-outline-info">
+                            <i class="fas fa-chart-bar me-1"></i> Estadísticas Detalladas
+                        </a>
+                        <a href="{% url 'wishlists_con_contribuciones' %}"
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Volver
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript para funcionalidades -->
+<script>
+function copiarEnlace() {
+    const enlaceInput = document.getElementById('enlaceDirecto');
+    enlaceInput.select();
+    enlaceInput.setSelectionRange(0, 99999);
+
+    navigator.clipboard.writeText(enlaceInput.value).then(function() {
+        // Mostrar mensaje de éxito
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> ¡Copiado!';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-success');
+
+        setTimeout(function() {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    });
+}
+
+function registrarCompartir(plataforma) {
+    // Enviar petición AJAX para registrar el compartir
+    fetch('{% url "compartir_wishlist" wishlist.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: 'plataforma=' + plataforma
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar contador de compartidos si existe
+            const contador = document.querySelector('.text-primary');
+            if (contador) {
+                const currentCount = parseInt(contador.textContent);
+                contador.textContent = currentCount + 1;
+            }
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>
+
+<style>
+.btn {
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.progress {
+    border-radius: 15px;
+}
+
+.progress-bar {
+    border-radius: 15px;
+}
+</style>
+{% endblock %}

@@ -40,14 +40,14 @@ class PaymentService:
 
             if resultado_pago['success']:
                 # Actualizar contribución
-                contribucion.estado = 'completada'
+                contribucion.estado = 'completado'  # Corregido: usar 'completado' en lugar de 'completada'
                 contribucion.referencia_pago = resultado_pago['referencia']
                 contribucion.fecha_pago = timezone.now()
                 contribucion.save()
 
                 # Verificar si se alcanzó la meta
                 wishlist = contribucion.wishlist_item
-                if wishlist.meta_alcanzada and not hasattr(wishlist, '_pedido_generado'):
+                if wishlist.objetivo_alcanzado and not hasattr(wishlist, '_pedido_generado'):
                     # Generar pedido automáticamente si se alcanzó la meta
                     PaymentService._generar_pedido_automatico(wishlist)
 
@@ -107,60 +107,9 @@ class PaymentService:
         """
         Genera un pedido automático cuando se alcanza la meta de contribución
         """
-        from tienda.models import Pedido, PedidoProducto
-
         try:
-            # Calcular total disponible
-            total_disponible = wishlist.total_contribuido
-
-            # Crear pedido para el propietario de la wishlist
-            pedido = Pedido.objects.create(
-                usuario=wishlist.usuario,
-                estado='pendiente',
-                tipo='automatico_contribuciones',
-                notas=f'Pedido automático generado por contribuciones a wishlist "{wishlist.nombre}"'
-            )
-
-            # Agregar productos según las contribuciones
-            productos_agregados = []
-            total_asignado = Decimal('0.00')
-
-            # Primero intentar productos específicos
-            for contribucion in wishlist.contribuciones.filter(estado='completada', producto__isnull=False):
-                if contribucion.producto.stock > 0:
-                    precio = contribucion.producto.precio
-                    if total_asignado + precio <= total_disponible:
-                        PedidoProducto.objects.create(
-                            pedido=pedido,
-                            producto=contribucion.producto,
-                            cantidad=1,
-                            precio_unitario=precio
-                        )
-                        productos_agregados.append(contribucion.producto.nombre)
-                        total_asignado += precio
-
-            # Si quedan fondos, agregar productos generales
-            if total_asignado < total_disponible:
-                for producto in wishlist.productos.exclude(id__in=[p.id for p in productos_agregados]):
-                    if producto.stock > 0 and total_asignado + producto.precio <= total_disponible:
-                        PedidoProducto.objects.create(
-                            pedido=pedido,
-                            producto=producto,
-                            cantidad=1,
-                            precio_unitario=producto.precio
-                        )
-                        productos_agregados.append(producto.nombre)
-                        total_asignado += producto.precio
-
-            # Actualizar total del pedido
-            pedido.total = total_asignado
-            pedido.save()
-
-            # Marcar wishlist como procesada
-            wishlist._pedido_generado = True
-
-            # Enviar notificación al propietario
-            PaymentService._enviar_notificacion_meta_alcanzada(wishlist, pedido)
+            # Usar el método del modelo Wishlist que ya está implementado correctamente
+            pedido = wishlist.convertir_a_pedido()
 
             logger.info(f"Pedido automático generado para wishlist {wishlist.id}: {pedido.id}")
 

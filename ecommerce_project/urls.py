@@ -21,6 +21,10 @@ from tienda.admin import admin_site
 urlpatterns = [
     # Panel de administración personalizado
     path('admin/', admin_site.urls),
+
+    # URLs de autenticación de Django (requeridas para @login_required y redirecciones automáticas)
+    path('accounts/', include('django.contrib.auth.urls')),
+
     # Nuestro panel de administración personalizado
     path('', include('tienda.urls')),
 ]

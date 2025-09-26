@@ -1,0 +1,203 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Comprar Cupón con Puntos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="card-title mb-0">
+                        <i class="bi bi-cart-plus me-2"></i>{% trans "Confirmar Compra de Cupón" %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Información del cupón -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">{% trans "Detalles del Cupón" %}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6 class="text-primary mb-3">{{ cupon.descripcion }}</h6>
+                                            <div class="row">
+                                                <div class="col-sm-6">
+                                                    <p class="mb-2">
+                                                        <strong>{% trans "Tipo de descuento:" %}</strong>
+                                                        {% if cupon.tipo_descuento == 'porcentaje' %}
+                                                            <span class="badge bg-success">{{ cupon.valor_descuento }}% OFF</span>
+                                                        {% elif cupon.tipo_descuento == 'monto_fijo' %}
+                                                            <span class="badge bg-success">${{ cupon.valor_descuento }} OFF</span>
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                                <div class="col-sm-6">
+                                                    <p class="mb-2">
+                                                        <strong>{% trans "Compra mínima:" %}</strong>
+                                                        {% if cupon.minimo_compra > 0 %}
+                                                            ${{ cupon.minimo_compra }}
+                                                        {% else %}
+                                                            {% trans "Sin mínimo" %}
+                                                        {% endif %}
+                                                    </p>
+                                                </div>
+                                                <div class="col-sm-6">
+                                                    <p class="mb-2">
+                                                        <strong>{% trans "Válido hasta:" %}</strong>
+                                                        {{ cupon.fecha_expiracion|date:"d/m/Y" }}
+                                                    </p>
+                                                </div>
+                                                <div class="col-sm-6">
+                                                    <p class="mb-2">
+                                                        <strong>{% trans "Usos máximos:" %}</strong>
+                                                        1 {% trans "uso" %}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 text-center">
+                                            <div class="p-3 bg-light rounded">
+                                                <div class="display-6 text-primary fw-bold">{{ cupon.puntos_requeridos }}</div>
+                                                <div class="text-muted">{% trans "puntos requeridos" %}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de puntos -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-warning">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-coin text-warning" style="font-size: 2rem;"></i>
+                                    <h6 class="mt-2">{% trans "Puntos Actuales" %}</h6>
+                                    <div class="display-6 text-warning fw-bold">{{ puntos_disponibles }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                                    <h6 class="mt-2">{% trans "Después de la Compra" %}</h6>
+                                    <div class="display-6 text-success fw-bold">{{ puntos_restantes }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Beneficios del cupón -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-gift me-2"></i>{% trans "Beneficios de este Cupón" %}
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <ul class="list-unstyled">
+                                                <li class="mb-2">
+                                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                                    {% trans "Descuento exclusivo en tu próxima compra" %}
+                                                </li>
+                                                <li class="mb-2">
+                                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                                    {% trans "Cupón de un solo uso personal" %}
+                                                </li>
+                                                <li class="mb-2">
+                                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                                    {% trans "Puedes compartir el código con otros" %}
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <ul class="list-unstyled">
+                                                <li class="mb-2">
+                                                    <i class="bi bi-star text-warning me-2"></i>
+                                                    {% trans "Gana puntos cuando otros usen tu código" %}
+                                                </li>
+                                                <li class="mb-2">
+                                                    <i class="bi bi-clock text-info me-2"></i>
+                                                    {% trans "Válido hasta" %} {{ cupon.fecha_expiracion|date:"d/m/Y" }}
+                                                </li>
+                                                <li class="mb-2">
+                                                    <i class="bi bi-shield-check text-primary me-2"></i>
+                                                    {% trans "Compra segura con tus puntos" %}
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de confirmación -->
+                    <div class="row">
+                        <div class="col-12">
+                            <form method="post">
+                                {% csrf_token %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    {% trans "Al confirmar esta compra, se deducirán" %} <strong>{{ cupon.puntos_requeridos }} puntos</strong> {% trans "de tu saldo actual. Esta acción no se puede deshacer." %}
+                                </div>
+
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <a href="{% url 'cupones_canjear_puntos' %}" class="btn btn-outline-secondary me-md-2">
+                                        <i class="bi bi-arrow-left me-2"></i>{% trans "Cancelar" %}
+                                    </a>
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        <i class="bi bi-cart-check me-2"></i>
+                                        {% trans "Confirmar Compra" %}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información adicional -->
+            <div class="card mt-4 bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-question-circle me-2"></i>{% trans "¿Cómo funciona?" %}
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">1</span>
+                            </div>
+                            <p class="mt-2 small">{% trans "Compra el cupón con tus puntos acumulados" %}</p>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">2</span>
+                            </div>
+                            <p class="mt-2 small">{% trans "Recibe un código único para usar en tus compras" %}</p>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">3</span>
+                            </div>
+                            <p class="mt-2 small">{% trans "Comparte el código y gana puntos cuando otros lo usen" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,177 @@
+{% extends "admin/change_list.html" %}
+{% load admin_list %}
+{% load static %}
+
+{% block content_title %}
+    <h1>Cupones de Descuento</h1>
+{% endblock %}
+
+{% block result_list %}
+    <div class="results">
+        <table id="result_list">
+            <thead>
+                <tr>
+                    <th scope="col" class="column-codigo">
+                        <div class="text"><a href="?o=0">Código</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="column-descripcion">
+                        <div class="text"><a href="?o=1">Descripción</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="column-tipo_cupon">
+                        <div class="text"><a href="?o=2">Tipo de Cupón</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="column-tipo_descuento">
+                        <div class="text"><a href="?o=3">Tipo Descuento</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="column-valor_descuento">
+                        <div class="text"><a href="?o=4">Valor</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="column-activo">
+                        <div class="text"><a href="?o=5">Activo</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="column-fecha_expiracion">
+                        <div class="text"><a href="?o=6">Expira</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="column-usos_display">
+                        <div class="text"><a href="?o=7">Usos</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="column-usuario_propietario_display">
+                        <div class="text"><a href="?o=8">Propietario</a></div>
+                        <div class="clear"></div>
+                    </th>
+                    <th scope="col" class="action-checkbox-column">
+                        <div class="text"><span><input type="checkbox" id="action-toggle"></span></div>
+                        <div class="clear"></div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cupon in cl.result_list %}
+                    <tr class="{% cycle 'row1' 'row2' %} {% if not cupon.activo %}text-muted{% endif %}">
+                        <td class="field-codigo">
+                            <strong>{{ cupon.codigo }}</strong>
+                            {% if cupon.tipo_cupon == 'codigo_copiable' %}
+                                <span class="badge badge-info">Copiable</span>
+                            {% elif cupon.tipo_cupon == 'comprado_puntos' %}
+                                <span class="badge badge-warning">Con Puntos</span>
+                            {% else %}
+                                <span class="badge badge-secondary">Estándar</span>
+                            {% endif %}
+                        </td>
+                        <td class="field-descripcion">{{ cupon.descripcion }}</td>
+                        <td class="field-tipo_cupon">
+                            {% if cupon.tipo_cupon == 'codigo_copiable' %}
+                                <span class="text-success">✓ Copiable</span>
+                            {% elif cupon.tipo_cupon == 'comprado_puntos' %}
+                                <span class="text-warning">💰 Requiere {{ cupon.puntos_requeridos }} puntos</span>
+                            {% else %}
+                                <span class="text-muted">Estándar</span>
+                            {% endif %}
+                        </td>
+                        <td class="field-tipo_descuento">
+                            {% if cupon.tipo_descuento == 'porcentaje' %}
+                                Porcentaje
+                            {% else %}
+                                Monto fijo
+                            {% endif %}
+                        </td>
+                        <td class="field-valor_descuento">
+                            {% if cupon.tipo_descuento == 'porcentaje' %}
+                                {{ cupon.valor_descuento }}%
+                            {% else %}
+                                ${{ cupon.valor_descuento }}
+                            {% endif %}
+                        </td>
+                        <td class="field-activo">
+                            {% if cupon.activo %}
+                                <span class="text-success">✓ Activo</span>
+                            {% else %}
+                                <span class="text-danger">✗ Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="field-fecha_expiracion">
+                            {% if cupon.fecha_expiracion %}
+                                {{ cupon.fecha_expiracion|date:"d/m/Y" }}
+                                {% if cupon.fecha_expiracion < now %}
+                                    <span class="text-danger">(Expirado)</span>
+                                {% endif %}
+                            {% else %}
+                                Sin expiración
+                            {% endif %}
+                        </td>
+                        <td class="field-usos_display">{{ cupon.usos_actuales }}/{{ cupon.usos_maximos }}</td>
+                        <td class="field-usuario_propietario_display">
+                            {% if cupon.usuario_propietario %}
+                                {{ cupon.usuario_propietario.username }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="action-checkbox">
+                            <input type="checkbox" name="_selected_action" value="{{ cupon.pk }}" class="action-select">
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Estadísticas de cupones -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Total Cupones</h5>
+                    <h3 class="text-primary">{{ cl.result_count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Cupones Activos</h5>
+                    <h3 class="text-success">{{ cl.result_list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Cupones Copiables</h5>
+                    <h3 class="text-info">{{ cl.result_list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Cupones con Puntos</h5>
+                    <h3 class="text-warning">{{ cl.result_list|length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block footer %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <strong>Tipos de Cupones:</strong>
+                <ul class="mb-0 mt-2">
+                    <li><strong>Estándar:</strong> Cupones normales que pueden usarse múltiples veces</li>
+                    <li><strong>Copiable:</strong> Pueden copiarse el código y canjearse por puntos de lealtad</li>
+                    <li><strong>Con Puntos:</strong> Requieren puntos de lealtad para poder usarse</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -33,6 +33,8 @@ urlpatterns = [
     path('aplicar-cupon/', views.aplicar_cupon, name='aplicar_cupon'),
     path('remover-cupon/', views.remover_cupon, name='remover_cupon'),
     path('cupones/', views.cupones_disponibles, name='cupones_disponibles'),
+    path('cupones/canjear-puntos/', views.cupones_canjear_puntos, name='cupones_canjear_puntos'),
+    path('cupones/comprar/<int:cupon_id>/', views.comprar_cupon_puntos, name='comprar_cupon_puntos'),
     # Administración de inventario (ruta separada para evitar conflictos con Django admin)
     path('inventario/', views.admin_inventario, name='inventario_publico'),
     path('inventario/actualizar/<int:producto_id>/', views.actualizar_stock, name='actualizar_stock'),
@@ -51,6 +53,11 @@ urlpatterns = [
     path('historial-contribuciones/', views.historial_contribuciones, name='historial_contribuciones'),
     path('contribucion/<int:contribucion_id>/pago/', views.pago_contribucion, name='pago_contribucion'),
     path('contribucion/<int:contribucion_id>/procesar-pago/', views.procesar_pago_contribucion, name='procesar_pago_contribucion'),
+    # Sistema de Compartir Wishlist
+    path('wishlist/<int:wishlist_id>/compartir/', views.compartir_wishlist, name='compartir_wishlist'),
+    path('wishlist/<int:wishlist_id>/referido/', views.procesar_referido_wishlist, name='procesar_referido_wishlist'),
+    path('wishlist/<int:wishlist_id>/compartir/enlaces/', views.obtener_enlaces_compartir, name='obtener_enlaces_compartir'),
+    path('wishlist/<int:wishlist_id>/compartir/estadisticas/', views.estadisticas_compartir_wishlist, name='estadisticas_compartir_wishlist'),
     # Sistema de Comparación de Productos
     path('comparacion/', views.comparacion_productos, name='comparacion_productos'),
     path('comparacion/agregar/<int:producto_id>/', views.agregar_a_comparacion, name='agregar_a_comparacion'),

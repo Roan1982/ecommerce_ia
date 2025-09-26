@@ -11,7 +11,7 @@ from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from .services.email_service import EmailService
-from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos, ComparacionProductos, NewsletterSubscription, NewsletterCampaign, NewsletterLog, EmailTemplate, EmailNotification, EmailQueue, ContribucionWishlist
+from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos, ComparacionProductos, NewsletterSubscription, NewsletterCampaign, NewsletterLog, EmailTemplate, EmailNotification, EmailQueue, ContribucionWishlist, ReferidoWishlist, HistorialCompartir
 from .forms import ProductoForm, CuponForm, ProfileForm, NewsletterSubscriptionForm, NewsletterUnsubscribeForm, NewsletterCampaignForm, NewsletterTestForm
 from .recomendador import RecomendadorIA
 from .services.email_service import EmailService
@@ -665,9 +665,21 @@ def procesar_pedido(request):
             cupon_data = request.session['cupon_aplicado']
             try:
                 cupon = Cupon.objects.select_for_update().get(codigo=cupon_data['codigo'])
-                if cupon.es_valido() and subtotal >= cupon.minimo_compra:
-                    descuento_cupon = cupon.calcular_descuento(subtotal)
-                    cupon_aplicado = cupon
+                if cupon.es_valido(request.user) and subtotal >= cupon.minimo_compra:
+                    # Para cupones que requieren puntos, verificar que el usuario tenga suficientes
+                    if cupon.tipo_cupon == 'comprado_puntos':
+                        try:
+                            profile = request.user.profile
+                            if profile.puntos_disponibles >= cupon.puntos_requeridos:
+                                descuento_cupon = cupon.calcular_descuento(subtotal)
+                                cupon_aplicado = cupon
+                            else:
+                                del request.session['cupon_aplicado']
+                        except Profile.DoesNotExist:
+                            del request.session['cupon_aplicado']
+                    else:
+                        descuento_cupon = cupon.calcular_descuento(subtotal)
+                        cupon_aplicado = cupon
                 else:
                     del request.session['cupon_aplicado']
             except Cupon.DoesNotExist:
@@ -691,6 +703,38 @@ def procesar_pedido(request):
         if cupon_aplicado:
             cupon_aplicado.usos_actuales += 1
             cupon_aplicado.save()
+
+            # Si es un cupón que requiere puntos, restar los puntos del usuario
+            if cupon_aplicado.tipo_cupon == 'comprado_puntos':
+                try:
+                    profile = request.user.profile
+                    profile.puntos_disponibles -= cupon_aplicado.puntos_requeridos
+                    profile.save()
+
+                    # Registrar en historial de puntos
+                    HistorialPuntos.objects.create(
+                        usuario=request.user,
+                        puntos=-cupon_aplicado.puntos_requeridos,
+                        descripcion=f"Uso de cupón {cupon_aplicado.codigo} (requería {cupon_aplicado.puntos_requeridos} puntos)",
+                        tipo='gastados'
+                    )
+                except Profile.DoesNotExist:
+                    # No debería pasar, pero por si acaso
+                    pass
+
+            # Si es un cupón copiable usado, crear un nuevo cupón para el usuario
+            if cupon_aplicado.tipo_cupon == 'codigo_copiable' and cupon_aplicado.usado_por_usuario != request.user:
+                # Marcar que este usuario ya usó el cupón
+                cupon_aplicado.usado_por_usuario = request.user
+                cupon_aplicado.save()
+
+                # Otorgar puntos al usuario por usar cupón copiable
+                try:
+                    profile, created = Profile.objects.get_or_create(usuario=request.user)
+                    puntos_por_cupon = 50  # Puntos que otorga usar un cupón copiable
+                    profile.agregar_puntos(puntos_por_cupon, f"Uso de cupón copiable {cupon_aplicado.codigo}")
+                except Exception:
+                    pass
 
         # Crear productos del pedido y actualizar stock
         for item in items:
@@ -746,6 +790,109 @@ def procesar_pedido(request):
     except Exception as e:
         messages.error(request, _('Error al procesar el pedido. Por favor intenta nuevamente.'))
         return redirect('checkout')
+
+@login_required
+def cupones_canjear_puntos(request):
+    """Vista para mostrar cupones disponibles para canjear con puntos"""
+    try:
+        perfil = request.user.profile
+        puntos_disponibles = perfil.puntos_disponibles
+    except Profile.DoesNotExist:
+        puntos_disponibles = 0
+        messages.warning(request, 'Necesitas tener un perfil para canjear puntos.')
+        return redirect('puntos_fidelidad')
+
+    # Obtener cupones disponibles para canjear con puntos
+    cupones_disponibles = Cupon.objects.filter(
+        tipo_cupon='comprado_puntos',
+        activo=True,
+        fecha_expiracion__gte=date.today()
+    ).order_by('puntos_requeridos')
+
+    # Preparar datos para mostrar
+    cupones_data = []
+    for cupon in cupones_disponibles:
+        puede_comprar = puntos_disponibles >= cupon.puntos_requeridos
+        cupones_data.append({
+            'cupon': cupon,
+            'puede_comprar': puede_comprar,
+            'puntos_faltantes': max(0, cupon.puntos_requeridos - puntos_disponibles)
+        })
+
+    context = {
+        'cupones_data': cupones_data,
+        'puntos_disponibles': puntos_disponibles,
+    }
+    return render(request, 'tienda/cupones_canjear_puntos.html', context)
+
+@login_required
+def comprar_cupon_puntos(request, cupon_id):
+    """Vista para comprar un cupón con puntos"""
+    try:
+        perfil = request.user.profile
+        puntos_disponibles = perfil.puntos_disponibles
+    except Profile.DoesNotExist:
+        messages.error(request, 'Necesitas tener un perfil para comprar cupones.')
+        return redirect('puntos_fidelidad')
+
+    try:
+        cupon = Cupon.objects.get(
+            id=cupon_id,
+            tipo_cupon='comprado_puntos',
+            activo=True,
+            fecha_expiracion__gte=date.today()
+        )
+    except Cupon.DoesNotExist:
+        messages.error(request, 'Cupón no encontrado o no disponible.')
+        return redirect('cupones_canjear_puntos')
+
+    # Verificar si el usuario tiene suficientes puntos
+    if puntos_disponibles < cupon.puntos_requeridos:
+        messages.error(request, f'No tienes suficientes puntos. Necesitas {cupon.puntos_requeridos} puntos, tienes {puntos_disponibles}.')
+        return redirect('cupones_canjear_puntos')
+
+    # Verificar si el usuario ya compró este cupón
+    if cupon.usuario_propietario == request.user:
+        messages.warning(request, 'Ya tienes este cupón.')
+        return redirect('cupones_disponibles')
+
+    if request.method == 'POST':
+        # Restar puntos del usuario
+        perfil.puntos_disponibles -= cupon.puntos_requeridos
+        perfil.save()
+
+        # Registrar en historial de puntos
+        HistorialPuntos.objects.create(
+            usuario=request.user,
+            puntos=-cupon.puntos_requeridos,
+            descripcion=f"Compra de cupón '{cupon.codigo}'",
+            tipo='gastados'
+        )
+
+        # Crear un nuevo cupón para el usuario
+        nuevo_cupon = Cupon.objects.create(
+            codigo=f"{cupon.codigo}_{request.user.id}_{timezone.now().strftime('%Y%m%d%H%M%S')}",
+            descripcion=cupon.descripcion,
+            tipo_descuento=cupon.tipo_descuento,
+            valor_descuento=cupon.valor_descuento,
+            minimo_compra=cupon.minimo_compra,
+            fecha_expiracion=cupon.fecha_expiracion,
+            usos_maximos=1,  # Los cupones comprados con puntos son de un solo uso
+            activo=True,
+            tipo_cupon='codigo_copiable',  # Cambiar a copiable para que pueda ser usado
+            usuario_propietario=request.user  # Marcar como propiedad del usuario
+        )
+
+        messages.success(request, f'¡Cupón comprado exitosamente! Código: {nuevo_cupon.codigo}')
+        return redirect('cupones_disponibles')
+
+    context = {
+        'cupon': cupon,
+        'puntos_disponibles': puntos_disponibles,
+        'puntos_requeridos': cupon.puntos_requeridos,
+        'puntos_restantes': puntos_disponibles - cupon.puntos_requeridos
+    }
+    return render(request, 'tienda/comprar_cupon_puntos.html', context)
 
 @login_required
 def pedido_detalle(request, pedido_id):
@@ -818,10 +965,11 @@ def aplicar_cupon(request):
             try:
                 cupon = Cupon.objects.get(codigo=codigo_cupon)
 
-                if not cupon.es_valido():
+                # Validar cupón según su tipo
+                if not cupon.es_valido(request.user):
                     return JsonResponse({
                         'success': False,
-                        'error': 'Cupón expirado o no válido'
+                        'error': 'Cupón expirado, inactivo o no válido para ti'
                     })
 
                 if subtotal < cupon.minimo_compra:
@@ -830,6 +978,21 @@ def aplicar_cupon(request):
                         'error': f'Monto mínimo de compra: ${cupon.minimo_compra}'
                     })
 
+                # Para cupones que requieren puntos, verificar que el usuario tenga suficientes
+                if cupon.tipo_cupon == 'comprado_puntos':
+                    try:
+                        profile = request.user.profile
+                        if profile.puntos_disponibles < cupon.puntos_requeridos:
+                            return JsonResponse({
+                                'success': False,
+                                'error': f'Necesitas {cupon.puntos_requeridos} puntos para usar este cupón. Tienes {profile.puntos_disponibles}.'
+                            })
+                    except Profile.DoesNotExist:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Necesitas una cuenta con puntos para usar este cupón.'
+                        })
+
                 descuento = cupon.calcular_descuento(subtotal)
                 total_con_descuento = subtotal - descuento
 
@@ -837,14 +1000,18 @@ def aplicar_cupon(request):
                 request.session['cupon_aplicado'] = {
                     'codigo': cupon.codigo,
                     'descuento': float(descuento),
-                    'descripcion': cupon.descripcion
+                    'descripcion': cupon.descripcion,
+                    'tipo_cupon': cupon.tipo_cupon,
+                    'puntos_requeridos': cupon.puntos_requeridos if cupon.tipo_cupon == 'comprado_puntos' else 0
                 }
 
                 return JsonResponse({
                     'success': True,
                     'descuento': float(descuento),
                     'total_con_descuento': float(total_con_descuento),
-                    'descripcion': cupon.descripcion
+                    'descripcion': cupon.descripcion,
+                    'tipo_cupon': cupon.tipo_cupon,
+                    'puntos_requeridos': cupon.puntos_requeridos if cupon.tipo_cupon == 'comprado_puntos' else 0
                 })
 
             except Cupon.DoesNotExist:
@@ -2063,12 +2230,11 @@ def wishlist(request):
         contribuciones_data = None
         if item.permitir_contribuciones:
             contribuciones = ContribucionWishlist.objects.filter(
-                wishlist=item,
+                wishlist_item=item,
                 estado='completado'
             )
-
             total_contribuido = contribuciones.aggregate(total=Sum('monto'))['total'] or 0
-            num_contribuidores = contribuciones.values('usuario').distinct().count()
+            num_contribuidores = contribuciones.values('usuario_contribuyente').distinct().count()
 
             progreso = (total_contribuido / item.contribucion_objetivo) * 100 if item.contribucion_objetivo > 0 else 0
 
@@ -2078,7 +2244,7 @@ def wishlist(request):
                 'progreso': progreso,
                 'faltante': max(0, item.contribucion_objetivo - total_contribuido),
                 'meta_alcanzada': total_contribuido >= item.contribucion_objetivo,
-                'contribuciones': contribuciones.select_related('usuario')[:5],  # Últimas 5 contribuciones
+                'contribuciones': contribuciones.select_related('usuario_contribuyente')[:5],  # Últimas 5 contribuciones
             }
 
         wishlist_data.append({
@@ -2185,21 +2351,21 @@ def wishlists_con_contribuciones(request):
     # Obtener wishlists que tienen contribuciones activas y no son del usuario actual
     wishlists_con_contribuciones = Wishlist.objects.filter(
         permitir_contribuciones=True
-    ).exclude(usuario=request.user).select_related('usuario', 'producto').order_by('-fecha_modificacion')
+    ).exclude(usuario=request.user).select_related('usuario', 'producto').order_by('-fecha_agregado')
 
     # Preparar datos para mostrar
     wishlists_data = []
     for wishlist in wishlists_con_contribuciones:
         # Calcular estadísticas de contribuciones
         total_contribuido = ContribucionWishlist.objects.filter(
-            wishlist=wishlist,
+            wishlist_item=wishlist,
             estado='completado'
         ).aggregate(total=Sum('monto'))['total'] or 0
 
         num_contribuidores = ContribucionWishlist.objects.filter(
-            wishlist=wishlist,
+            wishlist_item=wishlist,
             estado='completado'
-        ).values('usuario').distinct().count()
+        ).values('usuario_contribuyente').distinct().count()
 
         progreso = (total_contribuido / wishlist.contribucion_objetivo) * 100 if wishlist.contribucion_objetivo > 0 else 0
 
@@ -2221,8 +2387,19 @@ def wishlist_detalle_contribucion(request, wishlist_id):
     try:
         wishlist = Wishlist.objects.select_related('usuario', 'producto').get(id=wishlist_id)
     except Wishlist.DoesNotExist:
-        messages.error(request, 'Lista de deseos no encontrada.')
-        return redirect('wishlists_con_contribuciones')
+        # Verificar si el wishlist fue convertido a pedido
+        try:
+            pedido = Pedido.objects.filter(
+                notas__contains='contribuciones grupales'
+            ).select_related('usuario').filter(
+                usuario=request.user
+            ).latest('fecha_creacion')
+
+            messages.success(request, '¡La meta de contribución se alcanzó! Se generó automáticamente un pedido con el producto.')
+            return redirect('wishlist_detalle_contribucion', wishlist_id=wishlist_id)
+        except Pedido.DoesNotExist:
+            messages.error(request, 'Lista de deseos no encontrada.')
+            return redirect('wishlists_con_contribuciones')
 
     # Verificar que tenga contribuciones activas
     if not wishlist.permitir_contribuciones:
@@ -2231,21 +2408,21 @@ def wishlist_detalle_contribucion(request, wishlist_id):
 
     # Obtener todas las contribuciones
     contribuciones = ContribucionWishlist.objects.filter(
-        wishlist=wishlist
-    ).select_related('usuario').order_by('-fecha_creacion')
+        wishlist_item=wishlist
+    ).select_related('usuario_contribuyente').order_by('-fecha_contribucion')
 
     # Calcular estadísticas
     total_contribuido = contribuciones.filter(estado='completado').aggregate(
         total=Sum('monto')
     )['total'] or 0
 
-    num_contribuidores = contribuciones.filter(estado='completado').values('usuario').distinct().count()
+    num_contribuidores = contribuciones.filter(estado='completado').values('usuario_contribuyente').distinct().count()
 
     progreso = (total_contribuido / wishlist.contribucion_objetivo) * 100 if wishlist.contribucion_objetivo > 0 else 0
 
     # Verificar si el usuario ya contribuyó
     contribucion_usuario = contribuciones.filter(
-        usuario=request.user,
+        usuario_contribuyente=request.user,
         estado='completado'
     ).first()
 
@@ -2259,6 +2436,7 @@ def wishlist_detalle_contribucion(request, wishlist_id):
         'num_contribuidores': num_contribuidores,
         'progreso': progreso,
         'faltante': max(0, wishlist.contribucion_objetivo - total_contribuido),
+        'meta': wishlist.contribucion_objetivo,
         'contribucion_usuario': contribucion_usuario,
         'meta_alcanzada': meta_alcanzada,
         'es_propietario': wishlist.usuario == request.user,
@@ -2283,20 +2461,9 @@ def contribuir_wishlist(request, wishlist_id):
         messages.error(request, 'No puedes contribuir a tu propia lista de deseos.')
         return redirect('wishlist_detalle_contribucion', wishlist_id=wishlist_id)
 
-    # Verificar si ya contribuyó
-    contribucion_existente = ContribucionWishlist.objects.filter(
-        wishlist=wishlist,
-        usuario=request.user,
-        estado='completado'
-    ).exists()
-
-    if contribucion_existente:
-        messages.info(request, 'Ya has contribuido a esta lista de deseos.')
-        return redirect('wishlist_detalle_contribucion', wishlist_id=wishlist_id)
-
     # Calcular cuánto falta para completar la meta
     total_contribuido = ContribucionWishlist.objects.filter(
-        wishlist=wishlist,
+        wishlist_item=wishlist,
         estado='completado'
     ).aggregate(total=Sum('monto'))['total'] or 0
 
@@ -2317,8 +2484,8 @@ def contribuir_wishlist(request, wishlist_id):
 
             # Crear contribución pendiente
             contribucion = ContribucionWishlist.objects.create(
-                wishlist=wishlist,
-                usuario=request.user,
+                wishlist_item=wishlist,
+                usuario_contribuyente=request.user,
                 monto=monto,
                 metodo_pago=metodo_pago,
                 estado='pendiente'
@@ -2336,7 +2503,8 @@ def contribuir_wishlist(request, wishlist_id):
     return render(request, 'tienda/contribuir_wishlist.html', {
         'wishlist': wishlist,
         'faltante': faltante,
-        'contribucion_existente': contribucion_existente,
+        'meta': wishlist.contribucion_objetivo,
+        'contribucion_existente': False,
     })
 
 @login_required
@@ -2345,12 +2513,12 @@ def historial_contribuciones(request):
     # Contribuciones realizadas
     contribuciones_realizadas = ContribucionWishlist.objects.filter(
         usuario_contribuyente=request.user
-    ).select_related('wishlist_item__usuario', 'wishlist_item__producto').order_by('-fecha_creacion')
+    ).select_related('wishlist_item__usuario', 'wishlist_item__producto').order_by('-fecha_contribucion')
 
     # Contribuciones recibidas (en wishlists propias)
     contribuciones_recibidas = ContribucionWishlist.objects.filter(
         wishlist_item__usuario=request.user
-    ).select_related('usuario_contribuyente', 'wishlist_item__producto').order_by('-fecha_creacion')
+    ).select_related('usuario_contribuyente', 'wishlist_item__producto').order_by('-fecha_contribucion')
 
     # Estadísticas
     stats = {
@@ -2431,14 +2599,14 @@ def gestionar_contribuciones_wishlist(request, wishlist_id):
 
     # Obtener estadísticas de contribuciones
     contribuciones = ContribucionWishlist.objects.filter(
-        wishlist=wishlist
-    ).select_related('usuario').order_by('-fecha_creacion')
+        wishlist_item=wishlist
+    ).select_related('usuario_contribuyente').order_by('-fecha_contribucion')
 
     total_contribuido = contribuciones.filter(estado='completado').aggregate(
         total=Sum('monto')
     )['total'] or 0
 
-    num_contribuidores = contribuciones.filter(estado='completado').values('usuario').distinct().count()
+    num_contribuidores = contribuciones.filter(estado='completado').values('usuario_contribuyente').distinct().count()
 
     progreso = (total_contribuido / wishlist.contribucion_objetivo) * 100 if wishlist.contribucion_objetivo > 0 else 0
 
@@ -2513,7 +2681,7 @@ def procesar_pago_contribucion(request, contribucion_id):
         if resultado['success']:
             # Verificar si se completó la meta
             wishlist = contribucion.wishlist_item
-            meta_completada = wishlist.meta_alcanzada and not hasattr(wishlist, '_pedido_generado')
+            meta_completada = wishlist.objetivo_alcanzado and not hasattr(wishlist, '_pedido_generado')
 
             return JsonResponse({
                 'success': True,
@@ -3389,3 +3557,132 @@ def admin_newsletter_dashboard(request):
         'campanas_enviadas': campanas_enviadas,
     }
     return render(request, 'tienda/admin_newsletter_dashboard.html', context)
+
+@login_required
+def compartir_wishlist(request, wishlist_id):
+    """Vista para compartir una wishlist en redes sociales"""
+    try:
+        wishlist = Wishlist.objects.select_related('usuario', 'producto').get(id=wishlist_id)
+    except Wishlist.DoesNotExist:
+        messages.error(request, 'Lista de deseos no encontrada.')
+        return redirect('wishlists_con_contribuciones')
+
+    # Verificar que el usuario tenga permisos para compartir esta wishlist
+    if wishlist.usuario != request.user:
+        messages.error(request, 'No tienes permisos para compartir esta lista de deseos.')
+        return redirect('wishlist_detalle_contribucion', wishlist_id=wishlist_id)
+
+    if request.method == 'POST':
+        plataforma = request.POST.get('plataforma')
+
+        if plataforma in ['whatsapp', 'telegram', 'twitter', 'facebook', 'instagram', 'tiktok', 'email']:
+            # Registrar el compartir
+            wishlist.registrar_compartir(plataforma)
+            messages.success(request, f'¡Lista compartida en {plataforma.title()}!')
+
+            # Devolver enlaces de compartir como JSON para AJAX
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                enlaces = wishlist.generar_enlaces_compartir()
+                return JsonResponse({
+                    'success': True,
+                    'enlaces': enlaces,
+                    'mensaje': f'Lista compartida en {plataforma.title()}'
+                })
+        else:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': 'Plataforma no válida'})
+            messages.error(request, 'Plataforma no válida.')
+
+    # Generar enlaces de compartir
+    enlaces_compartir = wishlist.generar_enlaces_compartir()
+
+    return render(request, 'tienda/compartir_wishlist.html', {
+        'wishlist': wishlist,
+        'enlaces_compartir': enlaces_compartir,
+    })
+
+@login_required
+def procesar_referido_wishlist(request, wishlist_id):
+    """Vista para procesar cuando alguien llega por un enlace de referido"""
+    try:
+        wishlist = Wishlist.objects.select_related('usuario', 'producto').get(id=wishlist_id)
+    except Wishlist.DoesNotExist:
+        messages.error(request, 'Lista de deseos no encontrada.')
+        return redirect('wishlists_con_contribuciones')
+
+    # Procesar parámetro de referido
+    codigo_ref = request.GET.get('ref')
+    usuario_referidor = None
+
+    if codigo_ref:
+        try:
+            # Buscar el usuario referidor por el código
+            wishlist_referidor = Wishlist.objects.filter(codigo_referido=codigo_ref).first()
+            if wishlist_referidor and wishlist_referidor.usuario != request.user:
+                usuario_referidor = wishlist_referidor.usuario
+
+                # Registrar la visita por referido
+                wishlist.registrar_visita_referido(usuario_referidor)
+
+                # Guardar en sesión para tracking de contribuciones futuras
+                request.session['referido_por'] = usuario_referidor.id
+                request.session['wishlist_referida'] = wishlist.id
+
+        except Exception as e:
+            # Si hay error, continuar sin registrar el referido
+            pass
+
+    # Redirigir a la vista normal de la wishlist
+    return redirect('wishlist_detalle_contribucion', wishlist_id=wishlist_id)
+
+@login_required
+def obtener_enlaces_compartir(request, wishlist_id):
+    """Vista AJAX para obtener enlaces de compartir de una wishlist"""
+    try:
+        wishlist = Wishlist.objects.get(id=wishlist_id, usuario=request.user)
+        enlaces = wishlist.generar_enlaces_compartir()
+
+        return JsonResponse({
+            'success': True,
+            'enlaces': enlaces
+        })
+
+    except Wishlist.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Lista de deseos no encontrada'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def estadisticas_compartir_wishlist(request, wishlist_id):
+    """Vista para mostrar estadísticas de compartidos de una wishlist"""
+    try:
+        wishlist = Wishlist.objects.select_related('usuario', 'producto').get(
+            id=wishlist_id,
+            usuario=request.user
+        )
+    except Wishlist.DoesNotExist:
+        messages.error(request, 'Lista de deseos no encontrada o no tienes permisos.')
+        return redirect('wishlist')
+
+    # Obtener estadísticas de referidos
+    referidos = ReferidoWishlist.objects.filter(wishlist=wishlist).select_related('usuario_referidor', 'usuario_referido')
+
+    # Estadísticas por plataforma
+    estadisticas_plataforma = HistorialCompartir.objects.filter(wishlist=wishlist).values('plataforma').annotate(
+        total=Count('id')
+    ).order_by('-total')
+
+    # Estadísticas de contribuciones por referido
+    contribuciones_referidas = ContribucionWishlist.objects.filter(
+        wishlist_item=wishlist,
+        estado='completado'
+    ).exclude(referido_origen__isnull=True).select_related('usuario_contribuyente', 'referido_origen')
+
+    return render(request, 'tienda/estadisticas_compartir.html', {
+        'wishlist': wishlist,
+        'referidos': referidos,
+        'estadisticas_plataforma': estadisticas_plataforma,
+        'contribuciones_referidas': contribuciones_referidas,
+        'total_visitas_referidas': wishlist.veces_visitado_via_referido,
+        'total_contribuciones_referidas': wishlist.veces_contribuido_via_referido,
+    })

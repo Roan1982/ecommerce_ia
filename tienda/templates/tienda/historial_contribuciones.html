@@ -131,20 +131,20 @@
                                                 <small class="text-muted">{{ contribucion.fecha_contribucion|date:"H:i" }}</small>
                                             </td>
                                             <td>
-                                                <a href="{% url 'wishlist_detalle_contribucion' contribucion.wishlist.id %}"
+                                                <a href="{% url 'wishlist_detalle_contribucion' contribucion.wishlist_item.id %}"
                                                    class="text-decoration-none">
-                                                    {{ contribucion.wishlist.nombre }}
+                                                    {{ contribucion.wishlist_item.nombre }}
                                                 </a>
                                                 <br>
                                                 <small class="text-muted">
-                                                    {{ contribucion.wishlist.usuario.get_full_name|default:contribucion.wishlist.usuario.username }}
+                                                    {{ contribucion.wishlist_item.usuario.get_full_name|default:contribucion.wishlist_item.usuario.username }}
                                                 </small>
                                             </td>
                                             <td>
-                                                {% if contribucion.producto %}
-                                                    <a href="{% url 'producto_detalle' contribucion.producto.id %}"
+                                                {% if contribucion.wishlist_item.producto %}
+                                                    <a href="{% url 'producto_detalle' contribucion.wishlist_item.producto.id %}"
                                                        class="text-decoration-none">
-                                                        {{ contribucion.producto.nombre }}
+                                                        {{ contribucion.wishlist_item.producto.nombre }}
                                                     </a>
                                                 {% else %}
                                                     <span class="text-muted">Contribución General</span>
@@ -209,7 +209,7 @@
                                                                 <strong>Wishlist:</strong>
                                                             </div>
                                                             <div class="col-sm-6">
-                                                                {{ contribucion.wishlist.nombre }}
+                                                                {{ contribucion.wishlist_item.nombre }}
                                                             </div>
                                                         </div>
                                                         <div class="row">
@@ -217,8 +217,8 @@
                                                                 <strong>Producto:</strong>
                                                             </div>
                                                             <div class="col-sm-6">
-                                                                {% if contribucion.producto %}
-                                                                    {{ contribucion.producto.nombre }}
+                                                                {% if contribucion.wishlist_item.producto %}
+                                                                    {{ contribucion.wishlist_item.producto.nombre }}
                                                                 {% else %}
                                                                     Contribución General
                                                                 {% endif %}

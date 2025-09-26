@@ -1,7 +1,7 @@
 {% extends 'tienda/base.html' %}
 {% load static %}
 
-{% block title %}Contribuir a {{ wishlist.nombre }}{% endblock %}
+{% block title %}Contribuir a {{ wishlist.producto.nombre }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -11,7 +11,7 @@
                 <div class="card-header bg-primary text-white">
                     <h3 class="mb-0">
                         <i class="fas fa-hand-holding-heart"></i>
-                        Contribuir a "{{ wishlist.nombre }}"
+                        Contribuir a "{{ wishlist.producto.nombre }}"
                     </h3>
                 </div>
 
@@ -33,20 +33,20 @@
                                 <strong>Creador:</strong>
                                 {{ wishlist.usuario.get_full_name|default:wishlist.usuario.username }}
                             </p>
-                            {% if wishlist.descripcion %}
+                            {% if wishlist.descripcion_contribucion %}
                                 <p class="mb-1">
                                     <strong>Descripción:</strong>
-                                    {{ wishlist.descripcion }}
+                                    {{ wishlist.descripcion_contribucion }}
                                 </p>
                             {% endif %}
                             <p class="mb-1">
-                                <strong>Productos:</strong>
-                                {{ wishlist.productos.count }}
+                                <strong>Producto:</strong>
+                                {{ wishlist.producto.nombre }}
                             </p>
                         </div>
                         <div class="col-md-6">
                             <h5>Estado Actual</h5>
-                            {% with total_contribuido=wishlist.total_contribuido meta=wishlist.meta_contribucion %}
+                            {% with total_contribuido=wishlist.total_contribuido meta=wishlist.contribucion_objetivo %}
                                 <div class="mb-2">
                                     <div class="d-flex justify-content-between">
                                         <span>Recaudado:</span>
@@ -58,8 +58,8 @@
                                     </div>
                                     <div class="d-flex justify-content-between">
                                         <span>Restante:</span>
-                                        <strong class="{% if meta|sub:total_contribuido > 0 %}text-warning{% else %}text-success{% endif %}">
-                                            ${{ meta|sub:total_contribuido|floatformat:2 }}
+                                        <strong class="{% if faltante > 0 %}text-warning{% else %}text-success{% endif %}">
+                                            ${{ faltante|floatformat:2 }}
                                         </strong>
                                     </div>
                                 </div>
@@ -82,6 +82,42 @@
                     </div>
 
                     <hr>
+
+                    <!-- Información del producto -->
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    {% if wishlist.producto.imagen %}
+                                        <img src="{{ wishlist.producto.imagen.url }}"
+                                             class="img-fluid rounded"
+                                             alt="{{ wishlist.producto.nombre }}">
+                                    {% else %}
+                                        <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                             style="height: 150px;">
+                                            <i class="fas fa-image fa-3x text-muted"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <h5>{{ wishlist.producto.nombre }}</h5>
+                                    <p class="text-muted">{{ wishlist.producto.descripcion|truncatechars:200 }}</p>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <strong class="text-primary fs-4">${{ wishlist.producto.precio|floatformat:2 }}</strong>
+                                        </div>
+                                        <div class="col-6 text-end">
+                                            {% if wishlist.producto.stock > 0 %}
+                                                <span class="badge bg-success">En stock</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Agotado</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Formulario de contribución -->
                     <form method="post" id="contribution-form">
@@ -106,41 +142,32 @@
                                                name="monto"
                                                min="1"
                                                step="0.01"
+                                               max="{{ faltante|default:1000 }}"
                                                required
                                                placeholder="0.00">
                                     </div>
                                     <div class="form-text">
                                         Monto mínimo: $1.00
+                                        {% if faltante %}
+                                            Máximo para completar la meta: ${{ faltante|floatformat:2 }}
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
 
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="id_tipo_contribucion" class="form-label">
-                                        Tipo de Contribución
+                                    <label for="id_metodo_pago" class="form-label">
+                                        Método de Pago <span class="text-danger">*</span>
                                     </label>
-                                    <select class="form-select" id="id_tipo_contribucion" name="tipo_contribucion">
-                                        <option value="general">Contribución General</option>
-                                        <option value="producto_especifico">Producto Específico</option>
+                                    <select class="form-select" id="id_metodo_pago" name="metodo_pago" required>
+                                        <option value="">Seleccionar método...</option>
+                                        <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                                        <option value="paypal">PayPal</option>
+                                        <option value="transferencia">Transferencia Bancaria</option>
                                     </select>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Selector de producto específico (inicialmente oculto) -->
-                        <div class="mb-3" id="producto-selector" style="display: none;">
-                            <label for="id_producto_id" class="form-label">
-                                Producto Específico
-                            </label>
-                            <select class="form-select" id="id_producto_id" name="producto_id">
-                                <option value="">Seleccionar producto...</option>
-                                {% for producto in wishlist.productos.all %}
-                                    <option value="{{ producto.id }}">
-                                        {{ producto.nombre }} - ${{ producto.precio|floatformat:2 }}
-                                    </option>
-                                {% endfor %}
-                            </select>
                         </div>
 
                         <div class="mb-3">
@@ -226,25 +253,20 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const tipoContribucion = document.getElementById('id_tipo_contribucion');
-    const productoSelector = document.getElementById('producto-selector');
     const montoInput = document.getElementById('id_monto');
+    const metodoPagoSelect = document.getElementById('id_metodo_pago');
     const submitBtn = document.getElementById('submit-btn');
-
-    // Mostrar/ocultar selector de producto
-    tipoContribucion.addEventListener('change', function() {
-        if (this.value === 'producto_especifico') {
-            productoSelector.style.display = 'block';
-        } else {
-            productoSelector.style.display = 'none';
-        }
-    });
 
     // Validación del monto
     montoInput.addEventListener('input', function() {
         const monto = parseFloat(this.value);
+        const maxMonto = parseFloat(this.getAttribute('max')) || 1000;
+
         if (monto < 1) {
             this.setCustomValidity('El monto mínimo es $1.00');
+            submitBtn.disabled = true;
+        } else if (monto > maxMonto) {
+            this.setCustomValidity(`El monto máximo es $${maxMonto.toFixed(2)}`);
             submitBtn.disabled = true;
         } else {
             this.setCustomValidity('');
@@ -255,7 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Validación del formulario antes de enviar
     document.getElementById('contribution-form').addEventListener('submit', function(e) {
         const monto = parseFloat(montoInput.value);
-        const tipo = tipoContribucion.value;
+        const metodoPago = metodoPagoSelect.value;
 
         if (monto < 1) {
             e.preventDefault();
@@ -263,9 +285,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        if (tipo === 'producto_especifico' && !document.getElementById('id_producto_id').value) {
+        if (!metodoPago) {
             e.preventDefault();
-            alert('Por favor selecciona un producto específico');
+            alert('Por favor selecciona un método de pago');
             return;
         }
 

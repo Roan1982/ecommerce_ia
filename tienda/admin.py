@@ -1102,17 +1102,39 @@ class ResenaAdmin(admin.ModelAdmin):
 
 @admin.register(Cupon, site=admin_site)
 class CuponAdmin(admin.ModelAdmin):
-    list_display = ["codigo", "descripcion", "tipo_descuento", "valor_descuento", "activo", "fecha_expiracion", "usos_display"]
-    list_filter = ["activo", "tipo_descuento", "fecha_expiracion"]
+    list_display = ["codigo", "descripcion", "tipo_cupon", "tipo_descuento", "valor_descuento", "activo", "fecha_expiracion", "usos_display", "usuario_propietario_display"]
+    list_filter = ["activo", "tipo_descuento", "tipo_cupon", "fecha_expiracion"]
     search_fields = ["codigo", "descripcion"]
     change_list_template = "admin/tienda/cupones.html"
 
     # Agregar acciones en lote para activar/desactivar cupones
-    actions = ['activate_coupons', 'deactivate_coupons']
+    actions = ['activate_coupons', 'deactivate_coupons', 'create_copiable_coupons', 'create_points_coupons']
+
+    fieldsets = (
+        ("Información Básica", {
+            "fields": ("codigo", "descripcion", "tipo_cupon"),
+        }),
+        ("Configuración de Descuento", {
+            "fields": ("tipo_descuento", "valor_descuento", "minimo_compra"),
+        }),
+        ("Uso y Vigencia", {
+            "fields": ("usos_maximos", "fecha_expiracion", "activo"),
+        }),
+        ("Configuración Avanzada", {
+            "fields": ("puntos_requeridos", "usuario_propietario"),
+            "classes": ("collapse",)
+        }),
+    )
 
     def usos_display(self, obj):
         return f"{obj.usos_actuales}/{obj.usos_maximos}"
     usos_display.short_description = "Usos"
+
+    def usuario_propietario_display(self, obj):
+        if obj.usuario_propietario:
+            return obj.usuario_propietario.username
+        return "-"
+    usuario_propietario_display.short_description = "Propietario"
 
     def activate_coupons(self, request, queryset):
         """Activar cupones seleccionados"""
@@ -1125,6 +1147,70 @@ class CuponAdmin(admin.ModelAdmin):
         updated = queryset.update(activo=False)
         self.message_user(request, f'{updated} cupón(es) desactivado(s) correctamente.')
     deactivate_coupons.short_description = "Desactivar cupones seleccionados"
+
+    def create_copiable_coupons(self, request, queryset):
+        """Crear cupones copiables basados en los seleccionados"""
+        created_count = 0
+        for cupon in queryset:
+            # Crear un cupón copiable basado en el original
+            from tienda.models import Cupon
+            import secrets
+            import string
+
+            # Generar código único
+            while True:
+                codigo = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+                if not Cupon.objects.filter(codigo=codigo).exists():
+                    break
+
+            Cupon.objects.create(
+                codigo=codigo,
+                descripcion=f"Copiable - {cupon.descripcion}",
+                tipo_cupon='codigo_copiable',
+                tipo_descuento=cupon.tipo_descuento,
+                valor_descuento=cupon.valor_descuento,
+                fecha_expiracion=cupon.fecha_expiracion,
+                usos_maximos=1,  # Los copiables se usan solo una vez
+                minimo_compra=cupon.minimo_compra,
+            )
+            created_count += 1
+
+        self.message_user(request, f'Se crearon {created_count} cupones copiables.')
+    create_copiable_coupons.short_description = "Crear cupones copiables"
+
+    def create_points_coupons(self, request, queryset):
+        """Crear cupones que se compran con puntos"""
+        created_count = 0
+        for cupon in queryset:
+            # Crear un cupón que requiere puntos
+            from tienda.models import Cupon
+            import secrets
+            import string
+
+            # Generar código único
+            while True:
+                codigo = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+                if not Cupon.objects.filter(codigo=codigo).exists():
+                    break
+
+            # Calcular puntos requeridos basado en el valor del descuento
+            puntos_requeridos = int(cupon.valor_descuento * 10)  # 10 puntos por cada peso de descuento
+
+            Cupon.objects.create(
+                codigo=codigo,
+                descripcion=f"Con puntos - {cupon.descripcion}",
+                tipo_cupon='comprado_puntos',
+                tipo_descuento=cupon.tipo_descuento,
+                valor_descuento=cupon.valor_descuento,
+                fecha_expiracion=cupon.fecha_expiracion,
+                usos_maximos=1,
+                minimo_compra=cupon.minimo_compra,
+                puntos_requeridos=puntos_requeridos,
+            )
+            created_count += 1
+
+        self.message_user(request, f'Se crearon {created_count} cupones que requieren puntos.')
+    create_points_coupons.short_description = "Crear cupones con puntos"
 
     def get_urls(self):
         urls = super().get_urls()

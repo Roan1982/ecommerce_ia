@@ -21,30 +21,30 @@
                 {% endfor %}
             {% endif %}
 
-            {% if wishlists %}
+            {% if wishlists_data %}
                 <div class="row">
-                    {% for wishlist in wishlists %}
+                    {% for data in wishlists_data %}
                         <div class="col-md-6 col-lg-4 mb-4">
                             <div class="card h-100 shadow-sm">
                                 <div class="card-body d-flex flex-column">
                                     <h5 class="card-title">
                                         <i class="fas fa-list text-primary"></i>
-                                        {{ wishlist.nombre }}
+                                        {{ data.wishlist.producto.nombre }}
                                     </h5>
 
                                     <p class="card-text text-muted small">
                                         <i class="fas fa-user"></i>
-                                        Creado por: {{ wishlist.usuario.get_full_name|default:wishlist.usuario.username }}
+                                        Creado por: {{ data.wishlist.usuario.get_full_name|default:data.wishlist.usuario.username }}
                                     </p>
 
-                                    {% if wishlist.descripcion %}
-                                        <p class="card-text">{{ wishlist.descripcion|truncatechars:100 }}</p>
+                                    {% if data.wishlist.descripcion_contribucion %}
+                                        <p class="card-text">{{ data.wishlist.descripcion_contribucion|truncatechars:100 }}</p>
                                     {% endif %}
 
                                     <div class="mt-auto">
                                         <!-- Barra de progreso de contribuciones -->
-                                        {% if wishlist.contribuciones_activas %}
-                                            {% with total_contribuido=wishlist.total_contribuido meta=wishlist.meta_contribucion %}
+                                        {% if data.wishlist.permitir_contribuciones %}
+                                            {% with total_contribuido=data.total_contribuido meta=data.wishlist.contribucion_objetivo %}
                                                 <div class="mb-3">
                                                     <div class="d-flex justify-content-between small mb-1">
                                                         <span>Progreso: ${{ total_contribuido|floatformat:2 }}</span>
@@ -69,8 +69,8 @@
 
                                         <!-- Estado de la wishlist -->
                                         <div class="mb-3">
-                                            {% if wishlist.contribuciones_activas %}
-                                                {% if wishlist.meta_alcanzada %}
+                                            {% if data.wishlist.permitir_contribuciones %}
+                                                {% if data.wishlist.objetivo_alcanzado %}
                                                     <span class="badge bg-success">
                                                         <i class="fas fa-check-circle"></i>
                                                         Meta Alcanzada
@@ -91,45 +91,34 @@
 
                                         <!-- Estadísticas -->
                                         <div class="row text-center mb-3">
-                                            <div class="col-4">
+                                            <div class="col-6">
                                                 <div class="small text-muted">Contribuyentes</div>
-                                                <strong>{{ wishlist.numero_contribuyentes }}</strong>
+                                                <strong>{{ data.num_contribuidores }}</strong>
                                             </div>
-                                            <div class="col-4">
-                                                <div class="small text-muted">Productos</div>
-                                                <strong>{{ wishlist.productos.count }}</strong>
-                                            </div>
-                                            <div class="col-4">
-                                                <div class="small text-muted">Días restantes</div>
-                                                <strong>
-                                                    {% if wishlist.fecha_limite %}
-                                                        {% load custom_filters %}
-                                                        {{ wishlist.fecha_limite|days_until }}
-                                                    {% else %}
-                                                        ∞
-                                                    {% endif %}
-                                                </strong>
+                                            <div class="col-6">
+                                                <div class="small text-muted">Faltante</div>
+                                                <strong>${{ data.faltante|floatformat:2 }}</strong>
                                             </div>
                                         </div>
 
                                         <!-- Botones de acción -->
                                         <div class="d-grid gap-2">
-                                            <a href="{% url 'wishlist_detalle_contribucion' wishlist.id %}"
+                                            <a href="{% url 'wishlist_detalle_contribucion' data.wishlist.id %}"
                                                class="btn btn-primary btn-sm">
                                                 <i class="fas fa-eye"></i>
                                                 Ver Detalles
                                             </a>
 
-                                            {% if wishlist.contribuciones_activas and not wishlist.meta_alcanzada %}
-                                                <a href="{% url 'contribuir_wishlist' wishlist.id %}"
+                                            {% if data.wishlist.permitir_contribuciones and not data.wishlist.objetivo_alcanzado %}
+                                                <a href="{% url 'contribuir_wishlist' data.wishlist.id %}"
                                                    class="btn btn-success btn-sm">
                                                     <i class="fas fa-hand-holding-heart"></i>
                                                     Contribuir
                                                 </a>
                                             {% endif %}
 
-                                            {% if user == wishlist.usuario %}
-                                                <a href="{% url 'gestionar_contribuciones_wishlist' wishlist.id %}"
+                                            {% if user == data.wishlist.usuario %}
+                                                <a href="{% url 'gestionar_contribuciones_wishlist' data.wishlist.id %}"
                                                    class="btn btn-outline-secondary btn-sm">
                                                     <i class="fas fa-cog"></i>
                                                     Gestionar
@@ -142,41 +131,6 @@
                         </div>
                     {% endfor %}
                 </div>
-
-                <!-- Paginación -->
-                {% if is_paginated %}
-                    <nav aria-label="Navegación de páginas" class="mt-4">
-                        <ul class="pagination justify-content-center">
-                            {% if page_obj.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                                        <i class="fas fa-chevron-left"></i>
-                                    </a>
-                                </li>
-                            {% endif %}
-
-                            {% for num in page_obj.paginator.page_range %}
-                                {% if page_obj.number == num %}
-                                    <li class="page-item active">
-                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                                    </li>
-                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                                    </li>
-                                {% endif %}
-                            {% endfor %}
-
-                            {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </a>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                {% endif %}
 
             {% else %}
                 <div class="text-center py-5">

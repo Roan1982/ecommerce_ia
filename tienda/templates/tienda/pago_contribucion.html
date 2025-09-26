@@ -18,14 +18,14 @@
                     <!-- Información de la contribución -->
                     <div class="alert alert-info">
                         <h5>Detalles de la Contribución</h5>
-                        <p class="mb-1"><strong>Producto:</strong> {{ contribucion.wishlist.producto.nombre }}</p>
-                        <p class="mb-1"><strong>Lista de deseos de:</strong> {{ contribucion.wishlist.usuario.get_full_name|default:contribucion.wishlist.usuario.username }}</p>
+                        <p class="mb-1"><strong>Producto:</strong> {{ contribucion.wishlist_item.producto.nombre }}</p>
+                        <p class="mb-1"><strong>Lista de deseos de:</strong> {{ contribucion.wishlist_item.usuario.get_full_name|default:contribucion.wishlist_item.usuario.username }}</p>
                         <p class="mb-1"><strong>Monto a contribuir:</strong> ${{ contribucion.monto|floatformat:2 }}</p>
                         <p class="mb-1"><strong>Método de pago:</strong> {{ contribucion.get_metodo_pago_display }}</p>
                     </div>
 
                     <!-- Formulario de pago -->
-                    <form id="pagoForm" method="post">
+                    <form id="pagoForm" method="post" novalidate>
                         {% csrf_token %}
                         <input type="hidden" name="contribucion_id" value="{{ contribucion.id }}">
 
@@ -132,6 +132,9 @@ $(document).ready(function() {
     $('#pagoForm').on('submit', function(e) {
         e.preventDefault();
 
+        // Limpiar errores previos
+        $('.is-invalid').removeClass('is-invalid');
+
         // Validar número de tarjeta (simplificado)
         const numeroTarjeta = $('#numero_tarjeta').val().replace(/\s+/g, '');
         if (numeroTarjeta.length < 13 || numeroTarjeta.length > 19) {
@@ -177,6 +180,9 @@ $(document).ready(function() {
             url: "{% url 'procesar_pago_contribucion' contribucion.id %}",
             type: 'POST',
             data: $(this).serialize(),
+            headers: {
+                'X-CSRFToken': $('input[name=csrfmiddlewaretoken]').val()
+            },
             success: function(response) {
                 $('#procesandoModal').modal('hide');
 
@@ -208,6 +214,8 @@ $(document).ready(function() {
             error: function(xhr, status, error) {
                 $('#procesandoModal').modal('hide');
 
+                console.error('AJAX Error:', xhr, status, error);
+
                 Swal.fire({
                     icon: 'error',
                     title: 'Error de conexión',
@@ -216,6 +224,8 @@ $(document).ready(function() {
                 });
             }
         });
+
+        return false; // Asegurar que el formulario no se envíe
     });
 });
 </script>

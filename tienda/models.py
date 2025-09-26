@@ -280,6 +280,83 @@ class Pedido(models.Model):
     def __str__(self):
         return f"Pedido #{self.id} - {self.usuario.username} - ${self.total_pedido}"
 
+    def calcular_totales(self):
+        """Calcula los totales del pedido incluyendo descuentos de cupones"""
+        # Calcular total de productos
+        self.total_productos = sum(producto.subtotal for producto in self.pedidoproducto_set.all())
+
+        # Calcular descuento total de cupones aplicados
+        self.descuento_cupon = sum(cupon.descuento_aplicado for cupon in self.cupones_aplicadas.all())
+
+        # Calcular total final
+        self.total_pedido = self.total_productos - self.descuento_cupon + (self.costo_envio or 0)
+
+        # Asegurar que el total no sea negativo
+        self.total_pedido = max(self.total_pedido, 0)
+
+    def aplicar_cupon(self, cupon, subtotal=None):
+        """Aplica un cupón al pedido"""
+        from django.core.exceptions import ValidationError
+
+        # Verificar que el cupón sea válido para este usuario
+        if not cupon.es_valido(self.usuario):
+            raise ValidationError("El cupón no es válido para este usuario")
+
+        # Verificar que el cupón no haya sido aplicado ya a este pedido
+        if self.cupones_aplicadas.filter(cupon=cupon).exists():
+            raise ValidationError("Este cupón ya ha sido aplicado a este pedido")
+
+        # Calcular el subtotal (productos + envío - descuentos anteriores)
+        if subtotal is None:
+            subtotal_actual = self.total_productos + (self.costo_envio or 0) - self.descuento_cupon
+        else:
+            subtotal_actual = subtotal
+
+        # Verificar monto mínimo de compra
+        if subtotal_actual < cupon.minimo_compra:
+            raise ValidationError(f"El monto mínimo de compra para este cupón es ${cupon.minimo_compra}")
+
+        # Calcular descuento
+        descuento = cupon.calcular_descuento(subtotal_actual)
+
+        if descuento <= 0:
+            raise ValidationError("El cupón no aplica descuento a este pedido")
+
+        # Crear relación pedido-cupón
+        PedidoCupon.objects.create(
+            pedido=self,
+            cupon=cupon,
+            descuento_aplicado=descuento
+        )
+
+        # Marcar cupón como usado
+        cupon.marcar_como_usado(self.usuario)
+
+        # Recalcular totales
+        self.calcular_totales()
+        self.save()
+
+        return descuento
+
+    def remover_cupon(self, cupon):
+        """Remueve un cupón aplicado al pedido"""
+        pedido_cupon = self.cupones_aplicadas.filter(cupon=cupon).first()
+        if pedido_cupon:
+            # Eliminar la relación
+            pedido_cupon.delete()
+
+            # Recalcular totales
+            self.calcular_totales()
+            self.save()
+
+            return True
+        return False
+
+    @property
+    def cupones_aplicados_count(self):
+        """Devuelve el número de cupones aplicados"""
+        return self.cupones_aplicadas.count()
+
     class Meta:
         verbose_name = "Pedido"
         verbose_name_plural = "Pedidos"
@@ -340,6 +417,13 @@ class Cupon(models.Model):
         ('monto_fijo', 'Monto Fijo'),
     ]
 
+    TIPO_CUPON = [
+        ('normal', 'Cupón Normal'),
+        ('codigo_copiable', 'Código Copiable'),
+        ('comprado_puntos', 'Comprado con Puntos'),
+        ('canjeado_puntos', 'Canjeado por Puntos'),
+    ]
+
     codigo = models.CharField(max_length=20, unique=True, help_text="Código único del cupón")
     descripcion = models.CharField(max_length=200, help_text="Descripción del cupón")
     tipo_descuento = models.CharField(max_length=20, choices=TIPO_DESCUENTO, default='porcentaje')
@@ -350,17 +434,52 @@ class Cupon(models.Model):
     activo = models.BooleanField(default=True, help_text="Si el cupón está activo")
     minimo_compra = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Monto mínimo de compra requerido")
 
+    # Nuevos campos para el sistema avanzado de cupones
+    tipo_cupon = models.CharField(max_length=20, choices=TIPO_CUPON, default='normal',
+                                  help_text="Tipo de cupón")
+    puntos_requeridos = models.PositiveIntegerField(default=0,
+                                                   help_text="Puntos requeridos para comprar este cupón")
+    usuario_propietario = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True,
+                                           related_name='cupones_propios',
+                                           help_text="Usuario propietario (para cupones personales)")
+    usado_por_usuario = models.BooleanField(default=False,
+                                           help_text="Si este cupón ya fue usado por su propietario")
+
     def __str__(self):
         return f"{self.codigo} - {self.descripcion}"
 
-    def es_valido(self):
-        """Verifica si el cupón es válido"""
+    def es_valido(self, usuario=None):
+        """Verifica si el cupón es válido para un usuario específico"""
         ahora = timezone.now()
-        return (
-            self.activo and
-            self.fecha_expiracion > ahora and
-            self.usos_actuales < self.usos_maximos
-        )
+
+        # Validaciones básicas
+        if not self.activo or self.fecha_expiracion <= ahora or self.usos_actuales >= self.usos_maximos:
+            return False
+
+        # Validaciones específicas por tipo de cupón
+        if self.tipo_cupon == 'codigo_copiable':
+            # Los cupones copiables solo pueden usarse una vez por usuario
+            if usuario and hasattr(self, 'pedidos_usados') and self.pedidos_usados.filter(pedido__usuario=usuario).exists():
+                return False
+        elif self.tipo_cupon == 'comprado_puntos':
+            # Los cupones comprados con puntos no se pueden copiar
+            return False
+        elif self.tipo_cupon == 'canjeado_puntos':
+            # Los cupones canjeados por puntos son personales
+            if not usuario or self.usuario_propietario != usuario:
+                return False
+            if self.usado_por_usuario:
+                return False
+
+        return True
+
+    def puede_copiar_codigo(self, usuario=None):
+        """Verifica si el código del cupón puede ser copiado"""
+        if self.tipo_cupon == 'comprado_puntos':
+            return False
+        if self.tipo_cupon == 'canjeado_puntos' and self.usuario_propietario != usuario:
+            return False
+        return True
 
     def calcular_descuento(self, subtotal):
         """Calcula el descuento aplicable"""
@@ -372,9 +491,60 @@ class Cupon(models.Model):
         else:  # monto_fijo
             return min(self.valor_descuento, subtotal)
 
+    def marcar_como_usado(self, usuario=None):
+        """Marca el cupón como usado por un usuario específico"""
+        self.usos_actuales += 1
+
+        if self.tipo_cupon == 'canjeado_puntos' and usuario == self.usuario_propietario:
+            self.usado_por_usuario = True
+
+        self.save()
+
+    def puede_canjear_por_puntos(self, usuario):
+        """Verifica si este cupón puede ser canjeado por puntos de fidelidad"""
+        return (
+            self.tipo_cupon == 'codigo_copiable' and
+            self.usuario_propietario == usuario and
+            hasattr(self, 'pedidos_usados') and
+            self.pedidos_usados.filter(pedido__usuario=usuario).exists()
+        )
+
+    def canjear_por_puntos(self, usuario):
+        """Canjea el cupón usado por puntos de fidelidad"""
+        if not self.puede_canjear_por_puntos(usuario):
+            raise ValueError("Este cupón no puede ser canjeado por puntos")
+
+        # Calcular puntos a otorgar (valor del descuento / 10, por ejemplo)
+        puntos_a_otorgar = int(self.calcular_descuento(1000) / 10)  # Base en descuento de $1000
+
+        # Otorgar puntos al usuario
+        profile = usuario.profile
+        profile.agregar_puntos(puntos_a_otorgar, f"Canje de cupón usado: {self.codigo}")
+
+        # Desactivar el cupón
+        self.activo = False
+        self.save()
+
+        return puntos_a_otorgar
+
     class Meta:
         verbose_name = "Cupón"
         verbose_name_plural = "Cupones"
+
+class PedidoCupon(models.Model):
+    """Modelo para relacionar pedidos con cupones aplicados (permite múltiples cupones por pedido)"""
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='cupones_aplicados')
+    cupon = models.ForeignKey(Cupon, on_delete=models.CASCADE, related_name='pedidos_usados')
+    descuento_aplicado = models.DecimalField(max_digits=10, decimal_places=2, help_text="Descuento aplicado por este cupón")
+    fecha_aplicacion = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Pedido {self.pedido.id} - Cupón {self.cupon.codigo}"
+
+    class Meta:
+        verbose_name = "Cupón del Pedido"
+        verbose_name_plural = "Cupones del Pedido"
+        unique_together = ('pedido', 'cupon')  # Un cupón no puede aplicarse dos veces al mismo pedido
 
 class ConfiguracionSistema(models.Model):
     """Modelo para configuraciones del sistema"""
@@ -561,6 +731,22 @@ class Wishlist(models.Model):
                                               help_text="Monto objetivo para contribuciones grupales")
     contribucion_privada = models.BooleanField(default=False,
                                              help_text="Las contribuciones son privadas (solo visible para el propietario)")
+    descripcion_contribucion = models.TextField(blank=True, null=True,
+                                              help_text="Descripción opcional de la contribución grupal")
+    fecha_modificacion = models.DateTimeField(auto_now=True,
+                                            help_text="Fecha de última modificación de la configuración de contribuciones")
+
+    # Sistema de referidos y compartir
+    compartir_activo = models.BooleanField(default=True,
+                                         help_text="Permitir compartir esta wishlist en redes sociales")
+    codigo_referido = models.CharField(max_length=20, unique=True, blank=True, null=True,
+                                     help_text="Código único para tracking de referidos")
+    veces_compartido = models.PositiveIntegerField(default=0,
+                                                 help_text="Número de veces que se ha compartido")
+    veces_visitado_via_referido = models.PositiveIntegerField(default=0,
+                                                            help_text="Número de visitas vía enlaces de referido")
+    veces_contribuido_via_referido = models.PositiveIntegerField(default=0,
+                                                               help_text="Número de contribuciones vía referidos")
 
     class Meta:
         verbose_name = "Lista de Deseos"
@@ -570,6 +756,19 @@ class Wishlist(models.Model):
 
     def __str__(self):
         return f"{self.usuario.username} - {self.producto.nombre}"
+
+    def save(self, *args, **kwargs):
+        # Generar código de referido único si no existe
+        if not self.codigo_referido:
+            import secrets
+            import string
+            # Generar código alfanumérico único
+            while True:
+                codigo = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+                if not Wishlist.objects.filter(codigo_referido=codigo).exists():
+                    self.codigo_referido = codigo
+                    break
+        super().save(*args, **kwargs)
 
     @property
     def total_contribuido(self):
@@ -607,7 +806,7 @@ class Wishlist(models.Model):
             return False  # El propietario no puede contribuir a su propio item
         return True
 
-    def agregar_contribucion(self, usuario, monto, mensaje=""):
+    def agregar_contribucion(self, usuario, monto, mensaje="", referido_por=None):
         """Agrega una contribución a este item de wishlist"""
         if not self.puede_contribuir(usuario):
             raise ValueError("No puedes contribuir a este item")
@@ -624,11 +823,79 @@ class Wishlist(models.Model):
             estado='completado'  # Por simplicidad, asumimos que el pago se completa inmediatamente
         )
 
+        # Si vino por referido, registrar el referido
+        if referido_por:
+            ReferidoWishlist.objects.create(
+                wishlist=self,
+                usuario_referido=usuario,
+                usuario_referidor=referido_por,
+                contribucion=contribucion,
+                plataforma_origen='enlace_compartido'
+            )
+            # Incrementar contador de contribuciones vía referido
+            self.veces_contribuido_via_referido += 1
+            self.save()
+
         # Verificar si se alcanzó el objetivo
         if self.objetivo_alcanzado:
             self.convertir_a_pedido()
 
         return contribucion
+
+    def registrar_visita_referido(self, usuario_referidor=None):
+        """Registra una visita vía enlace de referido"""
+        self.veces_visitado_via_referido += 1
+        self.save()
+
+        # Si hay usuario referidor, registrar en el tracking
+        if usuario_referidor:
+            ReferidoWishlist.objects.create(
+                wishlist=self,
+                usuario_referidor=usuario_referidor,
+                plataforma_origen='enlace_compartido'
+            )
+
+    def registrar_compartir(self, plataforma):
+        """Registra que se compartió en una plataforma"""
+        self.veces_compartido += 1
+        self.save()
+
+        # Registrar en el historial de compartidos
+        HistorialCompartir.objects.create(
+            wishlist=self,
+            usuario=self.usuario,  # El propietario es quien comparte
+            plataforma=plataforma
+        )
+
+    @property
+    def url_compartir(self):
+        """Genera la URL para compartir esta wishlist"""
+        from django.urls import reverse
+        base_url = reverse('wishlist_detalle_contribucion', kwargs={'wishlist_id': self.id})
+        return f"{base_url}?ref={self.codigo_referido}"
+
+    def generar_enlaces_compartir(self):
+        """Genera enlaces para compartir en diferentes plataformas"""
+        import urllib.parse
+        base_url = f"http://127.0.0.1:8000{self.url_compartir}"
+
+        titulo = f"¡Ayúdame a conseguir {self.producto.nombre}!"
+        descripcion = f"Necesito ayuda para comprar {self.producto.nombre}. ¿Me ayudas con una contribución?"
+
+        if self.descripcion_contribucion:
+            descripcion = self.descripcion_contribucion
+
+        texto_compartir = f"{titulo}\n{descripcion}\n\n{base_url}"
+
+        return {
+            'whatsapp': f"https://wa.me/?text={urllib.parse.quote(texto_compartir)}",
+            'telegram': f"https://t.me/share/url?url={urllib.parse.quote(base_url)}&text={urllib.parse.quote(titulo + ' - ' + descripcion)}",
+            'twitter': f"https://twitter.com/intent/tweet?text={urllib.parse.quote(titulo)}&url={urllib.parse.quote(base_url)}",
+            'facebook': f"https://www.facebook.com/sharer/sharer.php?u={urllib.parse.quote(base_url)}",
+            'instagram': f"https://www.instagram.com/",  # Instagram no permite compartir URLs directas
+            'tiktok': f"https://www.tiktok.com/",  # TikTok tampoco permite compartir URLs directas
+            'copiar': base_url
+        }
 
     def convertir_a_pedido(self):
         """Convierte el item de wishlist en un pedido cuando se alcanza el objetivo"""
@@ -1286,3 +1553,75 @@ class EmailQueue(models.Model):
             self.save()
         else:
             self.save()
+
+
+class ReferidoWishlist(models.Model):
+    """Modelo para tracking de referidos en wishlist"""
+    PLATAFORMA_CHOICES = [
+        ('whatsapp', 'WhatsApp'),
+        ('telegram', 'Telegram'),
+        ('twitter', 'Twitter/X'),
+        ('facebook', 'Facebook'),
+        ('instagram', 'Instagram'),
+        ('tiktok', 'TikTok'),
+        ('enlace_compartido', 'Enlace Compartido'),
+        ('email', 'Email'),
+        ('otro', 'Otro'),
+    ]
+
+    wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name='referidos')
+    usuario_referidor = models.ForeignKey(User, on_delete=models.CASCADE,
+                                        related_name='referidos_enviados',
+                                        help_text="Usuario que compartió el enlace")
+    usuario_referido = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                       related_name='referidos_recibidos',
+                                       help_text="Usuario que llegó por el referido (opcional)")
+    plataforma_origen = models.CharField(max_length=20, choices=PLATAFORMA_CHOICES,
+                                       help_text="Plataforma desde donde vino el referido")
+    fecha_referido = models.DateTimeField(default=timezone.now)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+
+    # Relación opcional con contribución generada
+    contribucion = models.OneToOneField('ContribucionWishlist', on_delete=models.SET_NULL,
+                                      null=True, blank=True, related_name='referido_origen')
+
+    class Meta:
+        verbose_name = "Referido Wishlist"
+        verbose_name_plural = "Referidos Wishlist"
+        ordering = ['-fecha_referido']
+
+    def __str__(self):
+        referidor = self.usuario_referidor.username
+        referido = self.usuario_referido.username if self.usuario_referido else "Anónimo"
+        return f"{referidor} refirió a {referido} - {self.plataforma_origen}"
+
+
+class HistorialCompartir(models.Model):
+    """Modelo para historial de compartidos de wishlist"""
+    PLATAFORMA_CHOICES = [
+        ('whatsapp', 'WhatsApp'),
+        ('telegram', 'Telegram'),
+        ('twitter', 'Twitter/X'),
+        ('facebook', 'Facebook'),
+        ('instagram', 'Instagram'),
+        ('tiktok', 'TikTok'),
+        ('email', 'Email'),
+        ('copiar_enlace', 'Copiar Enlace'),
+        ('otro', 'Otro'),
+    ]
+
+    wishlist = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name='historial_compartidos')
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='compartidos')
+    plataforma = models.CharField(max_length=20, choices=PLATAFORMA_CHOICES)
+    fecha_compartido = models.DateTimeField(default=timezone.now)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Historial Compartir"
+        verbose_name_plural = "Historial Compartidos"
+        ordering = ['-fecha_compartido']
+
+    def __str__(self):
+        return f"{self.usuario.username} compartió en {self.plataforma} - {self.fecha_compartido}"
