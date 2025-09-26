@@ -1,0 +1,330 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}{{ wishlist.nombre }} - Detalles de Contribuciones{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h1 class="mb-2">
+                                <i class="fas fa-heart text-danger"></i>
+                                {{ wishlist.nombre }}
+                            </h1>
+
+                            <p class="text-muted mb-2">
+                                <i class="fas fa-user"></i>
+                                Creado por: {{ wishlist.usuario.get_full_name|default:wishlist.usuario.username }}
+                            </p>
+
+                            {% if wishlist.descripcion %}
+                                <p class="lead">{{ wishlist.descripcion }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 text-end">
+                            {% if wishlist.contribuciones_activas %}
+                                {% if wishlist.meta_alcanzada %}
+                                    <span class="badge bg-success fs-6 p-2">
+                                        <i class="fas fa-check-circle"></i>
+                                        ¡Meta Alcanzada!
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark fs-6 p-2">
+                                        <i class="fas fa-clock"></i>
+                                        Recaudando Fondos
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary fs-6 p-2">
+                                    <i class="fas fa-pause"></i>
+                                    Contribuciones Inactivas
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="row">
+                <!-- Información de la campaña -->
+                <div class="col-lg-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-line"></i>
+                                Estado de la Campaña
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if wishlist.contribuciones_activas %}
+                                {% with total_contribuido=wishlist.total_contribuido meta=wishlist.meta_contribucion %}
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="fw-bold">Recaudado:</span>
+                                            <span class="text-success fw-bold">${{ total_contribuido|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="fw-bold">Meta:</span>
+                                            <span>${{ meta|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-3">
+                                            <span class="fw-bold">Restante:</span>
+                                            <span class="{% if meta|sub:total_contribuido > 0 %}text-warning{% else %}text-success{% endif %}">
+                                                ${{ meta|sub:total_contribuido|floatformat:2 }}
+                                            </span>
+                                        </div>
+
+                                        <div class="progress mb-2" style="height: 12px;">
+                                            {% widthratio total_contribuido meta 100 as progress %}
+                                            <div class="progress-bar bg-success"
+                                                 role="progressbar"
+                                                 style="width: {{ progress }}%"
+                                                 aria-valuenow="{{ progress }}"
+                                                 aria-valuemin="0"
+                                                 aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        <div class="text-center">
+                                            <strong class="text-primary">{{ progress|floatformat:1 }}% completado</strong>
+                                        </div>
+                                    </div>
+                                {% endwith %}
+                            {% endif %}
+
+                            <hr>
+
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="border-end">
+                                        <div class="h4 mb-0 text-primary">{{ wishlist.numero_contribuyentes }}</div>
+                                        <small class="text-muted">Contribuyentes</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="h4 mb-0 text-info">{{ wishlist.contribuciones.count }}</div>
+                                    <small class="text-muted">Contribuciones</small>
+                                </div>
+                            </div>
+
+                            {% if wishlist.fecha_limite %}
+                                <hr>
+                                <div class="text-center">
+                                    <small class="text-muted">Tiempo restante</small>
+                                    <div class="h5 mb-0 text-warning">
+                                        {% load custom_filters %}
+                                        {{ wishlist.fecha_limite|days_until }} días
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cogs"></i>
+                                Acciones
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if wishlist.contribuciones_activas and not wishlist.meta_alcanzada %}
+                                <a href="{% url 'contribuir_wishlist' wishlist.id %}"
+                                   class="btn btn-success btn-lg w-100 mb-2">
+                                    <i class="fas fa-hand-holding-heart"></i>
+                                    Hacer Contribución
+                                </a>
+                            {% endif %}
+
+                            {% if user == wishlist.usuario %}
+                                <a href="{% url 'gestionar_contribuciones_wishlist' wishlist.id %}"
+                                   class="btn btn-outline-primary w-100 mb-2">
+                                    <i class="fas fa-cog"></i>
+                                    Gestionar Contribuciones
+                                </a>
+                            {% endif %}
+
+                            <a href="{% url 'historial_contribuciones' %}"
+                               class="btn btn-outline-info w-100 mb-2">
+                                <i class="fas fa-history"></i>
+                                Mi Historial
+                            </a>
+
+                            <a href="{% url 'wishlists_con_contribuciones' %}"
+                               class="btn btn-outline-secondary w-100">
+                                <i class="fas fa-arrow-left"></i>
+                                Volver a Wishlists
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Productos de la wishlist -->
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-gift"></i>
+                                Productos en la Wishlist
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if wishlist.productos.exists %}
+                                <div class="row">
+                                    {% for producto in wishlist.productos.all %}
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card h-100 border">
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-4">
+                                                            {% if producto.imagen %}
+                                                                <img src="{{ producto.imagen.url }}"
+                                                                     class="img-fluid rounded"
+                                                                     alt="{{ producto.nombre }}"
+                                                                     style="height: 80px; width: 100%; object-fit: cover;">
+                                                            {% else %}
+                                                                <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                                                     style="height: 80px;">
+                                                                    <i class="fas fa-image fa-2x text-muted"></i>
+                                                                </div>
+                                                            {% endif %}
+                                                        </div>
+                                                        <div class="col-8">
+                                                            <h6 class="card-title mb-1">
+                                                                <a href="{% url 'producto_detalle' producto.id %}"
+                                                                   class="text-decoration-none">
+                                                                    {{ producto.nombre }}
+                                                                </a>
+                                                            </h6>
+                                                            <p class="card-text small text-muted mb-1">
+                                                                {{ producto.descripcion|truncatechars:60 }}
+                                                            </p>
+                                                            <div class="fw-bold text-primary">
+                                                                ${{ producto.precio|floatformat:2 }}
+                                                            </div>
+                                                            {% if producto.stock > 0 %}
+                                                                <span class="badge bg-success">En stock</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger">Agotado</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">Esta wishlist aún no tiene productos.</p>
+                                    {% if user == wishlist.usuario %}
+                                        <a href="{% url 'wishlist' %}" class="btn btn-primary">
+                                            <i class="fas fa-plus"></i>
+                                            Agregar Productos
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Lista de contribuciones recientes -->
+                    {% if wishlist.contribuciones.exists %}
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-hand-holding-heart"></i>
+                                    Contribuciones Recientes
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="list-group list-group-flush">
+                                    {% for contribucion in wishlist.contribuciones.all|slice:":10" %}
+                                        <div class="list-group-item px-0">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>{{ contribucion.contribuyente.get_full_name|default:contribucion.contribuyente.username }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        {{ contribucion.fecha_contribucion|date:"d/m/Y H:i" }}
+                                                    </small>
+                                                </div>
+                                                <div class="text-end">
+                                                    <div class="fw-bold text-success">
+                                                        ${{ contribucion.monto|floatformat:2 }}
+                                                    </div>
+                                                    <small class="badge bg-{{ contribucion.estado|lower }}">
+                                                        {{ contribucion.get_estado_display }}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            {% if contribucion.mensaje %}
+                                                <div class="mt-2">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-quote-left"></i>
+                                                        {{ contribucion.mensaje }}
+                                                    </small>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                {% if wishlist.contribuciones.count > 10 %}
+                                    <div class="text-center mt-3">
+                                        <small class="text-muted">
+                                            Mostrando las 10 contribuciones más recientes
+                                        </small>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.progress {
+    border-radius: 6px;
+}
+
+.badge.bg-success {
+    background-color: #198754 !important;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+}
+
+.badge.bg-secondary {
+    background-color: #6c757d !important;
+}
+</style>
+{% endblock %}

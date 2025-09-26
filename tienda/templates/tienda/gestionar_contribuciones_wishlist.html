@@ -1,0 +1,417 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Gestionar Contribuciones - {{ wishlist.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-cog text-primary"></i>
+                    Gestionar "{{ wishlist.nombre }}"
+                </h1>
+                <a href="{% url 'wishlist_detalle_contribucion' wishlist.id %}" class="btn btn-outline-primary">
+                    <i class="fas fa-eye"></i>
+                    Ver Pública
+                </a>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Configuración de la wishlist -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sliders-h"></i>
+                        Configuración de Contribuciones
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'gestionar_contribuciones_wishlist' wishlist.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="configurar">
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <input type="checkbox"
+                                               name="contribuciones_activas"
+                                               {% if wishlist.contribuciones_activas %}checked{% endif %}>
+                                        Habilitar contribuciones
+                                    </label>
+                                    <div class="form-text">
+                                        Permite que otros usuarios contribuyan a esta wishlist
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="meta_contribucion" class="form-label">Meta de Contribución ($)</label>
+                                    <input type="number"
+                                           class="form-control"
+                                           id="meta_contribucion"
+                                           name="meta_contribucion"
+                                           value="{{ wishlist.meta_contribucion|default:'' }}"
+                                           min="1"
+                                           step="0.01"
+                                           placeholder="Ej: 500.00">
+                                    <div class="form-text">
+                                        Monto objetivo para completar automáticamente la compra
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="fecha_limite" class="form-label">Fecha Límite</label>
+                                    <input type="date"
+                                           class="form-control"
+                                           id="fecha_limite"
+                                           name="fecha_limite"
+                                           value="{{ wishlist.fecha_limite|date:'Y-m-d' }}">
+                                    <div class="form-text">
+                                        Opcional: fecha límite para alcanzar la meta
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="mensaje_gracias" class="form-label">Mensaje de Agradecimiento</label>
+                                    <textarea class="form-control"
+                                              id="mensaje_gracias"
+                                              name="mensaje_gracias"
+                                              rows="2"
+                                              placeholder="Mensaje que verán los contribuyentes...">{{ wishlist.mensaje_gracias|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i>
+                            Guardar Configuración
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Estado actual -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <div class="h4 text-success">${{ wishlist.total_contribuido|floatformat:2 }}</div>
+                            <small class="text-muted">Total Recaudado</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <div class="h4 text-primary">{{ wishlist.numero_contribuyentes }}</div>
+                            <small class="text-muted">Contribuyentes</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <div class="h4 text-info">{{ wishlist.contribuciones_completadas.count }}</div>
+                            <small class="text-muted">Pagos Completados</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <div class="h4 text-warning">{{ wishlist.contribuciones_pendientes.count }}</div>
+                            <small class="text-muted">Pagos Pendientes</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de contribuciones -->
+            {% if wishlist.contribuciones.exists %}
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list"></i>
+                            Todas las Contribuciones
+                        </h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-success" onclick="exportarContribuciones()">
+                                <i class="fas fa-download"></i>
+                                Exportar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Contribuyente</th>
+                                        <th>Producto</th>
+                                        <th>Monto</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for contribucion in wishlist.contribuciones.all %}
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold">{{ contribucion.contribuyente.get_full_name|default:contribucion.contribuyente.username }}</div>
+                                                <small class="text-muted">{{ contribucion.contribuyente.email }}</small>
+                                            </td>
+                                            <td>
+                                                {% if contribucion.producto %}
+                                                    {{ contribucion.producto.nombre }}
+                                                {% else %}
+                                                    <span class="text-muted">General</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-success">${{ contribucion.monto|floatformat:2 }}</span>
+                                            </td>
+                                            <td>
+                                                {% if contribucion.estado == 'completada' %}
+                                                    <span class="badge bg-success">Completada</span>
+                                                {% elif contribucion.estado == 'pendiente' %}
+                                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                                {% elif contribucion.estado == 'cancelada' %}
+                                                    <span class="badge bg-secondary">Cancelada</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Fallida</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div>{{ contribucion.fecha_contribucion|date:"d/m/Y" }}</div>
+                                                <small class="text-muted">{{ contribucion.fecha_contribucion|date:"H:i" }}</small>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-primary"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#detalleModal{{ contribucion.id }}">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    {% if contribucion.estado == 'pendiente' %}
+                                                        <form method="post" class="d-inline"
+                                                              action="{% url 'gestionar_contribuciones_wishlist' wishlist.id %}">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="action" value="confirmar_pago">
+                                                            <input type="hidden" name="contribucion_id" value="{{ contribucion.id }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-success"
+                                                                    onclick="return confirm('¿Confirmar este pago?')">
+                                                                <i class="fas fa-check"></i>
+                                                            </button>
+                                                        </form>
+                                                        <form method="post" class="d-inline"
+                                                              action="{% url 'gestionar_contribuciones_wishlist' wishlist.id %}">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="action" value="rechazar_pago">
+                                                            <input type="hidden" name="contribucion_id" value="{{ contribucion.id }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                                    onclick="return confirm('¿Rechazar este pago?')">
+                                                                <i class="fas fa-times"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Modal de detalle -->
+                                        <div class="modal fade" id="detalleModal{{ contribucion.id }}" tabindex="-1">
+                                            <div class="modal-dialog modal-lg">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Detalle de Contribución</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div class="row">
+                                                            <div class="col-md-6">
+                                                                <h6>Información del Contribuyente</h6>
+                                                                <p><strong>Nombre:</strong> {{ contribucion.contribuyente.get_full_name|default:contribucion.contribuyente.username }}</p>
+                                                                <p><strong>Email:</strong> {{ contribucion.contribuyente.email }}</p>
+                                                                <p><strong>Fecha:</strong> {{ contribucion.fecha_contribucion|date:"d/m/Y H:i" }}</p>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <h6>Detalles de la Contribución</h6>
+                                                                <p><strong>Monto:</strong> ${{ contribucion.monto|floatformat:2 }}</p>
+                                                                <p><strong>Estado:</strong> {{ contribucion.get_estado_display }}</p>
+                                                                <p><strong>Producto:</strong>
+                                                                    {% if contribucion.producto %}
+                                                                        {{ contribucion.producto.nombre }}
+                                                                    {% else %}
+                                                                        Contribución General
+                                                                    {% endif %}
+                                                                </p>
+                                                                {% if contribucion.referencia_pago %}
+                                                                    <p><strong>Referencia:</strong> <code>{{ contribucion.referencia_pago }}</code></p>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                        {% if contribucion.mensaje %}
+                                                            <div class="mt-3">
+                                                                <h6>Mensaje del Contribuyente</h6>
+                                                                <div class="alert alert-light">
+                                                                    "{{ contribucion.mensaje }}"
+                                                                </div>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Acciones masivas -->
+                {% if wishlist.contribuciones_pendientes.exists %}
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-tasks"></i>
+                                Acciones Masivas
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">Acciones para aplicar a múltiples contribuciones pendientes:</p>
+                            <div class="d-flex gap-2">
+                                <form method="post" class="d-inline" action="{% url 'gestionar_contribuciones_wishlist' wishlist.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="confirmar_todos_pagos">
+                                    <button type="submit" class="btn btn-success"
+                                            onclick="return confirm('¿Confirmar todos los pagos pendientes?')">
+                                        <i class="fas fa-check-double"></i>
+                                        Confirmar Todos
+                                    </button>
+                                </form>
+
+                                <form method="post" class="d-inline" action="{% url 'gestionar_contribuciones_wishlist' wishlist.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="rechazar_todos_pagos">
+                                    <button type="submit" class="btn btn-danger"
+                                            onclick="return confirm('¿Rechazar todos los pagos pendientes?')">
+                                        <i class="fas fa-times-circle"></i>
+                                        Rechazar Todos
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-heart fa-4x text-muted mb-3"></i>
+                        <h3 class="text-muted">Aún no hay contribuciones</h3>
+                        <p class="text-muted">
+                            Las contribuciones aparecerán aquí una vez que los usuarios comiencen a apoyar tu wishlist.
+                        </p>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Meta alcanzada - acciones -->
+            {% if wishlist.meta_alcanzada %}
+                <div class="card mt-4 border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-trophy"></i>
+                            ¡Meta Alcanzada!
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">
+                            ¡Felicitaciones! Has alcanzado la meta de ${{ wishlist.meta_contribucion|floatformat:2 }}.
+                            Ahora puedes proceder con la compra automática de los productos.
+                        </p>
+
+                        <form method="post" action="{% url 'gestionar_contribuciones_wishlist' wishlist.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="generar_pedido">
+                            <button type="submit" class="btn btn-success btn-lg"
+                                    onclick="return confirm('¿Generar pedido automáticamente con los fondos recaudados?')">
+                                <i class="fas fa-shopping-cart"></i>
+                                Generar Pedido Automático
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function exportarContribuciones() {
+    // Crear un enlace temporal para descargar el archivo
+    const link = document.createElement('a');
+    link.href = '{% url "gestionar_contribuciones_wishlist" wishlist.id %}?export=csv';
+    link.download = 'contribuciones_{{ wishlist.nombre|slugify }}.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0,0,0,0.025);
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.btn-group .btn {
+    margin-right: 2px;
+}
+
+.modal-content {
+    border-radius: 10px;
+}
+
+.border-success {
+    border-color: #198754 !important;
+}
+</style>
+{% endblock %}

@@ -330,6 +330,32 @@ function updateComparacionCount() {
         .catch(error => console.error('Error updating comparacion count:', error));
 }
 
+// Función para actualizar contador de wishlist
+function updateWishlistCount() {
+    fetch('/wishlist/count/')
+        .then(response => response.json())
+        .then(data => {
+            // Buscar todos los enlaces que contengan "wishlist" en el href
+            const wishlistLinks = document.querySelectorAll('a[href*="wishlist"]');
+            wishlistLinks.forEach(link => {
+                let badge = link.querySelector('.badge');
+                if (data.count > 0) {
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'badge bg-danger ms-2';
+                        link.appendChild(badge);
+                    }
+                    badge.textContent = data.count;
+                } else {
+                    if (badge) {
+                        badge.remove();
+                    }
+                }
+            });
+        })
+        .catch(error => console.error('Error updating wishlist count:', error));
+}
+
 // Funcionalidad AJAX para comparación de productos
 document.addEventListener('click', function(e) {
     if (e.target.closest('.comparacion-btn')) {

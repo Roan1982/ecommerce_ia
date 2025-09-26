@@ -1,0 +1,373 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Historial de Contribuciones{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-history text-primary"></i>
+                    Mi Historial de Contribuciones
+                </h1>
+                <a href="{% url 'wishlists_con_contribuciones' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-heart"></i>
+                    Ver Wishlists
+                </a>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if contribuciones %}
+                <!-- Estadísticas rápidas -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <div class="h3 text-primary">{{ total_contribuciones }}</div>
+                                <small class="text-muted">Total Contribuciones</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <div class="h3 text-success">${{ total_monto|floatformat:2 }}</div>
+                                <small class="text-muted">Total Contribuido</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <div class="h3 text-info">{{ wishlists_unicas }}</div>
+                                <small class="text-muted">Wishlists Diferentes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <div class="h3 text-warning">{{ contribuciones_exitosas }}</div>
+                                <small class="text-muted">Contribuciones Exitosas</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <form method="get" class="row g-3">
+                            <div class="col-md-3">
+                                <label for="estado" class="form-label">Estado</label>
+                                <select name="estado" id="estado" class="form-select">
+                                    <option value="">Todos los estados</option>
+                                    <option value="pendiente" {% if request.GET.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                                    <option value="completada" {% if request.GET.estado == 'completada' %}selected{% endif %}>Completada</option>
+                                    <option value="cancelada" {% if request.GET.estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                                    <option value="fallida" {% if request.GET.estado == 'fallida' %}selected{% endif %}>Fallida</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="fecha_desde" class="form-label">Desde</label>
+                                <input type="date" name="fecha_desde" id="fecha_desde" class="form-control"
+                                       value="{{ request.GET.fecha_desde }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="fecha_hasta" class="form-label">Hasta</label>
+                                <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control"
+                                       value="{{ request.GET.fecha_hasta }}">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="fas fa-filter"></i>
+                                    Filtrar
+                                </button>
+                                <a href="{% url 'historial_contribuciones' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i>
+                                    Limpiar
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Lista de contribuciones -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list"></i>
+                            Historial de Contribuciones
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Wishlist</th>
+                                        <th>Producto</th>
+                                        <th>Monto</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for contribucion in contribuciones %}
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold">{{ contribucion.fecha_contribucion|date:"d/m/Y" }}</div>
+                                                <small class="text-muted">{{ contribucion.fecha_contribucion|date:"H:i" }}</small>
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'wishlist_detalle_contribucion' contribucion.wishlist.id %}"
+                                                   class="text-decoration-none">
+                                                    {{ contribucion.wishlist.nombre }}
+                                                </a>
+                                                <br>
+                                                <small class="text-muted">
+                                                    {{ contribucion.wishlist.usuario.get_full_name|default:contribucion.wishlist.usuario.username }}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                {% if contribucion.producto %}
+                                                    <a href="{% url 'producto_detalle' contribucion.producto.id %}"
+                                                       class="text-decoration-none">
+                                                        {{ contribucion.producto.nombre }}
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">Contribución General</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-success">${{ contribucion.monto|floatformat:2 }}</span>
+                                            </td>
+                                            <td>
+                                                {% if contribucion.estado == 'completada' %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check"></i>
+                                                        Completada
+                                                    </span>
+                                                {% elif contribucion.estado == 'pendiente' %}
+                                                    <span class="badge bg-warning text-dark">
+                                                        <i class="fas fa-clock"></i>
+                                                        Pendiente
+                                                    </span>
+                                                {% elif contribucion.estado == 'cancelada' %}
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-times"></i>
+                                                        Cancelada
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-exclamation-triangle"></i>
+                                                        Fallida
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-primary"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#detalleModal{{ contribucion.id }}">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    {% if contribucion.estado == 'pendiente' %}
+                                                        <button type="button"
+                                                                class="btn btn-sm btn-outline-danger"
+                                                                onclick="cancelarContribucion({{ contribucion.id }})">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Modal de detalle -->
+                                        <div class="modal fade" id="detalleModal{{ contribucion.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Detalle de Contribución</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div class="row">
+                                                            <div class="col-sm-6">
+                                                                <strong>Wishlist:</strong>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                {{ contribucion.wishlist.nombre }}
+                                                            </div>
+                                                        </div>
+                                                        <div class="row">
+                                                            <div class="col-sm-6">
+                                                                <strong>Producto:</strong>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                {% if contribucion.producto %}
+                                                                    {{ contribucion.producto.nombre }}
+                                                                {% else %}
+                                                                    Contribución General
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                        <div class="row">
+                                                            <div class="col-sm-6">
+                                                                <strong>Monto:</strong>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                ${{ contribucion.monto|floatformat:2 }}
+                                                            </div>
+                                                        </div>
+                                                        <div class="row">
+                                                            <div class="col-sm-6">
+                                                                <strong>Estado:</strong>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                {{ contribucion.get_estado_display }}
+                                                            </div>
+                                                        </div>
+                                                        <div class="row">
+                                                            <div class="col-sm-6">
+                                                                <strong>Fecha:</strong>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                {{ contribucion.fecha_contribucion|date:"d/m/Y H:i" }}
+                                                            </div>
+                                                        </div>
+                                                        {% if contribucion.mensaje %}
+                                                            <div class="row">
+                                                                <div class="col-sm-6">
+                                                                    <strong>Mensaje:</strong>
+                                                                </div>
+                                                                <div class="col-sm-6">
+                                                                    {{ contribucion.mensaje }}
+                                                                </div>
+                                                            </div>
+                                                        {% endif %}
+                                                        {% if contribucion.referencia_pago %}
+                                                            <div class="row">
+                                                                <div class="col-sm-6">
+                                                                    <strong>Referencia:</strong>
+                                                                </div>
+                                                                <div class="col-sm-6">
+                                                                    <code>{{ contribucion.referencia_pago }}</code>
+                                                                </div>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paginación -->
+                {% if is_paginated %}
+                    <nav aria-label="Navegación de páginas" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-heart-broken fa-4x text-muted mb-3"></i>
+                        <h3 class="text-muted">Aún no has hecho contribuciones</h3>
+                        <p class="text-muted mb-4">
+                            ¡Es hora de comenzar a apoyar las wishlists de otros usuarios!
+                        </p>
+                        <a href="{% url 'wishlists_con_contribuciones' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-hand-holding-heart"></i>
+                            Explorar Wishlists
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function cancelarContribucion(contribucionId) {
+    if (confirm('¿Estás seguro de que quieres cancelar esta contribución?')) {
+        // Aquí iría la lógica AJAX para cancelar la contribución
+        // Por ahora, solo mostramos un mensaje
+        alert('Funcionalidad de cancelación próximamente disponible');
+    }
+}
+</script>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0,0,0,0.025);
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.btn-group .btn {
+    margin-right: 2px;
+}
+
+.modal-content {
+    border-radius: 10px;
+}
+</style>
+{% endblock %}

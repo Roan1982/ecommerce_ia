@@ -43,6 +43,14 @@ urlpatterns = [
     path('wishlist/quitar/<int:producto_id>/', views.quitar_de_wishlist, name='quitar_de_wishlist'),
     path('wishlist/toggle/<int:producto_id>/', views.toggle_wishlist, name='toggle_wishlist'),
     path('wishlist/count/', views.wishlist_count, name='wishlist_count'),
+    # Sistema de Contribuciones a Wishlist
+    path('wishlists-contribuciones/', views.wishlists_con_contribuciones, name='wishlists_con_contribuciones'),
+    path('wishlist/<int:wishlist_id>/contribucion/', views.wishlist_detalle_contribucion, name='wishlist_detalle_contribucion'),
+    path('wishlist/<int:wishlist_id>/contribuir/', views.contribuir_wishlist, name='contribuir_wishlist'),
+    path('wishlist/<int:wishlist_id>/gestionar-contribuciones/', views.gestionar_contribuciones_wishlist, name='gestionar_contribuciones_wishlist'),
+    path('historial-contribuciones/', views.historial_contribuciones, name='historial_contribuciones'),
+    path('contribucion/<int:contribucion_id>/pago/', views.pago_contribucion, name='pago_contribucion'),
+    path('contribucion/<int:contribucion_id>/procesar-pago/', views.procesar_pago_contribucion, name='procesar_pago_contribucion'),
     # Sistema de Comparación de Productos
     path('comparacion/', views.comparacion_productos, name='comparacion_productos'),
     path('comparacion/agregar/<int:producto_id>/', views.agregar_a_comparacion, name='agregar_a_comparacion'),

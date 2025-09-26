@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.db.models import Sum
 
 class Producto(models.Model):
     ESTADO_CHOICES = [
@@ -553,6 +554,14 @@ class Wishlist(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='wishlist_users')
     fecha_agregado = models.DateTimeField(default=timezone.now)
 
+    # Configuración de contribuciones grupales
+    permitir_contribuciones = models.BooleanField(default=False,
+                                                help_text="Permitir que otros usuarios contribuyan al pago")
+    contribucion_objetivo = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,
+                                              help_text="Monto objetivo para contribuciones grupales")
+    contribucion_privada = models.BooleanField(default=False,
+                                             help_text="Las contribuciones son privadas (solo visible para el propietario)")
+
     class Meta:
         verbose_name = "Lista de Deseos"
         verbose_name_plural = "Listas de Deseos"
@@ -561,6 +570,198 @@ class Wishlist(models.Model):
 
     def __str__(self):
         return f"{self.usuario.username} - {self.producto.nombre}"
+
+    @property
+    def total_contribuido(self):
+        """Calcula el total contribuido por todos los usuarios"""
+        return self.contribuciones.filter(estado='completado').aggregate(
+            total=Sum('monto')
+        )['total'] or 0
+
+    @property
+    def progreso_contribucion(self):
+        """Calcula el progreso de contribución (0-100)"""
+        if not self.permitir_contribuciones or not self.contribucion_objetivo:
+            return 0
+        return min(100, (self.total_contribuido / self.contribucion_objetivo) * 100)
+
+    @property
+    def objetivo_alcanzado(self):
+        """Verifica si se alcanzó el objetivo de contribución"""
+        if not self.permitir_contribuciones or not self.contribucion_objetivo:
+            return False
+        return self.total_contribuido >= self.contribucion_objetivo
+
+    @property
+    def monto_restante(self):
+        """Calcula el monto restante para alcanzar el objetivo"""
+        if not self.permitir_contribuciones or not self.contribucion_objetivo:
+            return 0
+        return max(0, self.contribucion_objetivo - self.total_contribuido)
+
+    def puede_contribuir(self, usuario):
+        """Verifica si un usuario puede contribuir a este item"""
+        if not self.permitir_contribuciones:
+            return False
+        if usuario == self.usuario:
+            return False  # El propietario no puede contribuir a su propio item
+        return True
+
+    def agregar_contribucion(self, usuario, monto, mensaje=""):
+        """Agrega una contribución a este item de wishlist"""
+        if not self.puede_contribuir(usuario):
+            raise ValueError("No puedes contribuir a este item")
+
+        if monto <= 0:
+            raise ValueError("El monto debe ser mayor a cero")
+
+        # Crear la contribución
+        contribucion = ContribucionWishlist.objects.create(
+            wishlist_item=self,
+            usuario_contribuyente=usuario,
+            monto=monto,
+            mensaje=mensaje,
+            estado='completado'  # Por simplicidad, asumimos que el pago se completa inmediatamente
+        )
+
+        # Verificar si se alcanzó el objetivo
+        if self.objetivo_alcanzado:
+            self.convertir_a_pedido()
+
+        return contribucion
+
+    def convertir_a_pedido(self):
+        """Convierte el item de wishlist en un pedido cuando se alcanza el objetivo"""
+        from .models import Pedido, PedidoProducto, DireccionEnvio
+
+        # Crear pedido para el usuario propietario
+        pedido = Pedido.objects.create(
+            usuario=self.usuario,
+            estado='pagado',  # El pedido ya está "pagado" por las contribuciones
+            total_productos=self.producto.precio,
+            descuento_cupon=0,
+            total_pedido=self.producto.precio,
+            notas=f"Pedido generado por contribuciones grupales. Contribuyeron: {self.contribuciones.count()} personas."
+        )
+
+        # Agregar el producto al pedido
+        PedidoProducto.objects.create(
+            pedido=pedido,
+            producto=self.producto,
+            cantidad=1,
+            precio_unitario=self.producto.precio
+        )
+
+        # Reducir stock del producto
+        self.producto.reducir_stock(1)
+
+        # Marcar contribuciones como procesadas
+        self.contribuciones.filter(estado='completado').update(estado='procesado', pedido_generado=pedido)
+
+        # Eliminar el item de wishlist
+        self.delete()
+
+        # Enviar notificaciones
+        self.enviar_notificaciones_pedido_generado(pedido)
+
+        return pedido
+
+    def enviar_notificaciones_pedido_generado(self, pedido):
+        """Envía notificaciones cuando se genera el pedido"""
+        from .services.email_service import EmailService
+
+        # Notificar al propietario
+        email_service = EmailService()
+        contexto_propietario = {
+            'usuario': self.usuario,
+            'producto': self.producto,
+            'pedido': pedido,
+            'contribuciones': self.contribuciones.filter(estado='procesado'),
+            'total_contribuciones': self.contribuciones.filter(estado='procesado').count()
+        }
+
+        try:
+            email_service.enviar_email(
+                tipo='wishlist_contribucion_completada',
+                usuario=self.usuario,
+                contexto=contexto_propietario
+            )
+        except Exception as e:
+            print(f"Error enviando email al propietario: {e}")
+
+        # Notificar a los contribuyentes
+        for contribucion in self.contribuciones.filter(estado='procesado'):
+            contexto_contribuyente = {
+                'contribuyente': contribucion.usuario_contribuyente,
+                'producto': self.producto,
+                'propietario': self.usuario,
+                'monto_contribuido': contribucion.monto,
+                'pedido': pedido
+            }
+
+            try:
+                email_service.enviar_email(
+                    tipo='wishlist_contribucion_gracias',
+                    usuario=contribucion.usuario_contribuyente,
+                    contexto=contexto_contribuyente
+                )
+            except Exception as e:
+                print(f"Error enviando email al contribuyente {contribucion.usuario_contribuyente.email}: {e}")
+
+
+class ContribucionWishlist(models.Model):
+    """Modelo para contribuciones a items de wishlist"""
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente de Pago'),
+        ('completado', 'Pago Completado'),
+        ('procesado', 'Procesado en Pedido'),
+        ('cancelado', 'Cancelado'),
+        ('reembolsado', 'Reembolsado'),
+    ]
+
+    wishlist_item = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name='contribuciones')
+    usuario_contribuyente = models.ForeignKey(User, on_delete=models.CASCADE,
+                                            related_name='contribuciones_realizadas')
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    mensaje = models.TextField(blank=True, null=True,
+                              help_text="Mensaje opcional del contribuyente")
+    fecha_contribucion = models.DateTimeField(default=timezone.now)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+
+    # Relación con pedido generado (opcional)
+    pedido_generado = models.ForeignKey('Pedido', on_delete=models.SET_NULL, blank=True, null=True,
+                                      related_name='contribuciones')
+
+    # Información de pago (para futuras expansiones)
+    metodo_pago = models.CharField(max_length=50, blank=True, null=True)
+    referencia_pago = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Contribución Wishlist"
+        verbose_name_plural = "Contribuciones Wishlist"
+        ordering = ['-fecha_contribucion']
+
+    def __str__(self):
+        return f"{self.usuario_contribuyente.username} contribuyó ${self.monto} a {self.wishlist_item}"
+
+    @property
+    def es_anonima(self):
+        """Verifica si la contribución debe mostrarse como anónima"""
+        return self.wishlist_item.contribucion_privada
+
+    def cancelar_contribucion(self):
+        """Cancela la contribución (para reembolsos)"""
+        if self.estado == 'completado':
+            self.estado = 'cancelado'
+            self.save()
+            # Aquí iría la lógica de reembolso
+
+    def procesar_reembolso(self):
+        """Procesa el reembolso de la contribución"""
+        if self.estado == 'cancelado':
+            self.estado = 'reembolsado'
+            self.save()
+            # Aquí iría la lógica real de reembolso
 
 
 class ComparacionProductos(models.Model):

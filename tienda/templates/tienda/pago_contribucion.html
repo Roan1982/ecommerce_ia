@@ -1,0 +1,222 @@
+{% extends 'tienda/base.html' %}
+{% load static %}
+
+{% block title %}Procesar Pago de Contribución{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-credit-card"></i>
+                        Procesar Pago de Contribución
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Información de la contribución -->
+                    <div class="alert alert-info">
+                        <h5>Detalles de la Contribución</h5>
+                        <p class="mb-1"><strong>Producto:</strong> {{ contribucion.wishlist.producto.nombre }}</p>
+                        <p class="mb-1"><strong>Lista de deseos de:</strong> {{ contribucion.wishlist.usuario.get_full_name|default:contribucion.wishlist.usuario.username }}</p>
+                        <p class="mb-1"><strong>Monto a contribuir:</strong> ${{ contribucion.monto|floatformat:2 }}</p>
+                        <p class="mb-1"><strong>Método de pago:</strong> {{ contribucion.get_metodo_pago_display }}</p>
+                    </div>
+
+                    <!-- Formulario de pago -->
+                    <form id="pagoForm" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="contribucion_id" value="{{ contribucion.id }}">
+
+                        <h5>Datos de Pago</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="numero_tarjeta" class="form-label">Número de Tarjeta *</label>
+                                    <input type="text" class="form-control" id="numero_tarjeta" name="numero_tarjeta"
+                                           placeholder="1234 5678 9012 3456" maxlength="19" required>
+                                    <div class="invalid-feedback">
+                                        Por favor ingrese un número de tarjeta válido.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="fecha_expiracion" class="form-label">Fecha de Expiración *</label>
+                                    <input type="text" class="form-control" id="fecha_expiracion" name="fecha_expiracion"
+                                           placeholder="MM/YY" maxlength="5" required>
+                                    <div class="invalid-feedback">
+                                        Formato: MM/YY
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="cvv" class="form-label">CVV *</label>
+                                    <input type="text" class="form-control" id="cvv" name="cvv"
+                                           placeholder="123" maxlength="4" required>
+                                    <div class="invalid-feedback">
+                                        Código de seguridad requerido.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="nombre_titular" class="form-label">Nombre del Titular *</label>
+                            <input type="text" class="form-control" id="nombre_titular" name="nombre_titular"
+                                   placeholder="Como aparece en la tarjeta" required>
+                            <div class="invalid-feedback">
+                                Nombre del titular requerido.
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Nota:</strong> Esta es una simulación de pago. En un entorno real, estos datos serían procesados por un gateway de pagos seguro.
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'historial_contribuciones' %}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success" id="procesarPagoBtn">
+                                <i class="fas fa-credit-card"></i>
+                                Procesar Pago de ${{ contribucion.monto|floatformat:2 }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de procesamiento -->
+<div class="modal fade" id="procesandoModal" tabindex="-1" aria-labelledby="procesandoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Procesando...</span>
+                </div>
+                <h5 class="mt-3">Procesando pago...</h5>
+                <p class="text-muted">Por favor espera mientras procesamos tu contribución.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Formatear número de tarjeta
+    $('#numero_tarjeta').on('input', function() {
+        let value = $(this).val().replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+        let formatted = value.match(/.{1,4}/g)?.join(' ') || '';
+        $(this).val(formatted);
+    });
+
+    // Formatear fecha de expiración
+    $('#fecha_expiracion').on('input', function() {
+        let value = $(this).val().replace(/\D/g, '');
+        if (value.length >= 2) {
+            value = value.substring(0, 2) + '/' + value.substring(2, 4);
+        }
+        $(this).val(value);
+    });
+
+    // Validar formulario antes de enviar
+    $('#pagoForm').on('submit', function(e) {
+        e.preventDefault();
+
+        // Validar número de tarjeta (simplificado)
+        const numeroTarjeta = $('#numero_tarjeta').val().replace(/\s+/g, '');
+        if (numeroTarjeta.length < 13 || numeroTarjeta.length > 19) {
+            $('#numero_tarjeta').addClass('is-invalid');
+            return false;
+        } else {
+            $('#numero_tarjeta').removeClass('is-invalid');
+        }
+
+        // Validar fecha de expiración
+        const fechaExp = $('#fecha_expiracion').val();
+        const fechaRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
+        if (!fechaRegex.test(fechaExp)) {
+            $('#fecha_expiracion').addClass('is-invalid');
+            return false;
+        } else {
+            $('#fecha_expiracion').removeClass('is-invalid');
+        }
+
+        // Validar CVV
+        const cvv = $('#cvv').val();
+        if (cvv.length < 3 || cvv.length > 4) {
+            $('#cvv').addClass('is-invalid');
+            return false;
+        } else {
+            $('#cvv').removeClass('is-invalid');
+        }
+
+        // Validar nombre del titular
+        const nombreTitular = $('#nombre_titular').val().trim();
+        if (nombreTitular.length < 2) {
+            $('#nombre_titular').addClass('is-invalid');
+            return false;
+        } else {
+            $('#nombre_titular').removeClass('is-invalid');
+        }
+
+        // Mostrar modal de procesamiento
+        $('#procesandoModal').modal('show');
+
+        // Procesar pago vía AJAX
+        $.ajax({
+            url: "{% url 'procesar_pago_contribucion' contribucion.id %}",
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                $('#procesandoModal').modal('hide');
+
+                if (response.success) {
+                    // Mostrar mensaje de éxito
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Pago procesado!',
+                        text: response.mensaje,
+                        confirmButtonText: 'Continuar'
+                    }).then(function() {
+                        // Redirigir según el resultado
+                        if (response.meta_completada) {
+                            window.location.href = "{% url 'wishlists_con_contribuciones' %}";
+                        } else {
+                            window.location.href = "{% url 'historial_contribuciones' %}";
+                        }
+                    });
+                } else {
+                    // Mostrar error
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error en el pago',
+                        text: response.error,
+                        confirmButtonText: 'Intentar nuevamente'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#procesandoModal').modal('hide');
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo procesar el pago. Inténtalo nuevamente.',
+                    confirmButtonText: 'Aceptar'
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
