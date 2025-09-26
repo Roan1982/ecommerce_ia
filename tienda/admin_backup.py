@@ -470,8 +470,8 @@ class InventarioAdminSite(admin.AdminSite):
             "productos_activos": Producto.objects.filter(estado="activo").count(),
             "total_pedidos": Pedido.objects.count(),
             "pedidos_pendientes": Pedido.objects.filter(estado="pendiente").count(),
-            "pedidos_completados": Pedido.objects.filter(estado="completado").count(),
-            "total_ingresos": Pedido.objects.filter(estado="completado").aggregate(
+            "pedidos_entregados": Pedido.objects.filter(estado="entregado").count(),
+            "total_ingresos": Pedido.objects.filter(estado="entregado").aggregate(
                 total=Sum("total_pedido")
             )["total"] or 0,
             "productos_stock_bajo": Producto.objects.filter(
@@ -510,14 +510,14 @@ class InventarioAdminSite(admin.AdminSite):
         periodo = request.GET.get("periodo", "mes")
 
         if periodo == "dia":
-            ventas = Pedido.objects.filter(estado="completado").annotate(
+            ventas = Pedido.objects.filter(estado="entregado").annotate(
                 periodo=TruncDay("fecha_creacion")
             ).values("periodo").annotate(
                 total=Sum("total_pedido"),
                 cantidad=Count("id")
             ).order_by("-periodo")[:30]
         else:
-            ventas = Pedido.objects.filter(estado="completado").annotate(
+            ventas = Pedido.objects.filter(estado="entregado").annotate(
                 periodo=TruncMonth("fecha_creacion")
             ).values("periodo").annotate(
                 total=Sum("total_pedido"),
@@ -553,7 +553,7 @@ class InventarioAdminSite(admin.AdminSite):
             "total_pedidos": Pedido.objects.count(),
             "pedidos_pendientes": Pedido.objects.filter(estado="pendiente").count(),
             "pedidos_procesando": Pedido.objects.filter(estado="procesando").count(),
-            "pedidos_completados": Pedido.objects.filter(estado="completado").count(),
+            "pedidos_entregados": Pedido.objects.filter(estado="entregado").count(),
             "pedidos_cancelados": Pedido.objects.filter(estado="cancelado").count(),
         }
 
@@ -624,7 +624,7 @@ class InventarioAdminSite(admin.AdminSite):
     def pedidos_completados_view(self, request):
         """Vista de pedidos completados"""
         pedidos = Pedido.objects.filter(
-            estado="completado"
+            estado="entregado"
         ).select_related("usuario").order_by("-fecha_creacion")[:50]
 
         context = {
@@ -841,8 +841,8 @@ class InventarioAdminSite(admin.AdminSite):
         # Estadísticas del usuario
         stats = {
             'total_pedidos': Pedido.objects.filter(usuario=usuario).count(),
-            'pedidos_completados': Pedido.objects.filter(usuario=usuario, estado='completado').count(),
-            'total_gastado': Pedido.objects.filter(usuario=usuario, estado='completado').aggregate(
+            'pedidos_entregados': Pedido.objects.filter(usuario=usuario, estado='entregado').count(),
+            'total_gastado': Pedido.objects.filter(usuario=usuario, estado='entregado').aggregate(
                 total=Sum('total_pedido')
             )['total'] or 0,
         }

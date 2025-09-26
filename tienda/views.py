@@ -1244,8 +1244,8 @@ def admin_dashboard(request):
         'productos_activos': Producto.objects.filter(estado='activo').count(),
         'total_pedidos': Pedido.objects.count(),
         'pedidos_pendientes': Pedido.objects.filter(estado='pendiente').count(),
-        'pedidos_completados': Pedido.objects.filter(estado='completado').count(),
-        'total_ingresos': Pedido.objects.filter(estado='completado').aggregate(
+        'pedidos_entregados': Pedido.objects.filter(estado='entregado').count(),
+        'total_ingresos': Pedido.objects.filter(estado='entregado').aggregate(
             total=Sum('total_pedido')
         )['total'] or 0,
         'productos_stock_bajo': Producto.objects.filter(
@@ -1369,9 +1369,9 @@ def admin_pedidos(request):
         'total': Pedido.objects.count(),
         'pendientes': Pedido.objects.filter(estado='pendiente').count(),
         'procesando': Pedido.objects.filter(estado='procesando').count(),
-        'completados': Pedido.objects.filter(estado='completado').count(),
+        'entregados': Pedido.objects.filter(estado='entregado').count(),
         'cancelados': Pedido.objects.filter(estado='cancelado').count(),
-        'total_ingresos': Pedido.objects.filter(estado='completado').aggregate(
+        'total_ingresos': Pedido.objects.filter(estado='entregado').aggregate(
             total=Sum('total_pedido')
         )['total'] or 0,
     }
@@ -1383,6 +1383,158 @@ def admin_pedidos(request):
             'estado': estado_filter,
             'usuario': usuario_filter,
         }
+    })
+
+@login_required
+def admin_pedidos_pendientes(request):
+    """Vista específica para pedidos pendientes"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    pedidos = Pedido.objects.filter(estado='pendiente').select_related('usuario').order_by('-fecha_creacion')
+
+    # Estadísticas específicas para pedidos pendientes
+    stats = {
+        'total_pendientes': pedidos.count(),
+        'pendientes_hoy': pedidos.filter(fecha_creacion__date=date.today()).count(),
+        'pendientes_semana': pedidos.filter(fecha_creacion__date__gte=date.today() - timedelta(days=7)).count(),
+        'valor_total_pendientes': pedidos.aggregate(total=Sum('total_pedido'))['total'] or 0,
+    }
+
+    return render(request, 'tienda/admin_pedidos_pendientes.html', {
+        'pedidos': pedidos,
+        'stats': stats,
+        'titulo': 'Pedidos Pendientes',
+        'estado_actual': 'pendiente'
+    })
+
+@login_required
+def admin_pedidos_procesando(request):
+    """Vista específica para pedidos en proceso"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    pedidos = Pedido.objects.filter(estado='procesando').select_related('usuario').order_by('-fecha_creacion')
+
+    # Estadísticas específicas para pedidos procesando
+    stats = {
+        'total_procesando': pedidos.count(),
+        'procesando_hoy': pedidos.filter(fecha_creacion__date=date.today()).count(),
+        'procesando_semana': pedidos.filter(fecha_creacion__date__gte=date.today() - timedelta(days=7)).count(),
+        'valor_total_procesando': pedidos.aggregate(total=Sum('total_pedido'))['total'] or 0,
+    }
+
+    return render(request, 'tienda/admin_pedidos_procesando.html', {
+        'pedidos': pedidos,
+        'stats': stats,
+        'titulo': 'Pedidos en Proceso',
+        'estado_actual': 'procesando'
+    })
+
+@login_required
+def admin_pedidos_enviados(request):
+    """Vista específica para pedidos enviados"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    pedidos = Pedido.objects.filter(estado='enviado').select_related('usuario').order_by('-fecha_creacion')
+
+    # Estadísticas específicas para pedidos enviados
+    stats = {
+        'total_enviados': pedidos.count(),
+        'enviados_hoy': pedidos.filter(fecha_creacion__date=date.today()).count(),
+        'enviados_semana': pedidos.filter(fecha_creacion__date__gte=date.today() - timedelta(days=7)).count(),
+        'valor_total_enviados': pedidos.aggregate(total=Sum('total_pedido'))['total'] or 0,
+    }
+
+    return render(request, 'tienda/admin_pedidos_enviados.html', {
+        'pedidos': pedidos,
+        'stats': stats,
+        'titulo': 'Pedidos Enviados',
+        'estado_actual': 'enviado'
+    })
+
+@login_required
+def admin_pedidos_entregados(request):
+    """Vista específica para pedidos entregados"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    usuario_filter = request.GET.get('usuario')
+
+    pedidos = Pedido.objects.filter(estado='entregado').select_related('usuario').order_by('-fecha_creacion')
+
+    # Aplicar filtros
+    if fecha_desde:
+        pedidos = pedidos.filter(fecha_creacion__date__gte=fecha_desde)
+    if fecha_hasta:
+        pedidos = pedidos.filter(fecha_creacion__date__lte=fecha_hasta)
+    if usuario_filter:
+        pedidos = pedidos.filter(
+            models.Q(usuario__username__icontains=usuario_filter) |
+            models.Q(usuario__email__icontains=usuario_filter)
+        )
+
+    # Estadísticas específicas para pedidos entregados
+    stats = {
+        'total_entregados': pedidos.count(),
+        'entregados_hoy': pedidos.filter(fecha_creacion__date=date.today()).count(),
+        'entregados_semana': pedidos.filter(fecha_creacion__date__gte=date.today() - timedelta(days=7)).count(),
+        'valor_total_entregados': pedidos.aggregate(total=Sum('total_pedido'))['total'] or 0,
+    }
+
+    return render(request, 'tienda/admin_pedidos_entregados.html', {
+        'pedidos': pedidos,
+        'stats': stats,
+        'titulo': 'Pedidos Entregados',
+        'estado_actual': 'entregado'
+    })
+
+@login_required
+def admin_pedidos_cancelados(request):
+    """Vista específica para pedidos cancelados"""
+    if not request.user.is_staff:
+        messages.error(request, _('No tienes permisos para acceder a esta página.'))
+        return redirect('home')
+
+    # Filtros
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    usuario_filter = request.GET.get('usuario')
+
+    pedidos = Pedido.objects.filter(estado='cancelado').select_related('usuario').order_by('-fecha_creacion')
+
+    # Aplicar filtros
+    if fecha_desde:
+        pedidos = pedidos.filter(fecha_creacion__date__gte=fecha_desde)
+    if fecha_hasta:
+        pedidos = pedidos.filter(fecha_creacion__date__lte=fecha_hasta)
+    if usuario_filter:
+        pedidos = pedidos.filter(
+            models.Q(usuario__username__icontains=usuario_filter) |
+            models.Q(usuario__email__icontains=usuario_filter)
+        )
+
+    # Estadísticas específicas para pedidos cancelados
+    stats = {
+        'total_cancelados': pedidos.count(),
+        'cancelados_hoy': pedidos.filter(fecha_creacion__date=date.today()).count(),
+        'cancelados_semana': pedidos.filter(fecha_creacion__date__gte=date.today() - timedelta(days=7)).count(),
+        'valor_total_cancelados': pedidos.aggregate(total=Sum('total_pedido'))['total'] or 0,
+    }
+
+    return render(request, 'tienda/admin_pedidos_cancelados.html', {
+        'pedidos': pedidos,
+        'stats': stats,
+        'titulo': 'Pedidos Cancelados',
+        'estado_actual': 'cancelado'
     })
 
 @login_required
@@ -1536,14 +1688,14 @@ def admin_reportes(request):
     periodo = request.GET.get('periodo', 'mes')
 
     if periodo == 'dia':
-        ventas = Pedido.objects.filter(estado='completado').annotate(
+        ventas = Pedido.objects.filter(estado='entregado').annotate(
             periodo=TruncDay('fecha_creacion')
         ).values('periodo').annotate(
             total=Sum('total_pedido'),
             cantidad=Count('id')
         ).order_by('-periodo')[:30]
     else:
-        ventas = Pedido.objects.filter(estado='completado').annotate(
+        ventas = Pedido.objects.filter(estado='entregado').annotate(
             periodo=TruncMonth('fecha_creacion')
         ).values('periodo').annotate(
             total=Sum('total_pedido'),
@@ -1561,8 +1713,8 @@ def admin_reportes(request):
     # Estadísticas generales
     stats = {
         'total_pedidos': Pedido.objects.count(),
-        'pedidos_completados': Pedido.objects.filter(estado='completado').count(),
-        'total_ingresos': Pedido.objects.filter(estado='completado').aggregate(
+        'pedidos_entregados': Pedido.objects.filter(estado='entregado').count(),
+        'total_ingresos': Pedido.objects.filter(estado='entregado').aggregate(
             total=Sum('total_pedido')
         )['total'] or 0,
         'productos_vendidos': PedidoProducto.objects.aggregate(
@@ -1663,7 +1815,7 @@ def admin_cambiar_estado_pedido(request, pedido_id):
         pedido = Pedido.objects.get(id=pedido_id)
         nuevo_estado = request.POST.get('estado', '')
 
-        if nuevo_estado not in ['pendiente', 'procesando', 'completado', 'cancelado']:
+        if nuevo_estado not in ['pendiente', 'procesando', 'pagado', 'enviado', 'entregado', 'cancelado']:
             return JsonResponse({'success': False, 'error': 'Estado inválido'})
 
         pedido.estado = nuevo_estado
@@ -1680,7 +1832,7 @@ def admin_cambiar_estado_pedido(request, pedido_id):
         return JsonResponse({
             'success': True,
             'nuevo_estado': pedido.get_estado_display(),
-            'estado_class': f'badge-{"success" if nuevo_estado == "completado" else "warning" if nuevo_estado == "pendiente" else "info" if nuevo_estado == "procesando" else "danger"}'
+            'estado_class': f'badge-{"success" if nuevo_estado == "entregado" else "warning" if nuevo_estado == "pendiente" else "info" if nuevo_estado == "procesando" else "danger"}'
         })
 
     except Pedido.DoesNotExist:
@@ -2211,8 +2363,8 @@ def admin_detalle_usuario(request, usuario_id):
     pedidos_usuario = Pedido.objects.filter(usuario=usuario)
     stats = {
         'total_pedidos': pedidos_usuario.count(),
-        'pedidos_completados': pedidos_usuario.filter(estado='completado').count(),
-        'total_gastado': pedidos_usuario.filter(estado='completado').aggregate(
+        'pedidos_entregados': pedidos_usuario.filter(estado='entregado').count(),
+        'total_gastado': pedidos_usuario.filter(estado='entregado').aggregate(
             total=Sum('total_pedido')
         )['total'] or 0,
         'ultimo_pedido': pedidos_usuario.order_by('-fecha_creacion').first(),

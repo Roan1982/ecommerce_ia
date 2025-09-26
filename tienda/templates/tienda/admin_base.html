@@ -86,8 +86,26 @@
             text-align: center;
             font-size: 1.1rem;
         }
-        .admin-sidebar .nav-link span {
-            flex: 1;
+        .nav-submenu {
+            margin-left: 20px;
+            border-left: 2px solid rgba(255,255,255,0.3);
+            padding-left: 10px;
+        }
+        .nav-submenu-item {
+            padding: 8px 20px;
+            margin: 1px 15px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        .nav-submenu-item:hover,
+        .nav-submenu-item.active {
+            opacity: 1;
+            background: rgba(255,255,255,0.15);
+        }
+        .nav-submenu-item i {
+            margin-right: 10px;
+            width: 18px;
+            font-size: 1rem;
         }
         .admin-content {
             background-color: #f8f9fa;
@@ -332,6 +350,28 @@
                             <i class="bi bi-receipt"></i>
                             <span>Pedidos</span>
                         </a>
+                        <div class="nav-submenu ms-3">
+                            <a class="nav-link nav-submenu-item {% if request.resolver_match.url_name == 'admin_pedidos_pendientes' %}active{% endif %}" href="{% url 'admin_pedidos_pendientes' %}">
+                                <i class="bi bi-clock"></i>
+                                <span>Pendientes</span>
+                            </a>
+                            <a class="nav-link nav-submenu-item {% if request.resolver_match.url_name == 'admin_pedidos_procesando' %}active{% endif %}" href="{% url 'admin_pedidos_procesando' %}">
+                                <i class="bi bi-gear"></i>
+                                <span>Procesando</span>
+                            </a>
+                            <a class="nav-link nav-submenu-item {% if request.resolver_match.url_name == 'admin_pedidos_enviados' %}active{% endif %}" href="{% url 'admin_pedidos_enviados' %}">
+                                <i class="bi bi-truck"></i>
+                                <span>Enviados</span>
+                            </a>
+                            <a class="nav-link nav-submenu-item {% if request.resolver_match.url_name == 'admin_pedidos_entregados' %}active{% endif %}" href="{% url 'admin_pedidos_entregados' %}">
+                                <i class="bi bi-check-circle"></i>
+                                <span>Entregados</span>
+                            </a>
+                            <a class="nav-link nav-submenu-item {% if request.resolver_match.url_name == 'admin_pedidos_cancelados' %}active{% endif %}" href="{% url 'admin_pedidos_cancelados' %}">
+                                <i class="bi bi-x-circle"></i>
+                                <span>Cancelados</span>
+                            </a>
+                        </div>
                         <a class="nav-link {% if request.resolver_match.url_name == 'admin_usuarios' %}active{% endif %}" href="{% url 'admin_usuarios' %}">
                             <i class="bi bi-people"></i>
                             <span>Usuarios</span>

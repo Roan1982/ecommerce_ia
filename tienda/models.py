@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db.models import Sum
+import os
 
 class Producto(models.Model):
     ESTADO_CHOICES = [
@@ -15,6 +16,8 @@ class Producto(models.Model):
     categoria = models.CharField(max_length=50)
     descripcion = models.TextField(blank=True, null=True)
     imagen_url = models.URLField(blank=True, null=True)
+    imagen_file = models.ImageField(upload_to='productos/', blank=True, null=True,
+                                   help_text="Imagen del producto subida al servidor")
 
     # Campos de inventario mejorados
     stock = models.IntegerField(default=10, help_text="Cantidad actual en inventario")
@@ -89,17 +92,18 @@ class Producto(models.Model):
         )
 
     @property
-    def promedio_calificacion(self):
-        """Calcula el promedio de calificaciones del producto"""
-        resenas = self.resena_set.all()
-        if resenas.exists():
-            return round(sum(resena.calificacion for resena in resenas) / resenas.count(), 1)
-        return 0
+    def imagen_principal(self):
+        """Devuelve la URL de la imagen principal del producto"""
+        if self.imagen_file:
+            return self.imagen_file.url
+        elif self.imagen_url:
+            return self.imagen_url
+        return None
 
     @property
-    def total_resenas(self):
-        """Devuelve el número total de reseñas"""
-        return self.resena_set.count()
+    def tiene_imagen(self):
+        """Verifica si el producto tiene alguna imagen"""
+        return bool(self.imagen_file or self.imagen_url)
 
     def puede_reseñar(self, usuario):
         """Verifica si un usuario puede reseñar este producto"""
@@ -268,6 +272,7 @@ class MetodoPago(models.Model):
 class Pedido(models.Model):
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente de Pago'),
+        ('procesando', 'Procesando'),
         ('pagado', 'Pagado'),
         ('enviado', 'Enviado'),
         ('entregado', 'Entregado'),

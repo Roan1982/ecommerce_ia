@@ -116,6 +116,12 @@ urlpatterns = [
     # path('admin/pedidos/', views.admin_pedidos, name='admin_pedidos'),
     # path('admin/pedidos/<int:pedido_id>/', views.admin_detalle_pedido, name='admin_detalle_pedido'),
     # path('admin/pedidos/actualizar-estado/', views.admin_cambiar_estado_pedido, name='admin_actualizar_estado_pedido'),
+    # Vistas específicas por estado de pedido
+    path('admin/pedidos/pendientes/', views.admin_pedidos_pendientes, name='admin_pedidos_pendientes'),
+    path('admin/pedidos/procesando/', views.admin_pedidos_procesando, name='admin_pedidos_procesando'),
+    path('admin/pedidos/enviados/', views.admin_pedidos_enviados, name='admin_pedidos_enviados'),
+    path('admin/pedidos/entregados/', views.admin_pedidos_entregados, name='admin_pedidos_entregados'),
+    path('admin/pedidos/cancelados/', views.admin_pedidos_cancelados, name='admin_pedidos_cancelados'),
     # path('admin/usuarios/', views.admin_usuarios, name='admin_usuarios'),
     # path('admin/usuarios/agregar/', views.admin_agregar_usuario, name='admin_agregar_usuario'),
     # path('admin/usuarios/editar/<int:usuario_id>/', views.admin_editar_usuario, name='admin_editar_usuario'),

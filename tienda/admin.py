@@ -28,10 +28,40 @@ class InventarioAdminSite(admin.AdminSite):
     base_template = "admin/base.html"
 
     def get_app_list(self, request, app_label=None):
-        app_list = super().get_app_list(request)
+        # Construir la lista de aplicaciones desde el registro de este admin site
+        app_list = []
+        app_dict = {}
+        for model, model_admin in self._registry.items():
+            app_label = model._meta.app_label
+            if app_label not in app_dict:
+                try:
+                    app_config = apps.get_app_config(app_label)
+                    app_name = app_config.verbose_name
+                except:
+                    app_name = app_label.title()
+                app_dict[app_label] = {
+                    'app_label': app_label,
+                    'app_url': f'/admin/{app_label}/',
+                    'has_module_perms': self.has_permission(request),
+                    'name': app_name,
+                    'models': []
+                }
+            perms = model_admin.get_model_perms(request)
+            if True in perms.values():  # Solo incluir si el usuario tiene algún permiso
+                model_dict = {
+                    'model': model,
+                    'name': model._meta.verbose_name_plural,
+                    'object_name': model._meta.label_lower,
+                    'perms': perms,
+                    'admin_url': self.get_url_for_result(model_admin, 'changelist'),
+                    'add_url': self.get_url_for_result(model_admin, 'add'),
+                    'view_only': False
+                }
+                app_dict[app_label]['models'].append(model_dict)
+        app_list = list(app_dict.values())
 
-        # Solo mostrar funcionalidades avanzadas para administradores
-        if request.user.is_staff or request.user.is_superuser:
+        # Mostrar funcionalidades avanzadas si el usuario tiene permisos para el admin
+        if self.has_permission(request):
             # Crear lista ordenada de aplicaciones personalizadas
             custom_apps = []
 
@@ -99,6 +129,14 @@ class InventarioAdminSite(admin.AdminSite):
                 "app_url": "/admin/pedidos/",
                 "has_module_perms": True,
                 "models": [
+                    {
+                        "name": "Todos los Pedidos",
+                        "object_name": "todos_pedidos",
+                        "perms": {"add": False, "change": True, "delete": False, "view": True},
+                        "admin_url": "/admin/tienda/pedido/",
+                        "add_url": None,
+                        "view_only": False,
+                    },
                     {
                         "name": "Pedidos Pendientes",
                         "object_name": "pedidos_pendientes",
@@ -173,13 +211,11 @@ class InventarioAdminSite(admin.AdminSite):
             }
             custom_apps.append(wishlists_app)
 
-            # 7. Configuración
-
             # Filtrar aplicaciones estándar para mostrar solo las relevantes
             filtered_app_list = []
             for app in app_list:
                 # Mantener aplicaciones estándar importantes
-                if app.get('app_label') in ['auth', 'contenttypes', 'sessions']:
+                if app.get('app_label') in ['auth', 'contenttypes', 'sessions', 'tienda']:
                     # Renombrar aplicaciones estándar para que sean más descriptivas
                     if app['app_label'] == 'auth':
                         app['name'] = '🔐 Autenticación y Usuarios'
@@ -187,7 +223,53 @@ class InventarioAdminSite(admin.AdminSite):
                         app['name'] = '📋 Tipos de Contenido'
                     elif app['app_label'] == 'sessions':
                         app['name'] = '🕒 Sesiones'
+                    elif app['app_label'] == 'tienda':
+                        app['name'] = '🛒 Gestión de Tienda'
                     filtered_app_list.append(app)
+
+            # Asegurar que la aplicación tienda esté incluida
+            if not any(app['app_label'] == 'tienda' for app in filtered_app_list):
+                tienda_app = {
+                    'app_label': 'tienda',
+                    'app_url': '/admin/tienda/',
+                    'has_module_perms': True,
+                    'name': '🛒 Gestión de Tienda',
+                    'models': [
+                        {
+                            'name': 'Pedidos',
+                            'object_name': 'pedido',
+                            'perms': {'add': False, 'change': True, 'delete': False, 'view': True},
+                            'admin_url': '/admin/tienda/pedido/',
+                            'add_url': None,
+                            'view_only': False
+                        },
+                        {
+                            'name': 'Productos',
+                            'object_name': 'producto',
+                            'perms': {'add': True, 'change': True, 'delete': True, 'view': True},
+                            'admin_url': '/admin/tienda/producto/',
+                            'add_url': '/admin/tienda/producto/add/',
+                            'view_only': False
+                        },
+                        {
+                            'name': 'Reseñas',
+                            'object_name': 'resena',
+                            'perms': {'add': False, 'change': True, 'delete': True, 'view': True},
+                            'admin_url': '/admin/tienda/resena/',
+                            'add_url': None,
+                            'view_only': False
+                        },
+                        {
+                            'name': 'Cupones',
+                            'object_name': 'cupon',
+                            'perms': {'add': True, 'change': True, 'delete': True, 'view': True},
+                            'admin_url': '/admin/tienda/cupon/',
+                            'add_url': '/admin/tienda/cupon/add/',
+                            'view_only': False
+                        }
+                    ]
+                }
+                filtered_app_list.append(tienda_app)
 
             # Combinar aplicaciones personalizadas con las filtradas del admin estándar
             return custom_apps + filtered_app_list
@@ -195,14 +277,17 @@ class InventarioAdminSite(admin.AdminSite):
         # Para usuarios no staff, mostrar solo aplicaciones estándar filtradas
         filtered_app_list = []
         for app in app_list:
-            if app.get('app_label') in ['auth', 'contenttypes', 'sessions']:
+            if app.get('app_label') in ['auth', 'contenttypes', 'sessions', 'tienda']:
                 if app['app_label'] == 'auth':
                     app['name'] = '🔐 Autenticación y Usuarios'
                 elif app['app_label'] == 'contenttypes':
                     app['name'] = '📋 Tipos de Contenido'
                 elif app['app_label'] == 'sessions':
                     app['name'] = '🕒 Sesiones'
+                elif app['app_label'] == 'tienda':
+                    app['name'] = '🛒 Gestión de Tienda'
                 filtered_app_list.append(app)
+
         return filtered_app_list
 
     def each_context(self, request):
@@ -230,6 +315,8 @@ class InventarioAdminSite(admin.AdminSite):
                 current_app = 'contenttypes'
             elif current_path.startswith('/admin/sessions/'):
                 current_app = 'sessions'
+            elif current_path.startswith('/admin/tienda/'):
+                current_app = 'tienda'
             elif current_path.startswith('/admin/tienda/wishlist') or \
                  current_path.startswith('/admin/tienda/contribucionwishlist') or \
                  current_path.startswith('/admin/tienda/referidowishlist') or \
@@ -506,8 +593,8 @@ class InventarioAdminSite(admin.AdminSite):
             "productos_activos": Producto.objects.filter(estado="activo").count(),
             "total_pedidos": Pedido.objects.count(),
             "pedidos_pendientes": Pedido.objects.filter(estado="pendiente").count(),
-            "pedidos_completados": Pedido.objects.filter(estado="completado").count(),
-            "total_ingresos": Pedido.objects.filter(estado="completado").aggregate(
+            "pedidos_completados": Pedido.objects.filter(estado="entregado").count(),
+            "total_ingresos": Pedido.objects.filter(estado="entregado").aggregate(
                 total=Sum("total_pedido")
             )["total"] or 0,
             "productos_stock_bajo": Producto.objects.filter(
@@ -546,14 +633,14 @@ class InventarioAdminSite(admin.AdminSite):
         periodo = request.GET.get("periodo", "mes")
 
         if periodo == "dia":
-            ventas = Pedido.objects.filter(estado="completado").annotate(
+            ventas = Pedido.objects.filter(estado="entregado").annotate(
                 periodo=TruncDay("fecha_creacion")
             ).values("periodo").annotate(
                 total=Sum("total_pedido"),
                 cantidad=Count("id")
             ).order_by("-periodo")[:30]
         else:
-            ventas = Pedido.objects.filter(estado="completado").annotate(
+            ventas = Pedido.objects.filter(estado="entregado").annotate(
                 periodo=TruncMonth("fecha_creacion")
             ).values("periodo").annotate(
                 total=Sum("total_pedido"),
@@ -589,7 +676,7 @@ class InventarioAdminSite(admin.AdminSite):
             "total_pedidos": Pedido.objects.count(),
             "pedidos_pendientes": Pedido.objects.filter(estado="pendiente").count(),
             "pedidos_procesando": Pedido.objects.filter(estado="procesando").count(),
-            "pedidos_completados": Pedido.objects.filter(estado="completado").count(),
+            "pedidos_completados": Pedido.objects.filter(estado="entregado").count(),
             "pedidos_cancelados": Pedido.objects.filter(estado="cancelado").count(),
         }
 
@@ -660,12 +747,12 @@ class InventarioAdminSite(admin.AdminSite):
     def pedidos_completados_view(self, request):
         """Vista de pedidos completados"""
         pedidos = Pedido.objects.filter(
-            estado="completado"
+            estado="entregado"
         ).select_related("usuario").order_by("-fecha_creacion")[:50]
 
         context = {
             "pedidos": pedidos,
-            "title": "Pedidos Completados",
+            "title": "Pedidos Entregados",
         }
 
         # Agregar contexto del admin site para la navegación lateral
@@ -877,8 +964,8 @@ class InventarioAdminSite(admin.AdminSite):
         # Estadísticas del usuario
         stats = {
             'total_pedidos': Pedido.objects.filter(usuario=usuario).count(),
-            'pedidos_completados': Pedido.objects.filter(usuario=usuario, estado='completado').count(),
-            'total_gastado': Pedido.objects.filter(usuario=usuario, estado='completado').aggregate(
+            'pedidos_entregados': Pedido.objects.filter(usuario=usuario, estado='entregado').count(),
+            'total_gastado': Pedido.objects.filter(usuario=usuario, estado='entregado').aggregate(
                 total=Sum('total_pedido')
             )['total'] or 0,
         }
@@ -1117,10 +1204,181 @@ class MovimientoInventarioAdmin(admin.ModelAdmin):
 
 @admin.register(Pedido, site=admin_site)
 class PedidoAdmin(admin.ModelAdmin):
-    list_display = ["id", "usuario", "estado", "total_pedido", "fecha_creacion"]
+    list_display = ["id", "usuario", "estado", "total_pedido", "fecha_creacion", "get_acciones_rapidas"]
     list_filter = ["estado", "fecha_creacion"]
     search_fields = ["usuario__username", "id"]
     readonly_fields = ["fecha_creacion"]
+    actions = ['marcar_como_procesando', 'marcar_como_pagado', 'marcar_como_enviado', 'marcar_como_entregado', 'marcar_como_cancelado']
+
+    fieldsets = (
+        ("Información General", {
+            "fields": ("usuario", "estado", "fecha_creacion"),
+        }),
+        ("Detalles del Pedido", {
+            "fields": ("direccion_envio", "metodo_pago", "total_productos", "descuento_cupon", "costo_envio", "total_pedido"),
+        }),
+        ("Información Adicional", {
+            "fields": ("notas",),
+            "classes": ("collapse",)
+        }),
+    )
+
+    def get_acciones_rapidas(self, obj):
+        """Muestra botones de acciones rápidas para cada pedido"""
+        from django.urls import reverse
+        from django.utils.html import format_html
+
+        acciones = []
+
+        # Botón para marcar como procesando
+        if obj.estado == 'pendiente':
+            url = reverse('admin:tienda_pedido_cambiar_estado', args=[obj.id, 'procesando'])
+            acciones.append(f'<a href="{url}" class="button" style="background:#ffc107;color:black;padding:2px 6px;border-radius:3px;text-decoration:none;margin:1px;">Marcar Procesando</a>')
+
+        # Botón para marcar como pagado
+        if obj.estado in ['pendiente', 'procesando']:
+            url = reverse('admin:tienda_pedido_cambiar_estado', args=[obj.id, 'pagado'])
+            acciones.append(f'<a href="{url}" class="button" style="background:#28a745;color:white;padding:2px 6px;border-radius:3px;text-decoration:none;margin:1px;">Marcar Pagado</a>')
+
+        # Botón para marcar como enviado
+        if obj.estado in ['pendiente', 'procesando', 'pagado']:
+            url = reverse('admin:tienda_pedido_cambiar_estado', args=[obj.id, 'enviado'])
+            acciones.append(f'<a href="{url}" class="button" style="background:#007bff;color:white;padding:2px 6px;border-radius:3px;text-decoration:none;margin:1px;">Marcar Enviado</a>')
+
+        # Botón para marcar como entregado
+        if obj.estado in ['pendiente', 'procesando', 'pagado', 'enviado']:
+            url = reverse('admin:tienda_pedido_cambiar_estado', args=[obj.id, 'entregado'])
+            acciones.append(f'<a href="{url}" class="button" style="background:#17a2b8;color:white;padding:2px 6px;border-radius:3px;text-decoration:none;margin:1px;">Marcar Entregado</a>')
+
+        # Botón para cancelar
+        if obj.estado != 'cancelado':
+            url = reverse('admin:tienda_pedido_cambiar_estado', args=[obj.id, 'cancelado'])
+            acciones.append(f'<a href="{url}" class="button" style="background:#dc3545;color:white;padding:2px 6px;border-radius:3px;text-decoration:none;margin:1px;">Cancelar</a>')
+
+        return format_html(' '.join(acciones))
+
+    get_acciones_rapidas.short_description = "Acciones Rápidas"
+    get_acciones_rapidas.allow_tags = True
+
+    def marcar_como_procesando(self, request, queryset):
+        """Marcar pedidos seleccionados como procesando"""
+        updated = queryset.filter(estado='pendiente').update(estado='procesando')
+        self.message_user(request, f'{updated} pedido(s) marcado(s) como procesando.')
+    marcar_como_procesando.short_description = "Marcar como Procesando"
+
+    def marcar_como_pagado(self, request, queryset):
+        """Marcar pedidos seleccionados como pagados"""
+        updated = queryset.filter(estado__in=['pendiente']).update(estado='pagado')
+        self.message_user(request, f'{updated} pedido(s) marcado(s) como pagado(s).')
+    marcar_como_pagado.short_description = "Marcar como Pagado"
+
+    def marcar_como_enviado(self, request, queryset):
+        """Marcar pedidos seleccionados como enviados"""
+        updated = queryset.filter(estado__in=['pendiente', 'pagado']).update(estado='enviado')
+        self.message_user(request, f'{updated} pedido(s) marcado(s) como enviado(s).')
+    marcar_como_enviado.short_description = "Marcar como Enviado"
+
+    def marcar_como_entregado(self, request, queryset):
+        """Marcar pedidos seleccionados como entregados"""
+        updated = queryset.filter(estado__in=['pendiente', 'pagado', 'enviado']).update(estado='entregado')
+        self.message_user(request, f'{updated} pedido(s) marcado(s) como entregado(s).')
+    marcar_como_entregado.short_description = "Marcar como Entregado"
+
+    def marcar_como_cancelado(self, request, queryset):
+        """Marcar pedidos seleccionados como cancelados"""
+        updated = queryset.exclude(estado='cancelado').update(estado='cancelado')
+        self.message_user(request, f'{updated} pedido(s) marcado(s) como cancelado(s).')
+    marcar_como_cancelado.short_description = "Marcar como Cancelado"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('cambiar-estado/<int:pedido_id>/<str:nuevo_estado>/', admin_site.admin_view(self.cambiar_estado_pedido_view), name='tienda_pedido_cambiar_estado'),
+        ]
+        return custom_urls + urls
+
+    @method_decorator(staff_member_required)
+    def cambiar_estado_pedido_view(self, request, pedido_id, nuevo_estado):
+        """Vista para cambiar el estado de un pedido individual"""
+        from django.shortcuts import get_object_or_404, redirect
+        from django.contrib import messages
+
+        # Validar estado
+        estados_validos = ['pendiente', 'procesando', 'pagado', 'enviado', 'entregado', 'cancelado']
+        if nuevo_estado not in estados_validos:
+            messages.error(request, f'Estado "{nuevo_estado}" no válido.')
+            return redirect('admin:tienda_pedido_changelist')
+
+        try:
+            pedido = get_object_or_404(Pedido, pk=pedido_id)
+
+            # Validar transición de estado
+            estado_actual = pedido.estado
+            if not self._puede_cambiar_a_estado(pedido, nuevo_estado):
+                messages.error(request, f'No se puede cambiar el estado de "{estado_actual}" a "{nuevo_estado}".')
+                return redirect('admin:tienda_pedido_changelist')
+
+            # Cambiar estado
+            pedido.estado = nuevo_estado
+            pedido.save()
+
+            # Mensaje de éxito
+            estado_display = dict(Pedido.ESTADO_CHOICES)[nuevo_estado]
+            messages.success(request, f'Pedido #{pedido.id} marcado como "{estado_display}".')
+
+            # Enviar notificación por email si es necesario
+            self._enviar_notificacion_estado(pedido, nuevo_estado)
+
+        except Exception as e:
+            messages.error(request, f'Error al cambiar estado del pedido: {str(e)}')
+
+        return redirect('admin:tienda_pedido_changelist')
+
+    def _puede_cambiar_a_estado(self, pedido, nuevo_estado):
+        """Valida si se puede cambiar a un estado específico"""
+        estado_actual = pedido.estado
+
+        # Reglas de transición de estados
+        transiciones_validas = {
+            'pendiente': ['procesando', 'pagado', 'cancelado'],
+            'procesando': ['pagado', 'enviado', 'cancelado'],
+            'pagado': ['enviado', 'entregado', 'cancelado'],
+            'enviado': ['entregado', 'cancelado'],
+            'entregado': [],  # Estado final, no se puede cambiar
+            'cancelado': [],  # Estado final, no se puede cambiar
+        }
+
+        return nuevo_estado in transiciones_validas.get(estado_actual, [])
+
+    def _enviar_notificacion_estado(self, pedido, nuevo_estado):
+        """Envía notificación por email cuando cambia el estado del pedido"""
+        try:
+            from .services.email_service import EmailService
+
+            email_service = EmailService()
+            contexto = {
+                'pedido': pedido,
+                'usuario': pedido.usuario,
+                'nuevo_estado': dict(Pedido.ESTADO_CHOICES)[nuevo_estado],
+                'productos': pedido.pedidoproducto_set.all(),
+            }
+
+            # Determinar tipo de email según el estado
+            tipo_email = {
+                'pagado': 'pedido_confirmacion',
+                'enviado': 'pedido_envio',
+                'entregado': 'pedido_entrega',
+                'cancelado': 'pedido_actualizacion',
+            }.get(nuevo_estado, 'pedido_actualizacion')
+
+            email_service.enviar_email(
+                tipo=tipo_email,
+                usuario=pedido.usuario,
+                contexto=contexto
+            )
+        except Exception as e:
+            # Log del error pero no interrumpir el flujo
+            print(f"Error enviando notificación de estado del pedido: {e}")
 
 
 @admin.register(PedidoProducto, site=admin_site)
