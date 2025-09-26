@@ -551,7 +551,7 @@ class ConfiguracionSistema(models.Model):
     # Configuración general
     sitio_activo = models.BooleanField(default=True, help_text="Si el sitio web está activo")
     registro_abierto = models.BooleanField(default=True, help_text="Permitir registro de nuevos usuarios")
-    moneda = models.CharField(max_length=3, default='COP', help_text="Moneda predeterminada (COP, USD, EUR)")
+    moneda = models.CharField(max_length=3, default='ARS', help_text="Moneda predeterminada (ARS, COP, USD, EUR)")
 
     # Configuración de comercio
     envio_gratuito_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=50000,

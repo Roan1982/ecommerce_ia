@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
-from .models import Producto, MovimientoInventario, Pedido, PedidoProducto, Resena, Cupon, DireccionEnvio, MetodoPago
+from .models import Producto, MovimientoInventario, Pedido, PedidoProducto, Resena, Cupon, DireccionEnvio, MetodoPago, Wishlist, ContribucionWishlist, ReferidoWishlist, HistorialCompartir
 from .forms import ProductoAdminForm
 
 
@@ -130,24 +130,50 @@ class InventarioAdminSite(admin.AdminSite):
             }
             custom_apps.append(cupones_app)
 
-            # 6. Configuración
-            config_app = {
-                "name": "⚙️ Configuración",
-                "app_label": "configuracion",
-                "app_url": "/admin/config/",
+            # 6. Wishlists y Contribuciones
+            wishlists_app = {
+                "name": "🎁 Wishlists",
+                "app_label": "wishlists",
+                "app_url": "/admin/tienda/wishlist/",
                 "has_module_perms": True,
                 "models": [
                     {
-                        "name": "Configuración General",
-                        "object_name": "config_general",
-                        "perms": {"add": False, "change": True, "delete": False, "view": True},
-                        "admin_url": "/admin/config/general/",
-                        "add_url": None,
+                        "name": "Listas de Deseos",
+                        "object_name": "wishlist",
+                        "perms": {"add": True, "change": True, "delete": True, "view": True},
+                        "admin_url": "/admin/tienda/wishlist/",
+                        "add_url": "/admin/tienda/wishlist/add/",
                         "view_only": False,
+                    },
+                    {
+                        "name": "Contribuciones",
+                        "object_name": "contribucionwishlist",
+                        "perms": {"add": True, "change": True, "delete": True, "view": True},
+                        "admin_url": "/admin/tienda/contribucionwishlist/",
+                        "add_url": "/admin/tienda/contribucionwishlist/add/",
+                        "view_only": False,
+                    },
+                    {
+                        "name": "Referidos",
+                        "object_name": "referidowishlist",
+                        "perms": {"add": False, "change": False, "delete": False, "view": True},
+                        "admin_url": "/admin/tienda/referidowishlist/",
+                        "add_url": None,
+                        "view_only": True,
+                    },
+                    {
+                        "name": "Historial Compartidos",
+                        "object_name": "historialcompartir",
+                        "perms": {"add": False, "change": False, "delete": False, "view": True},
+                        "admin_url": "/admin/tienda/historialcompartir/",
+                        "add_url": None,
+                        "view_only": True,
                     }
                 ]
             }
-            custom_apps.append(config_app)
+            custom_apps.append(wishlists_app)
+
+            # 7. Configuración
 
             # Filtrar aplicaciones estándar para mostrar solo las relevantes
             filtered_app_list = []
@@ -204,6 +230,11 @@ class InventarioAdminSite(admin.AdminSite):
                 current_app = 'contenttypes'
             elif current_path.startswith('/admin/sessions/'):
                 current_app = 'sessions'
+            elif current_path.startswith('/admin/tienda/wishlist') or \
+                 current_path.startswith('/admin/tienda/contribucionwishlist') or \
+                 current_path.startswith('/admin/tienda/referidowishlist') or \
+                 current_path.startswith('/admin/tienda/historialcompartir'):
+                current_app = 'wishlists'
             elif current_path.startswith('/admin/tienda/'):
                 current_app = 'tienda'
 
@@ -218,6 +249,8 @@ class InventarioAdminSite(admin.AdminSite):
             context['title'] = '🕒 Sesiones'
         elif current_app == 'tienda':
             context['title'] = '🛒 Gestión de Tienda'
+        elif current_app == 'wishlists':
+            context['title'] = '🎁 Wishlists y Contribuciones'
         else:
             context['title'] = '📊 Dashboard'
 
@@ -241,6 +274,8 @@ class InventarioAdminSite(admin.AdminSite):
             return redirect('admin:contenttypes_contenttype_changelist')
         elif app_label == 'sessions':
             return redirect('admin:sessions_session_changelist')
+        elif app_label == 'wishlists':
+            return redirect('admin:tienda_wishlist_changelist')
 
         # Obtener la aplicación
         try:
@@ -308,6 +343,7 @@ class InventarioAdminSite(admin.AdminSite):
             'contenttypes': '📋 Tipos de Contenido',
             'sessions': '🕒 Sesiones',
             'tienda': '🛒 Gestión de Tienda',
+            'wishlists': '🎁 Wishlists y Contribuciones',
         }
         return titles.get(app_label, app_label.title())
 
@@ -651,7 +687,7 @@ class InventarioAdminSite(admin.AdminSite):
             "registro_abierto": True,
             "envio_gratuito_minimo": 50000,
             "impuestos_activos": True,
-            "moneda": "COP",
+            "moneda": "ARS",
             "email_notificaciones": True,
         }
 
@@ -2149,6 +2185,355 @@ class CustomSessionAdmin(admin.ModelAdmin):
             })
 
         return response
+
+
+# ===== ADMINISTRACIÓN DE WISHLISTS =====
+
+@admin.register(Wishlist, site=admin_site)
+class WishlistAdmin(admin.ModelAdmin):
+    """Administración de listas de deseos con contribuciones grupales"""
+    list_display = [
+        "usuario", "producto", "permitir_contribuciones", "progreso_contribucion_display",
+        "total_contribuido_display", "objetivo_alcanzado", "fecha_agregado", "estado_contribuciones"
+    ]
+    list_filter = [
+        "permitir_contribuciones", "contribucion_privada", "compartir_activo",
+        "fecha_agregado", "fecha_modificacion"
+    ]
+    search_fields = ["usuario__username", "usuario__email", "producto__nombre", "descripcion_contribucion"]
+    readonly_fields = ["fecha_agregado", "fecha_modificacion", "codigo_referido"]
+    ordering = ["-fecha_agregado"]
+
+    fieldsets = (
+        ("Información Básica", {
+            "fields": ("usuario", "producto", "fecha_agregado"),
+        }),
+        ("Configuración de Contribuciones", {
+            "fields": (
+                "permitir_contribuciones", "contribucion_objetivo", "contribucion_privada",
+                "descripcion_contribucion"
+            ),
+            "classes": ("collapse",)
+        }),
+        ("Sistema de Referidos y Compartir", {
+            "fields": (
+                "compartir_activo", "codigo_referido", "veces_compartido",
+                "veces_visitado_via_referido", "veces_contribuido_via_referido"
+            ),
+            "classes": ("collapse",)
+        }),
+        ("Metadata", {
+            "fields": ("fecha_modificacion",),
+            "classes": ("collapse",)
+        }),
+    )
+
+    actions = [
+        'enable_contributions', 'disable_contributions',
+        'mark_completed', 'export_wishlist_data'
+    ]
+
+    def progreso_contribucion_display(self, obj):
+        """Muestra el progreso de contribución en formato porcentaje"""
+        if not obj.permitir_contribuciones:
+            return "N/A"
+        progreso = obj.progreso_contribucion
+        return f"{progreso:.1f}%"
+    progreso_contribucion_display.short_description = "Progreso"
+    progreso_contribucion_display.admin_order_field = 'contribucion_objetivo'
+
+    def total_contribuido_display(self, obj):
+        """Muestra el total contribuido"""
+        if not obj.permitir_contribuciones:
+            return "N/A"
+        return f"${obj.total_contribuido:,.0f}"
+    total_contribuido_display.short_description = "Contribuido"
+    total_contribuido_display.admin_order_field = 'contribucion_objetivo'
+
+    def estado_contribuciones(self, obj):
+        """Muestra el estado de las contribuciones"""
+        if not obj.permitir_contribuciones:
+            return "Sin contribuciones"
+        elif obj.objetivo_alcanzado:
+            return "Completado"
+        else:
+            return "En progreso"
+    estado_contribuciones.short_description = "Estado"
+
+    def enable_contributions(self, request, queryset):
+        """Habilitar contribuciones para las wishlists seleccionadas"""
+        updated = queryset.update(permitir_contribuciones=True)
+        self.message_user(request, f'{updated} wishlist(s) habilitada(s) para contribuciones.')
+    enable_contributions.short_description = "Habilitar contribuciones"
+
+    def disable_contributions(self, request, queryset):
+        """Deshabilitar contribuciones para las wishlists seleccionadas"""
+        updated = queryset.update(permitir_contribuciones=False)
+        self.message_user(request, f'{updated} wishlist(s) deshabilitada(s) para contribuciones.')
+    disable_contributions.short_description = "Deshabilitar contribuciones"
+
+    def mark_completed(self, request, queryset):
+        """Marcar como completadas las wishlists que han alcanzado su objetivo"""
+        completed = 0
+        for wishlist in queryset:
+            if wishlist.objetivo_alcanzado and not wishlist.objetivo_alcanzado:
+                wishlist.convertir_a_pedido()
+                completed += 1
+        self.message_user(request, f'{completed} wishlist(s) convertida(s) a pedidos.')
+    mark_completed.short_description = "Marcar como completadas"
+
+    def export_wishlist_data(self, request, queryset):
+        """Exportar datos de wishlists seleccionadas a CSV"""
+        import csv
+        from django.http import HttpResponse
+        from django.utils import timezone
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="wishlists_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Usuario', 'Producto', 'Contribuciones Habilitadas', 'Objetivo',
+            'Total Contribuido', 'Progreso', 'Estado', 'Fecha Agregado'
+        ])
+
+        for wishlist in queryset:
+            writer.writerow([
+                wishlist.usuario.username,
+                wishlist.producto.nombre,
+                'Sí' if wishlist.permitir_contribuciones else 'No',
+                f"${wishlist.contribucion_objetivo or 0:,.0f}",
+                f"${wishlist.total_contribuido:,.0f}",
+                f"{wishlist.progreso_contribucion:.1f}%",
+                'Completado' if wishlist.objetivo_alcanzado else 'En progreso',
+                wishlist.fecha_agregado.strftime('%Y-%m-%d %H:%M')
+            ])
+
+        self.message_user(request, f'Exportadas {queryset.count()} wishlists a CSV.')
+        return response
+    export_wishlist_data.short_description = "Exportar datos a CSV"
+
+
+@admin.register(ContribucionWishlist, site=admin_site)
+class ContribucionWishlistAdmin(admin.ModelAdmin):
+    """Administración de contribuciones a wishlists"""
+    list_display = [
+        "wishlist_item", "usuario_contribuyente", "monto", "estado",
+        "fecha_contribucion", "es_anonima", "pedido_generado"
+    ]
+    list_filter = [
+        "estado", "fecha_contribucion", "wishlist_item__producto__categoria",
+        "pedido_generado"
+    ]
+    search_fields = [
+        "wishlist_item__usuario__username", "wishlist_item__producto__nombre",
+        "usuario_contribuyente__username", "mensaje"
+    ]
+    readonly_fields = ["fecha_contribucion"]
+    ordering = ["-fecha_contribucion"]
+
+    fieldsets = (
+        ("Información Básica", {
+            "fields": ("wishlist_item", "usuario_contribuyente", "monto", "mensaje"),
+        }),
+        ("Estado y Procesamiento", {
+            "fields": ("estado", "pedido_generado", "fecha_contribucion"),
+        }),
+        ("Información de Pago", {
+            "fields": ("metodo_pago", "referencia_pago"),
+            "classes": ("collapse",)
+        }),
+    )
+
+    actions = [
+        'mark_completed', 'mark_cancelled', 'mark_processed',
+        'export_contributions_data'
+    ]
+
+    def es_anonima(self, obj):
+        """Indica si la contribución es anónima"""
+        return "Sí" if obj.es_anonima else "No"
+    es_anonima.short_description = "Anónima"
+    es_anonima.boolean = True
+
+    def mark_completed(self, request, queryset):
+        """Marcar contribuciones como completadas"""
+        updated = queryset.filter(estado='pendiente').update(estado='completado')
+        self.message_user(request, f'{updated} contribución(es) marcada(s) como completada(s).')
+    mark_completed.short_description = "Marcar como completadas"
+
+    def mark_cancelled(self, request, queryset):
+        """Marcar contribuciones como canceladas"""
+        updated = queryset.filter(estado__in=['pendiente', 'completado']).update(estado='cancelado')
+        self.message_user(request, f'{updated} contribución(es) marcada(s) como cancelada(s).')
+    mark_cancelled.short_description = "Marcar como canceladas"
+
+    def mark_processed(self, request, queryset):
+        """Marcar contribuciones como procesadas"""
+        updated = queryset.filter(estado='completado').update(estado='procesado')
+        self.message_user(request, f'{updated} contribución(es) marcada(s) como procesada(s).')
+    mark_processed.short_description = "Marcar como procesadas"
+
+    def export_contributions_data(self, request, queryset):
+        """Exportar datos de contribuciones a CSV"""
+        import csv
+        from django.http import HttpResponse
+        from django.utils import timezone
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="contribuciones_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Producto', 'Propietario', 'Contribuyente', 'Monto', 'Estado',
+            'Mensaje', 'Fecha', 'Anónima'
+        ])
+
+        for contribucion in queryset:
+            writer.writerow([
+                contribucion.wishlist_item.producto.nombre,
+                contribucion.wishlist_item.usuario.username,
+                contribucion.usuario_contribuyente.username,
+                f"${contribucion.monto:,.0f}",
+                contribucion.get_estado_display(),
+                contribucion.mensaje or '',
+                contribucion.fecha_contribucion.strftime('%Y-%m-%d %H:%M'),
+                'Sí' if contribucion.es_anonima else 'No'
+            ])
+
+        self.message_user(request, f'Exportadas {queryset.count()} contribuciones a CSV.')
+        return response
+    export_contributions_data.short_description = "Exportar datos a CSV"
+
+
+@admin.register(ReferidoWishlist, site=admin_site)
+class ReferidoWishlistAdmin(admin.ModelAdmin):
+    """Administración de referidos de wishlists"""
+    list_display = [
+        "wishlist", "usuario_referidor", "usuario_referido_display",
+        "plataforma_origen", "fecha_referido", "contribucion_generada"
+    ]
+    list_filter = [
+        "plataforma_origen", "fecha_referido", "usuario_referidor",
+        "wishlist__producto__categoria"
+    ]
+    search_fields = [
+        "wishlist__usuario__username", "wishlist__producto__nombre",
+        "usuario_referidor__username", "usuario_referido__username"
+    ]
+    readonly_fields = ["fecha_referido", "ip_address", "user_agent"]
+    ordering = ["-fecha_referido"]
+
+    fieldsets = (
+        ("Información del Referido", {
+            "fields": ("wishlist", "usuario_referidor", "usuario_referido"),
+        }),
+        ("Detalles del Referido", {
+            "fields": ("plataforma_origen", "fecha_referido", "ip_address", "user_agent"),
+        }),
+        ("Resultado", {
+            "fields": ("contribucion",),
+            "classes": ("collapse",)
+        }),
+    )
+
+    def usuario_referido_display(self, obj):
+        """Muestra el usuario referido o 'Anónimo'"""
+        return obj.usuario_referido.username if obj.usuario_referido else "Anónimo"
+    usuario_referido_display.short_description = "Usuario Referido"
+
+    def contribucion_generada(self, obj):
+        """Indica si se generó una contribución"""
+        return "Sí" if obj.contribucion else "No"
+    contribucion_generada.short_description = "Contribución"
+    contribucion_generada.boolean = True
+
+    actions = ['export_referrals_data']
+
+    def export_referrals_data(self, request, queryset):
+        """Exportar datos de referidos a CSV"""
+        import csv
+        from django.http import HttpResponse
+        from django.utils import timezone
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="referidos_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Producto', 'Referidor', 'Referido', 'Plataforma',
+            'Fecha', 'Contribución Generada'
+        ])
+
+        for referido in queryset:
+            writer.writerow([
+                referido.wishlist.producto.nombre,
+                referido.usuario_referidor.username,
+                referido.usuario_referido.username if referido.usuario_referido else 'Anónimo',
+                referido.get_plataforma_origen_display(),
+                referido.fecha_referido.strftime('%Y-%m-%d %H:%M'),
+                'Sí' if referido.contribucion else 'No'
+            ])
+
+        self.message_user(request, f'Exportados {queryset.count()} referidos a CSV.')
+        return response
+    export_referrals_data.short_description = "Exportar datos a CSV"
+
+
+@admin.register(HistorialCompartir, site=admin_site)
+class HistorialCompartirAdmin(admin.ModelAdmin):
+    """Administración del historial de compartidos de wishlists"""
+    list_display = [
+        "wishlist", "usuario", "plataforma", "fecha_compartido"
+    ]
+    list_filter = [
+        "plataforma", "fecha_compartido", "usuario",
+        "wishlist__producto__categoria"
+    ]
+    search_fields = [
+        "wishlist__usuario__username", "wishlist__producto__nombre",
+        "usuario__username"
+    ]
+    readonly_fields = ["fecha_compartido", "ip_address", "user_agent"]
+    ordering = ["-fecha_compartido"]
+
+    fieldsets = (
+        ("Información del Compartido", {
+            "fields": ("wishlist", "usuario", "plataforma"),
+        }),
+        ("Detalles Técnicos", {
+            "fields": ("fecha_compartido", "ip_address", "user_agent"),
+            "classes": ("collapse",)
+        }),
+    )
+
+    actions = ['export_shares_data']
+
+    def export_shares_data(self, request, queryset):
+        """Exportar datos de compartidos a CSV"""
+        import csv
+        from django.http import HttpResponse
+        from django.utils import timezone
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="compartidos_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'Producto', 'Usuario', 'Plataforma', 'Fecha'
+        ])
+
+        for compartido in queryset:
+            writer.writerow([
+                compartido.wishlist.producto.nombre,
+                compartido.usuario.username,
+                compartido.get_plataforma_display(),
+                compartido.fecha_compartido.strftime('%Y-%m-%d %H:%M')
+            ])
+
+        self.message_user(request, f'Exportados {queryset.count()} compartidos a CSV.')
+        return response
+    export_shares_data.short_description = "Exportar datos a CSV"
 
 
 # Asignar nuestro admin personalizado como el admin por defecto
