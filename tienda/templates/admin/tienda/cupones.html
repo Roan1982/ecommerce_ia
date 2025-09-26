@@ -152,137 +152,189 @@
     </div>
     <div class="card-body p-0">
         {% if cupones %}
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Código</th>
-                        <th>Descripción</th>
-                        <th>Tipo</th>
-                        <th>Valor</th>
-                        <th>Usos</th>
-                        <th>Expiración</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for cupon in cupones %}
-                    <tr>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <code class="fw-bold text-primary">{{ cupon.codigo }}</code>
-                            </div>
-                        </td>
-                        <td>
-                            <div>
-                                <div class="fw-bold">{{ cupon.descripcion }}</div>
-                                {% if cupon.minimo_compra > 0 %}
-                                <small class="text-muted">Mínimo: ${{ cupon.minimo_compra }}</small>
-                                {% endif %}
-                            </div>
-                        </td>
-                        <td>
-                            <span class="badge bg-{% if cupon.tipo_descuento == 'porcentaje' %}info{% else %}success{% endif %}">
-                                {% if cupon.tipo_descuento == 'porcentaje' %}
-                                    <i class="bi bi-percent me-1"></i>Porcentaje
-                                {% else %}
-                                    <i class="bi bi-cash me-1"></i>Monto Fijo
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td class="fw-bold">
-                            {% if cupon.tipo_descuento == 'porcentaje' %}
-                                {{ cupon.valor_descuento }}%
-                            {% else %}
-                                ${{ cupon.valor_descuento }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="text-center">
-                                <span class="fw-bold">{{ cupon.usos_actuales }}/{{ cupon.usos_maximos }}</span>
-                                <div class="progress mt-1" style="height: 4px;">
-                                    {% widthratio cupon.usos_actuales 100 cupon.usos_maximos as porcentaje %}
-                                    <div class="progress-bar bg-{% if porcentaje >= 80 %}danger{% elif porcentaje >= 50 %}warning{% else %}success{% endif %}"
-                                         style="width: {{ porcentaje }}%"></div>
+        <!-- Formulario para acciones en lote -->
+        <form id="changelist-form" method="post" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="">
+            <input type="hidden" name="select_across" value="0">
+            <input type="hidden" name="all" value="">
+
+            <!-- Barra de acciones -->
+            <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                <div class="d-flex align-items-center">
+                    <div class="form-check me-3">
+                        <input type="checkbox" class="form-check-input" id="action-toggle">
+                        <label class="form-check-label" for="action-toggle">
+                            Seleccionar todo
+                        </label>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="actionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear me-1"></i>
+                            Acciones
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="actionDropdown">
+                            <li><a class="dropdown-item" href="#" data-action="activate_coupons">
+                                <i class="bi bi-play-circle me-2"></i>Activar cupones seleccionados
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" data-action="deactivate_coupons">
+                                <i class="bi bi-pause-circle me-2"></i>Desactivar cupones seleccionados
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" data-action="delete_selected">
+                                <i class="bi bi-trash me-2"></i>Eliminar cupones seleccionados
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-admin d-none" id="action-submit-btn">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Ejecutar
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="40">
+                                <input type="checkbox" class="form-check-input" id="select-all">
+                            </th>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                            <th>Usos</th>
+                            <th>Expiración</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cupon in cupones %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="form-check-input action-select" name="_selected_action" value="{{ cupon.pk }}">
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <code class="fw-bold text-primary">{{ cupon.codigo }}</code>
                                 </div>
-                            </div>
-                        </td>
-                        <td>
-                            {% if cupon.fecha_expiracion %}
-                                {% if cupon.es_valido %}
-                                    <span class="text-success">
-                                        <i class="bi bi-calendar-check me-1"></i>
-                                        {{ cupon.fecha_expiracion|date:"d/m/Y" }}
-                                    </span>
-                                {% else %}
-                                    <span class="text-danger">
-                                        <i class="bi bi-calendar-x me-1"></i>
-                                        {{ cupon.fecha_expiracion|date:"d/m/Y" }}
-                                    </span>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-muted">Sin expiración</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if cupon.activo %}
-                                {% if cupon.es_valido %}
-                                    <span class="badge bg-success">
-                                        <i class="bi bi-check-circle me-1"></i>
-                                        Activo
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-warning text-dark">
-                                        <i class="bi bi-clock me-1"></i>
-                                        Expirado
-                                    </span>
-                                {% endif %}
-                            {% else %}
-                                <span class="badge bg-secondary">
-                                    <i class="bi bi-x-circle me-1"></i>
-                                    Inactivo
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="fw-bold">{{ cupon.descripcion }}</div>
+                                    {% if cupon.minimo_compra > 0 %}
+                                    <small class="text-muted">Mínimo: ${{ cupon.minimo_compra }}</small>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if cupon.tipo_descuento == 'porcentaje' %}info{% else %}success{% endif %}">
+                                    {% if cupon.tipo_descuento == 'porcentaje' %}
+                                        <i class="bi bi-percent me-1"></i>Porcentaje
+                                    {% else %}
+                                        <i class="bi bi-cash me-1"></i>Monto Fijo
+                                    {% endif %}
                                 </span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="btn-group" role="group">
-                                <a href="{% url 'admin:tienda_cupon_change' cupon.pk %}" class="btn btn-outline-primary btn-sm" title="Editar">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                {% if cupon.activo %}
-                                <button class="btn btn-outline-warning btn-sm toggle-status-btn"
-                                        data-cupon-id="{{ cupon.pk }}"
-                                        data-action="deactivate"
-                                        title="Desactivar">
-                                    <i class="bi bi-pause-circle"></i>
-                                </button>
+                            </td>
+                            <td class="fw-bold">
+                                {% if cupon.tipo_descuento == 'porcentaje' %}
+                                    {{ cupon.valor_descuento }}%
                                 {% else %}
-                                <button class="btn btn-outline-success btn-sm toggle-status-btn"
-                                        data-cupon-id="{{ cupon.pk }}"
-                                        data-action="activate"
-                                        title="Activar">
-                                    <i class="bi bi-play-circle"></i>
-                                </button>
+                                    ${{ cupon.valor_descuento }}
                                 {% endif %}
-                                <a href="{% url 'admin:tienda_cupon_delete' cupon.pk %}" class="btn btn-outline-danger btn-sm" title="Eliminar">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="text-center text-muted py-4">
-                            <i class="bi bi-search fs-1 mb-2"></i>
-                            <br>
-                            No hay cupones que coincidan con los filtros aplicados.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                            </td>
+                            <td>
+                                <div class="text-center">
+                                    <span class="fw-bold">{{ cupon.usos_actuales }}/{{ cupon.usos_maximos }}</span>
+                                    <div class="progress mt-1" style="height: 4px;">
+                                        {% widthratio cupon.usos_actuales 100 cupon.usos_maximos as porcentaje %}
+                                        <div class="progress-bar bg-{% if porcentaje >= 80 %}danger{% elif porcentaje >= 50 %}warning{% else %}success{% endif %}"
+                                             style="width: {{ porcentaje }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if cupon.fecha_expiracion %}
+                                    {% if cupon.es_valido %}
+                                        <span class="text-success">
+                                            <i class="bi bi-calendar-check me-1"></i>
+                                            {{ cupon.fecha_expiracion|date:"d/m/Y" }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-danger">
+                                            <i class="bi bi-calendar-x me-1"></i>
+                                            {{ cupon.fecha_expiracion|date:"d/m/Y" }}
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">Sin expiración</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cupon.activo %}
+                                    {% if cupon.es_valido %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle me-1"></i>
+                                            Activo
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-clock me-1"></i>
+                                            Expirado
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="bi bi-x-circle me-1"></i>
+                                        Inactivo
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'admin:tienda_cupon_change' cupon.pk %}" class="btn btn-outline-primary btn-sm" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% if cupon.activo %}
+                                    <form method="post" action="{% url 'admin:tienda_cupon_toggle_status' cupon.pk %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-warning btn-sm"
+                                                title="Desactivar cupón">
+                                            <i class="bi bi-pause-circle"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <form method="post" action="{% url 'admin:tienda_cupon_toggle_status' cupon.pk %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-success btn-sm"
+                                                title="Activar cupón">
+                                            <i class="bi bi-play-circle"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    <a href="{% url 'admin:tienda_cupon_delete' cupon.pk %}" class="btn btn-outline-danger btn-sm" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                <i class="bi bi-search fs-1 mb-2"></i>
+                                <br>
+                                No hay cupones que coincidan con los filtros aplicados.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
 
         <!-- Paginación -->
         {% if is_paginated %}
@@ -335,33 +387,6 @@
     </div>
 </div>
 
-<!-- Modal para confirmar cambio de estado -->
-<div class="modal fade" id="toggleStatusModal" tabindex="-1" aria-labelledby="toggleStatusModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="toggleStatusModalLabel">
-                    <i class="bi bi-question-circle me-2"></i>
-                    Confirmar Acción
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p id="modalMessage">¿Está seguro de que desea cambiar el estado de este cupón?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle me-1"></i>
-                    Cancelar
-                </button>
-                <button type="button" class="btn btn-primary" id="confirmToggleBtn">
-                    <i class="bi bi-check-circle me-1"></i>
-                    Confirmar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extrahead %}
@@ -372,55 +397,70 @@
 </style>
 {% endblock %}
 
-{% block extrajs %}
+{% block javascript %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    let currentCuponId = null;
-    let currentAction = null;
+    // Funcionalidad de selección múltiple
+    const selectAllCheckbox = document.getElementById('select-all');
+    const actionCheckboxes = document.querySelectorAll('.action-select');
+    const actionSubmitBtn = document.getElementById('action-submit-btn');
+    const changelistForm = document.getElementById('changelist-form');
 
-    // Botones de toggle status
-    document.querySelectorAll('.toggle-status-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            currentCuponId = this.dataset.cuponId;
-            currentAction = this.dataset.action;
+    // Seleccionar/deseleccionar todos
+    selectAllCheckbox.addEventListener('change', function() {
+        actionCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateActionButton();
+    });
 
-            const modal = new bootstrap.Modal(document.getElementById('toggleStatusModal'));
-            const message = document.getElementById('modalMessage');
-
-            if (currentAction === 'activate') {
-                message.textContent = '¿Está seguro de que desea activar este cupón? Los usuarios podrán utilizarlo nuevamente.';
-            } else {
-                message.textContent = '¿Está seguro de que desea desactivar este cupón? Los usuarios no podrán utilizarlo hasta que sea reactivado.';
-            }
-
-            modal.show();
+    // Actualizar estado del checkbox "seleccionar todo" cuando cambian los individuales
+    actionCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const checkedCount = document.querySelectorAll('.action-select:checked').length;
+            selectAllCheckbox.checked = checkedCount === actionCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < actionCheckboxes.length;
+            updateActionButton();
         });
     });
 
-    // Confirmar cambio de estado
-    document.getElementById('confirmToggleBtn').addEventListener('click', function() {
-        const url = `{% url 'admin:tienda_cupon_change' 0 %}`.replace('0', currentCuponId);
+    // Actualizar visibilidad del botón de acción
+    function updateActionButton() {
+        const hasSelection = document.querySelectorAll('.action-select:checked').length > 0;
+        if (actionSubmitBtn) {
+            actionSubmitBtn.style.display = hasSelection ? 'inline-block' : 'none';
+        }
+    }
 
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            body: `activo=${currentAction === 'activate' ? 'on' : ''}&_save=Guardar`
-        })
-        .then(response => {
-            if (response.ok) {
-                location.reload();
-            } else {
-                showAlert('Error al cambiar el estado del cupón', 'danger');
+    // Manejar acciones del dropdown
+    document.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const action = this.dataset.action;
+            const selectedCount = document.querySelectorAll('.action-select:checked').length;
+
+            if (selectedCount === 0) {
+                showAlert('Por favor selecciona al menos un cupón.', 'warning');
+                return;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('Error al cambiar el estado del cupón', 'danger');
+
+            // Para acciones peligrosas, mostrar confirmación
+            if (action === 'delete_selected') {
+                if (confirm(`¿Estás seguro de que quieres eliminar ${selectedCount} cupón(es)? Esta acción no se puede deshacer.`)) {
+                    executeBulkAction(action);
+                }
+            } else {
+                executeBulkAction(action);
+            }
         });
     });
+
+    // Ejecutar acción en lote
+    function executeBulkAction(action) {
+        const actionInput = changelistForm.querySelector('input[name="action"]');
+        actionInput.value = action;
+        changelistForm.submit();
+    }
 
     function showAlert(message, type) {
         // Crear elemento de alerta

@@ -1107,9 +1107,59 @@ class CuponAdmin(admin.ModelAdmin):
     search_fields = ["codigo", "descripcion"]
     change_list_template = "admin/tienda/cupones.html"
 
+    # Agregar acciones en lote para activar/desactivar cupones
+    actions = ['activate_coupons', 'deactivate_coupons']
+
     def usos_display(self, obj):
         return f"{obj.usos_actuales}/{obj.usos_maximos}"
     usos_display.short_description = "Usos"
+
+    def activate_coupons(self, request, queryset):
+        """Activar cupones seleccionados"""
+        updated = queryset.update(activo=True)
+        self.message_user(request, f'{updated} cupón(es) activado(s) correctamente.')
+    activate_coupons.short_description = "Activar cupones seleccionados"
+
+    def deactivate_coupons(self, request, queryset):
+        """Desactivar cupones seleccionados"""
+        updated = queryset.update(activo=False)
+        self.message_user(request, f'{updated} cupón(es) desactivado(s) correctamente.')
+    deactivate_coupons.short_description = "Desactivar cupones seleccionados"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('toggle-status/<int:cupon_id>/', admin_site.admin_view(self.toggle_status_view), name='tienda_cupon_toggle_status'),
+        ]
+        return custom_urls + urls
+
+    @method_decorator(staff_member_required)
+    def toggle_status_view(self, request, cupon_id):
+        """Vista para cambiar el estado de un cupón individual"""
+        from django.shortcuts import get_object_or_404, redirect
+        from django.contrib import messages
+
+        cupon = get_object_or_404(Cupon, pk=cupon_id)
+
+        # Guardar el estado anterior
+        estado_anterior = "activo" if cupon.activo else "inactivo"
+
+        # Cambiar el estado
+        cupon.activo = not cupon.activo
+        cupon.save()
+
+        # Estado nuevo
+        estado_nuevo = "activo" if cupon.activo else "inactivo"
+
+        # Mensaje de éxito más detallado
+        messages.success(
+            request,
+            f'✅ Cupón "{cupon.codigo}" cambió de {estado_anterior} a {estado_nuevo}.\n'
+            f'📝 {cupon.descripcion[:50]}{"..." if len(cupon.descripcion) > 50 else ""}'
+        )
+
+        # Redirigir de vuelta a la lista
+        return redirect('admin:tienda_cupon_changelist')
 
     def changelist_view(self, request, extra_context=None):
         """Vista personalizada para la lista de cupones"""
