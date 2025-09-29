@@ -129,3 +129,14 @@ SITE_URL = 'http://127.0.0.1:8000'  # URL del sitio para enlaces en emails
 
 # Site configuration
 SITE_ID = 1
+
+# Session configuration
+SESSION_COOKIE_AGE = 900  # 15 minutos en segundos
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # La sesión expira cuando se cierra el navegador
+SESSION_SAVE_EVERY_REQUEST = True  # Actualiza el tiempo de expiración en cada request
+
+# Configuraciones adicionales de seguridad para sesiones
+SESSION_COOKIE_HTTPONLY = True  # Previene acceso a cookies desde JavaScript
+SESSION_COOKIE_SECURE = False  # False para desarrollo (True en producción con HTTPS)
+SESSION_COOKIE_SAMESITE = 'Lax'  # Protección contra CSRF
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Almacenar sesiones en BD
