@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
     'tienda',
 ]
 
@@ -121,16 +122,10 @@ STATICFILES_DIRS = [
     BASE_DIR / 'tienda' / 'static',
 ]
 
-# Media files (Uploaded files)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
 # Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Para desarrollo
 DEFAULT_FROM_EMAIL = 'noreply@ecommerceia.com'
 SITE_URL = 'http://127.0.0.1:8000'  # URL del sitio para enlaces en emails
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Site configuration
+SITE_ID = 1

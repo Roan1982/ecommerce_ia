@@ -19,8 +19,8 @@
                     <!-- Información del producto -->
                     <div class="row">
                         <div class="col-md-4 text-center mb-4">
-                            {% if producto.imagen_url %}
-                                <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}"
+                            {% if producto.imagen_principal %}
+                                <img src="{{ producto.imagen_principal }}" alt="{{ producto.nombre }}"
                                      class="img-fluid rounded shadow-sm" style="max-height: 250px; object-fit: cover;">
                             {% else %}
                                 <div class="bg-light rounded d-flex align-items-center justify-content-center mx-auto"

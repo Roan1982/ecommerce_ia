@@ -11,7 +11,7 @@ from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from .services.email_service import EmailService
-from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos, ComparacionProductos, NewsletterSubscription, NewsletterCampaign, NewsletterLog, EmailTemplate, EmailNotification, EmailQueue, ContribucionWishlist, ReferidoWishlist, HistorialCompartir
+from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos, ComparacionProductos, NewsletterSubscription, NewsletterCampaign, NewsletterLog, EmailTemplate, EmailNotification, EmailQueue, ContribucionWishlist, ReferidoWishlist, HistorialCompartir, ProductoImagen
 from .forms import ProductoForm, CuponForm, ProfileForm, NewsletterSubscriptionForm, NewsletterUnsubscribeForm, NewsletterCampaignForm, NewsletterTestForm
 from .recomendador import RecomendadorIA
 from .services.email_service import EmailService
@@ -19,7 +19,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.db import models, transaction
 from django import forms
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.models import User
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth, TruncDay
@@ -136,7 +136,6 @@ def productos(request):
 
     return response
 
-@login_required
 def producto_detalle(request, producto_id):
     """Vista para mostrar el detalle completo de un producto"""
     producto = get_object_or_404(Producto, id=producto_id)
@@ -145,7 +144,9 @@ def producto_detalle(request, producto_id):
     resenas = Resena.objects.filter(producto=producto).select_related('usuario').order_by('-fecha_creacion')
 
     # Verificar si el usuario puede reseñar este producto
-    puede_reseñar = producto.puede_reseñar(request.user)
+    puede_reseñar = False
+    if request.user.is_authenticated:
+        puede_reseñar = producto.puede_reseñar(request.user)
 
     # Obtener productos relacionados (misma categoría)
     productos_relacionados = Producto.objects.filter(
@@ -153,7 +154,12 @@ def producto_detalle(request, producto_id):
     ).exclude(id=producto.id).filter(stock__gt=0)[:4]
 
     # Verificar si el producto está en la wishlist del usuario
-    en_wishlist = Wishlist.objects.filter(usuario=request.user, producto=producto).exists()
+    en_wishlist = False
+    if request.user.is_authenticated:
+        en_wishlist = Wishlist.objects.filter(usuario=request.user, producto=producto).exists()
+
+    # Obtener todas las imágenes del producto ordenadas
+    imagenes = producto.imagenes_disponibles
 
     return render(request, 'tienda/producto_detalle.html', {
         'producto': producto,
@@ -161,6 +167,7 @@ def producto_detalle(request, producto_id):
         'puede_reseñar': puede_reseñar,
         'productos_relacionados': productos_relacionados,
         'en_wishlist': en_wishlist,
+        'imagenes': imagenes,
     })
 
 @login_required
@@ -3976,3 +3983,31 @@ def estadisticas_compartir_wishlist(request, wishlist_id):
         'total_visitas_referidas': wishlist.veces_visitado_via_referido,
         'total_contribuciones_referidas': wishlist.veces_contribuido_via_referido,
     })
+
+def servir_imagen_producto(request, producto_id, imagen_id):
+    """Vista para servir imágenes de productos desde la base de datos"""
+    try:
+        # Buscar la imagen específica del producto
+        imagen = ProductoImagen.objects.get(
+            producto_id=producto_id,
+            id=imagen_id
+        )
+
+        # Determinar el tipo MIME basado en el tipo almacenado o por defecto
+        content_type = imagen.imagen_tipo_mime or 'image/jpeg'
+
+        # Crear respuesta HTTP con el contenido binario
+        response = HttpResponse(imagen.imagen_blob, content_type=content_type)
+
+        # Agregar headers para cache
+        response['Cache-Control'] = 'public, max-age=86400'  # Cache por 24 horas
+
+        # Si hay nombre de archivo, agregarlo al header
+        if imagen.imagen_nombre:
+            response['Content-Disposition'] = f'inline; filename="{imagen.imagen_nombre}"'
+
+        return response
+
+    except ProductoImagen.DoesNotExist:
+        from django.http import Http404
+        raise Http404("Imagen no encontrada")

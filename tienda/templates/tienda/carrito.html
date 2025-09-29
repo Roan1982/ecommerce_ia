@@ -45,8 +45,8 @@
                                     <tr data-item-id="{{ item.id }}">
                                         <td>
                                             <div class="d-flex align-items-center">
-                                                {% if item.producto.imagen_url %}
-                                                    <img src="{{ item.producto.imagen_url }}" alt="{{ item.producto.nombre }}"
+                                                {% if item.producto.imagen_principal %}
+                                                    <img src="{{ item.producto.imagen_principal }}" alt="{{ item.producto.nombre }}"
                                                          class="rounded me-3" style="width: 60px; height: 60px; object-fit: cover;">
                                                 {% else %}
                                                     <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center"

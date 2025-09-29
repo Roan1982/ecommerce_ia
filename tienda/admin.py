@@ -1099,7 +1099,7 @@ admin.site = admin_site
 @admin.register(Producto, site=admin_site)
 class ProductoAdmin(admin.ModelAdmin):
     form = ProductoAdminForm
-    list_display = ["nombre", "sku", "precio", "stock", "stock_minimo", "estado", "categoria", "stock_status"]
+    list_display = ["imagen_preview", "nombre", "sku", "precio", "stock", "stock_minimo", "estado", "categoria", "stock_status"]
     list_filter = ["estado", "categoria"]
     search_fields = ["nombre", "sku", "descripcion"]
     readonly_fields = ["fecha_creacion", "fecha_actualizacion"]
@@ -1108,7 +1108,7 @@ class ProductoAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ("Información Básica", {
-            "fields": ("nombre", "descripcion", "precio", "categoria", "imagen_url", "imagen_file")
+            "fields": ("nombre", "descripcion", "precio", "categoria", "imagenes_files")
         }),
         ("Inventario", {
             "fields": ("stock", "stock_minimo", "sku", "estado"),
@@ -1124,6 +1124,13 @@ class ProductoAdmin(admin.ModelAdmin):
         }),
     )
 
+    def get_form(self, request, obj=None, **kwargs):
+        """Asegurar que el formulario tenga enctype multipart para archivos"""
+        form = super().get_form(request, obj, **kwargs)
+        # Marcar que el formulario tiene campos de archivo
+        form.has_file_field = True
+        return form
+
     def stock_status(self, obj):
         if obj.agotado:
             return " Agotado"
@@ -1132,6 +1139,23 @@ class ProductoAdmin(admin.ModelAdmin):
         else:
             return " Disponible"
     stock_status.short_description = "Estado Stock"
+
+    def imagen_preview(self, obj):
+        """Muestra una miniatura de la imagen del producto en la lista"""
+        from django.utils.html import format_html
+        from django.urls import reverse
+        from django.conf import settings
+        if obj.imagen_principal:
+            try:
+                # Para el admin, usamos la URL relativa directamente ya que el admin maneja las URLs de manera diferente
+                # La URL relativa que devuelve obj.imagen_principal es como '/producto/34/imagen/20/'
+                # En el admin, esto debería funcionar directamente
+                return format_html('<img src="{}" width="50" height="50" style="object-fit: cover; border-radius: 5px;" />', obj.imagen_principal)
+            except Exception as e:
+                # Fallback: intentar usar la URL relativa directamente
+                return format_html('<img src="{}" width="50" height="50" style="object-fit: cover; border-radius: 5px;" />', obj.imagen_principal)
+        return format_html('<div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #999;">Sin imagen</div>')
+    imagen_preview.short_description = "Imagen"
 
     def get_urls(self):
         urls = super().get_urls()

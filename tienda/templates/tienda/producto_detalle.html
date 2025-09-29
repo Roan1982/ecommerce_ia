@@ -6,17 +6,71 @@
 {% block content %}
 <div class="container-fluid py-5">
     <div class="row">
-        <!-- Imagen del producto -->
+        <!-- Imagen del producto con carrusel -->
         <div class="col-lg-6 mb-4">
             <div class="card border-0 shadow-lg">
-                {% if producto.imagen_url %}
-                    <img src="{{ producto.imagen_url }}" class="card-img-top" alt="{{ producto.nombre }}"
-                         style="height: 400px; object-fit: cover;">
+                {% if imagenes %}
+                    <!-- Carrusel principal -->
+                    <div id="productCarousel" class="carousel slide" data-bs-ride="false">
+                        <div class="carousel-inner">
+                            {% for imagen in imagenes %}
+                                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                    <img src="{{ imagen.url_imagen }}" class="d-block w-100" alt="{{ producto.nombre }} - Imagen {{ forloop.counter }}"
+                                         style="height: 400px; object-fit: cover;">
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Controles del carrusel -->
+                        {% if imagenes|length > 1 %}
+                            <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Anterior</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Siguiente</span>
+                            </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Miniaturas -->
+                    {% if imagenes|length > 1 %}
+                        <div class="mt-3">
+                            <div class="row g-2 justify-content-center">
+                                {% for imagen in imagenes %}
+                                    <div class="col-auto">
+                                        <img src="{{ imagen.url_imagen }}"
+                                             class="img-thumbnail carousel-thumbnail {% if forloop.first %}active{% endif %}"
+                                             style="width: 60px; height: 60px; object-fit: cover; cursor: pointer; border: 2px solid {% if forloop.first %}#007bff{% else %}#dee2e6{% endif %};"
+                                             data-bs-target="#productCarousel"
+                                             data-bs-slide-to="{{ forloop.counter0 }}"
+                                             alt="Miniatura {{ forloop.counter }}">
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Indicador de número de imágenes -->
+                    <div class="mt-2 text-center">
+                        <small class="text-muted">
+                            <i class="bi bi-images me-1"></i>
+                            {{ imagenes|length }} {% if imagenes|length == 1 %}imagen{% else %}imágenes{% endif %} disponibles
+                        </small>
+                    </div>
                 {% else %}
+                    <!-- Sin imágenes -->
                     <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
                          style="height: 400px;">
                         <i class="bi bi-{{ producto.categoria|lower|default:'box' }}-seam text-muted"
                            style="font-size: 8rem;"></i>
+                    </div>
+                    <div class="mt-2 text-center">
+                        <small class="text-muted">
+                            <i class="bi bi-image-alt me-1"></i>
+                            Sin imágenes disponibles
+                        </small>
                     </div>
                 {% endif %}
             </div>
@@ -136,8 +190,8 @@
             {% for relacionado in productos_relacionados %}
                 <div class="col-lg-3 col-md-6">
                     <div class="card h-100 border-0 shadow-sm">
-                        {% if relacionado.imagen_url %}
-                            <img src="{{ relacionado.imagen_url }}" class="card-img-top" alt="{{ relacionado.nombre }}"
+                        {% if relacionado.imagen_principal %}
+                            <img src="{{ relacionado.imagen_principal }}" class="card-img-top" alt="{{ relacionado.nombre }}"
                                  style="height: 150px; object-fit: cover;">
                         {% else %}
                             <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
@@ -331,5 +385,67 @@ function updateWishlistCount() {
         })
         .catch(error => console.error('Error updating wishlist count:', error));
 }
+
+// Funcionalidad del carrusel de imágenes
+document.addEventListener('DOMContentLoaded', function() {
+    const carousel = document.getElementById('productCarousel');
+    const thumbnails = document.querySelectorAll('.carousel-thumbnail');
+
+    if (carousel && thumbnails.length > 0) {
+        // Función para actualizar miniaturas activas
+        function updateActiveThumbnail(activeIndex) {
+            thumbnails.forEach((thumb, index) => {
+                if (index === activeIndex) {
+                    thumb.classList.add('active');
+                    thumb.style.borderColor = '#007bff';
+                } else {
+                    thumb.classList.remove('active');
+                    thumb.style.borderColor = '#dee2e6';
+                }
+            });
+        }
+
+        // Escuchar cambios en el carrusel
+        carousel.addEventListener('slid.bs.carousel', function(event) {
+            updateActiveThumbnail(event.to);
+        });
+
+        // Manejar clics en miniaturas
+        thumbnails.forEach((thumbnail, index) => {
+            thumbnail.addEventListener('click', function() {
+                // Cambiar a la imagen correspondiente
+                const carouselInstance = bootstrap.Carousel.getInstance(carousel);
+                if (carouselInstance) {
+                    carouselInstance.to(index);
+                }
+                // Actualizar estado activo inmediatamente
+                updateActiveThumbnail(index);
+            });
+        });
+
+        // Mejorar la experiencia táctil en móviles
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        carousel.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        carousel.addEventListener('touchend', function(e) {
+            touchEndX = e.changedTouches[0].screenX;
+            const carouselInstance = bootstrap.Carousel.getInstance(carousel);
+
+            if (carouselInstance) {
+                if (touchEndX < touchStartX - 50) {
+                    // Deslizar hacia la izquierda - siguiente imagen
+                    carouselInstance.next();
+                } else if (touchEndX > touchStartX + 50) {
+                    // Deslizar hacia la derecha - imagen anterior
+                    carouselInstance.prev();
+                }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

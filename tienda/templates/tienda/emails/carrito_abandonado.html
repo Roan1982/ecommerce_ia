@@ -19,8 +19,8 @@
         {% for item in carrito_items %}
         <div style="border-bottom: 1px solid #e0e0e0; padding: 15px 0; display: table; width: 100%;">
             <div style="display: table-cell; width: 80px; vertical-align: top;">
-                {% if item.producto.imagen_url %}
-                <img src="{{ item.producto.imagen_url }}" alt="{{ item.producto.nombre }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+                {% if item.producto.imagen_principal %}
+                <img src="{{ item.producto.imagen_principal }}" alt="{{ item.producto.nombre }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
                 {% endif %}
             </div>
             <div style="display: table-cell; padding-left: 15px; vertical-align: top;">
@@ -58,8 +58,8 @@
         <div class="product-grid">
             {% for producto in recomendaciones %}
             <div class="product-item">
-                {% if producto.imagen_url %}
-                <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}" class="product-image">
+                {% if producto.imagen_principal %}
+                <img src="{{ producto.imagen_principal }}" alt="{{ producto.nombre }}" class="product-image">
                 {% endif %}
                 <div class="product-info">
                     <div class="product-title">{{ producto.nombre }}</div>

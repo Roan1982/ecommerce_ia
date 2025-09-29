@@ -52,8 +52,8 @@
 
                     <!-- Product Image -->
                     <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
-                        {% if rec.producto.imagen_url %}
-                            <img src="{{ rec.producto.imagen_url }}" alt="{{ rec.producto.nombre }}"
+                        {% if rec.producto.imagen_principal %}
+                            <img src="{{ rec.producto.imagen_principal }}" alt="{{ rec.producto.nombre }}"
                                  class="img-fluid rounded" style="max-height: 180px; object-fit: contain;">
                         {% else %}
                             <i class="bi bi-{{ rec.producto.categoria|lower|default:'box' }}-seam text-muted" style="font-size: 4rem;"></i>

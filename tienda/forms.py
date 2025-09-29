@@ -1,23 +1,113 @@
 from django import forms
-from .models import Producto, Cupon, Profile, NewsletterSubscription, NewsletterCampaign
+from django.db import models
+from .models import Producto, Cupon, Profile, NewsletterSubscription, NewsletterCampaign, ProductoImagen
+
+
+class MultipleFileInput(forms.FileInput):
+    allow_multiple_selected = True
+
+    def __init__(self, attrs=None):
+        if attrs is None:
+            attrs = {}
+        attrs.update({'multiple': True, 'accept': 'image/*'})
+        super().__init__(attrs)
+
+    def value_from_datadict(self, data, files, name):
+        """Return a list of UploadedFile objects for multiple file uploads"""
+        if hasattr(files, 'getlist'):
+            return files.getlist(name)
+        return files.get(name)
+
+    def value_omitted_from_data(self, data, files, name):
+        """Check if the field value is omitted from the data"""
+        return name not in files
+
+
+class MultipleFileField(forms.FileField):
+    """Campo personalizado para múltiples archivos"""
+    widget = MultipleFileInput
+    default_validators = []  # No validar archivos individualmente
+
+    def to_python(self, value):
+        """Convertir el valor a una lista de archivos"""
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        return [value]
+
+    def validate(self, value):
+        """Validar la lista de archivos"""
+        if self.required and not value:
+            raise forms.ValidationError("Este campo es obligatorio.")
+        for file in value:
+            if hasattr(file, 'size') and self.max_length is not None and file.size > self.max_length:
+                raise forms.ValidationError(f"El archivo {file.name} es demasiado grande.")
 
 
 class ProductoAdminForm(forms.ModelForm):
+    # Campo personalizado para subir múltiples imágenes como blobs
+    imagenes_files = MultipleFileField(
+        required=False,
+        label="Imágenes del producto",
+        help_text="Selecciona una o más imágenes para subir. Se almacenarán como blobs en la base de datos."
+    )
+
     class Meta:
         model = Producto
-        fields = '__all__'
+        fields = ['nombre', 'descripcion', 'precio', 'categoria',
+                 'stock', 'stock_minimo', 'sku', 'estado', 'peso', 'dimensiones']
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 3}),
             'peso': forms.NumberInput(attrs={'step': '0.01'}),
             'dimensiones': forms.TextInput(attrs={'placeholder': 'Ej: 10x20x5 cm'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si el producto ya tiene imágenes, mostrar información
+        if self.instance and self.instance.pk:
+            num_imagenes = self.instance.imagenes.count()
+            if num_imagenes > 0:
+                self.fields['imagenes_files'].help_text += f" Actualmente tiene {num_imagenes} imagen(es)."
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Procesar los archivos subidos si existen
+        uploaded_files = self.files.getlist('imagenes_files')
+        if uploaded_files:
+            # Si estamos editando, determinar el orden inicial
+            if instance.pk:
+                ultimo_orden = instance.imagenes.aggregate(max_orden=models.Max('orden'))['max_orden'] or 0
+            else:
+                ultimo_orden = 0
+
+            for uploaded_file in uploaded_files:
+                # Leer el contenido del archivo
+                file_content = uploaded_file.read()
+
+                # Crear nueva imagen para el producto
+                ProductoImagen.objects.create(
+                    producto=instance,
+                    imagen_blob=file_content,
+                    imagen_nombre=uploaded_file.name,
+                    imagen_tipo_mime=uploaded_file.content_type or 'application/octet-stream',
+                    orden=ultimo_orden + 1
+                )
+                ultimo_orden += 1
+
+        if commit:
+            instance.save()
+
+        return instance
+
 
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
         fields = ['nombre', 'descripcion', 'precio', 'categoria', 'stock', 'stock_minimo',
-                 'sku', 'imagen_url', 'estado', 'peso', 'dimensiones']
+                 'sku', 'estado', 'peso', 'dimensiones']
         widgets = {
             'descripcion': forms.Textarea(attrs={
                 'rows': 4,

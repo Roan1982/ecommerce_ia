@@ -21,8 +21,8 @@
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-2 text-center">
-                            {% if producto.imagen_url %}
-                                <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}"
+                            {% if producto.imagen_principal %}
+                                <img src="{{ producto.imagen_principal }}" alt="{{ producto.nombre }}"
                                      class="img-fluid rounded" style="max-height: 80px;">
                             {% else %}
                                 <div class="bg-light rounded d-flex align-items-center justify-content-center mx-auto"

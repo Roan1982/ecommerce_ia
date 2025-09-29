@@ -15,9 +15,6 @@ class Producto(models.Model):
     precio = models.DecimalField(max_digits=10, decimal_places=2)
     categoria = models.CharField(max_length=50)
     descripcion = models.TextField(blank=True, null=True)
-    imagen_url = models.URLField(blank=True, null=True)
-    imagen_file = models.ImageField(upload_to='productos/', blank=True, null=True,
-                                   help_text="Imagen del producto subida al servidor")
 
     # Campos de inventario mejorados
     stock = models.IntegerField(default=10, help_text="Cantidad actual en inventario")
@@ -94,16 +91,24 @@ class Producto(models.Model):
     @property
     def imagen_principal(self):
         """Devuelve la URL de la imagen principal del producto"""
-        if self.imagen_file:
-            return self.imagen_file.url
-        elif self.imagen_url:
-            return self.imagen_url
+        imagen_principal = self.imagenes.filter(es_principal=True).first()
+        if imagen_principal:
+            return imagen_principal.url_imagen
+        # Si no hay imagen principal, devolver la primera imagen disponible
+        primera_imagen = self.imagenes.first()
+        if primera_imagen:
+            return primera_imagen.url_imagen
         return None
 
     @property
     def tiene_imagen(self):
         """Verifica si el producto tiene alguna imagen"""
-        return bool(self.imagen_file or self.imagen_url)
+        return self.imagenes.exists()
+
+    @property
+    def imagenes_disponibles(self):
+        """Devuelve todas las imágenes del producto ordenadas por principal primero"""
+        return self.imagenes.order_by('-es_principal', 'orden')
 
     def puede_reseñar(self, usuario):
         """Verifica si un usuario puede reseñar este producto"""
@@ -133,6 +138,43 @@ class Producto(models.Model):
         verbose_name = "Producto"
         verbose_name_plural = "Productos"
         ordering = ['-fecha_creacion']
+
+
+class ProductoImagen(models.Model):
+    """Modelo para almacenar múltiples imágenes de productos como blobs"""
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes',
+                                help_text="Producto al que pertenece la imagen")
+    imagen_blob = models.BinaryField(help_text="Imagen almacenada como blob en la base de datos")
+    imagen_nombre = models.CharField(max_length=255, help_text="Nombre original del archivo de imagen")
+    imagen_tipo_mime = models.CharField(max_length=100, help_text="Tipo MIME de la imagen (ej: image/jpeg)")
+    es_principal = models.BooleanField(default=False, help_text="Si esta es la imagen principal del producto")
+    orden = models.PositiveIntegerField(default=0, help_text="Orden de visualización de la imagen")
+    fecha_subida = models.DateTimeField(default=timezone.now, help_text="Fecha de subida de la imagen")
+    descripcion = models.CharField(max_length=200, blank=True, null=True,
+                                  help_text="Descripción opcional de la imagen")
+
+    class Meta:
+        verbose_name = "Imagen de Producto"
+        verbose_name_plural = "Imágenes de Productos"
+        ordering = ['orden', 'fecha_subida']
+        unique_together = ['producto', 'orden']  # Evitar órdenes duplicados por producto
+
+    def __str__(self):
+        return f"Imagen de {self.producto.nombre} - {self.imagen_nombre}"
+
+    @property
+    def url_imagen(self):
+        """Devuelve la URL para acceder a esta imagen"""
+        return f"/producto/{self.producto.id}/imagen/{self.id}/"
+
+    def save(self, *args, **kwargs):
+        # Si esta imagen es principal, quitar el flag principal de otras imágenes del mismo producto
+        if self.es_principal:
+            ProductoImagen.objects.filter(
+                producto=self.producto,
+                es_principal=True
+            ).exclude(pk=self.pk).update(es_principal=False)
+        super().save(*args, **kwargs)
 
 
 class MovimientoInventario(models.Model):

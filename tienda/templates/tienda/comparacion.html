@@ -52,8 +52,8 @@
                                         {% for item in productos_comparacion %}
                                             <th class="text-center">
                                                 <div class="d-flex flex-column align-items-center">
-                                                    {% if item.producto.imagen_url %}
-                                                        <img src="{{ item.producto.imagen_url }}" alt="{{ item.producto.nombre }}"
+                                                    {% if item.producto.imagen_principal %}
+                                                        <img src="{{ item.producto.imagen_principal }}" alt="{{ item.producto.nombre }}"
                                                              class="img-thumbnail mb-2" style="width: 120px; height: 120px; object-fit: cover;">
                                                     {% else %}
                                                         <div class="bg-light d-flex align-items-center justify-content-center mb-2"
