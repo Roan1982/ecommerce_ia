@@ -1,0 +1,620 @@
+{% extends "admin/change_form.html" %}
+{% load admin_urls static admin_modify i18n %}
+
+{% block extrahead %}
+{{ block.super }}
+<!-- Font Awesome para iconos -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<!-- SortableJS para drag & drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<style>
+/* Ocultar el campo original de imágenes de Django */
+.field-imagenes_files {
+    display: none !important;
+}
+
+/* Estilos para el área de gestión de imágenes */
+.image-management-container {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #f9f9f9;
+}
+
+.images-section h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Drag and Drop Zone */
+.drag-drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: #fafafa;
+    margin-bottom: 20px;
+}
+
+.drag-drop-zone.drag-over {
+    border-color: #007cba;
+    background: #e8f4fd;
+}
+
+.drag-drop-zone:hover {
+    border-color: #005a87;
+}
+
+.image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.image-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.image-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.image-preview-container {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    overflow: hidden;
+}
+
+.image-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.image-card:hover .image-overlay {
+    opacity: 1;
+}
+
+.image-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    background: rgba(255,255,255,0.9);
+    border: none;
+    border-radius: 4px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #333;
+    font-size: 14px;
+}
+
+.action-btn:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+.primary-btn.active {
+    background: #ffc107;
+    color: #000;
+}
+
+.delete-btn:hover {
+    background: #dc3545;
+    color: white;
+}
+
+.drag-handle {
+    cursor: move;
+}
+
+.image-info {
+    padding: 10px;
+}
+
+.image-name {
+    font-weight: 500;
+    font-size: 12px;
+    color: #333;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.image-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #666;
+}
+
+.primary-badge {
+    background: #ffc107;
+    color: #000;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+/* Estado vacío */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    grid-column: 1 / -1;
+}
+
+.empty-state i {
+    font-size: 48px;
+    color: #ccc;
+    margin-bottom: 15px;
+}
+
+.empty-state h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-weight: 500;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Mensajes de administración */
+.admin-message {
+    margin: 10px 0;
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left: 4px solid;
+    background: #f8f9fa;
+}
+
+.admin-message.success {
+    border-left-color: #28a745;
+    background: #d4edda;
+    color: #155724;
+}
+
+.admin-message.error {
+    border-left-color: #dc3545;
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.admin-message.warning {
+    border-left-color: #ffc107;
+    background: #fff3cd;
+    color: #856404;
+}
+
+.message-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.message-content i {
+    font-size: 16px;
+}
+</style>
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+
+<!-- Sección de gestión de imágenes -->
+<div class="image-management-container">
+    <div class="images-section">
+        <h3><i class="fas fa-images"></i> Gestión de Imágenes</h3>
+        
+        <!-- Zona de drag & drop -->
+        <div class="drag-drop-zone" id="drag-drop-zone">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #ccc; margin-bottom: 10px;"></i>
+            <p><strong>Arrastra imágenes aquí</strong> o haz clic para seleccionar</p>
+            <input type="file" id="file-input" name="imagenes_files" multiple accept="image/*" style="display: none;">
+            <button type="button" onclick="document.getElementById('file-input').click()" class="button default">
+                <i class="fas fa-plus"></i> Seleccionar Archivos
+            </button>
+        </div>
+
+        <!-- Grid de imágenes -->
+        <div class="image-grid" id="images-container">
+            <!-- Las imágenes se cargarán aquí dinámicamente -->
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dragDropZone = document.getElementById('drag-drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const imagenesContainer = document.getElementById('images-container');
+
+    // Variables globales
+    let selectedFiles = new Map();
+
+    // Eventos de drag & drop
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dragDropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dragDropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dragDropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    dragDropZone.addEventListener('drop', handleDrop, false);
+    dragDropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', handleFileSelect);
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function highlight(e) {
+        dragDropZone.classList.add('drag-over');
+    }
+
+    function unhighlight(e) {
+        dragDropZone.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }
+
+    function handleFileSelect(e) {
+        const files = e.target.files;
+        handleFiles(files);
+    }
+
+    function handleFiles(files) {
+        if (files.length > 0) {
+            selectedFiles.set(fileInput.name, files);
+            showNewImagesPreview(files);
+            showMessage(`Se seleccionaron ${files.length} imagen(es). Haz clic en "Guardar" para subirlas.`);
+        }
+    }
+
+    function showNewImagesPreview(files) {
+        // Limpiar previsualizaciones anteriores
+        const existingPreviews = imagenesContainer.querySelectorAll('.new-image-preview');
+        existingPreviews.forEach(preview => preview.remove());
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imageCard = document.createElement('div');
+                    imageCard.className = 'image-card new-image-preview';
+                    imageCard.innerHTML = `
+                        <div class="image-preview-container">
+                            <img src="${e.target.result}" alt="${file.name}" class="image-preview">
+                            <div class="image-overlay">
+                                <div class="image-actions">
+                                    <span class="action-btn" style="background: #28a745; color: white;">
+                                        <i class="fas fa-plus"></i> Nueva
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="image-info">
+                            <div class="image-name">${file.name}</div>
+                            <div class="image-details">
+                                <span class="image-size">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                            </div>
+                        </div>
+                    `;
+                    imagenesContainer.appendChild(imageCard);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    }
+
+    function cargarImagenesExistentes() {
+        console.log('Cargando imágenes existentes...');
+        
+        // Obtener ID del producto de la URL
+        const urlParts = window.location.pathname.split('/');
+        const productoId = urlParts[urlParts.indexOf('producto') + 1];
+        
+        if (!productoId || productoId === 'add') {
+            // Es un nuevo producto, no hay imágenes
+            mostrarEstadoVacio();
+            return;
+        }
+
+        // Hacer petición AJAX para obtener las imágenes
+        fetch(`/admin/tienda/producto/${productoId}/imagenes/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Limpiar contenedor
+                    imagenesContainer.innerHTML = '';
+                    
+                    if (data.images.length === 0) {
+                        mostrarEstadoVacio();
+                    } else {
+                        // Agregar cada imagen
+                        data.images.forEach(imagen => {
+                            agregarImagenExistente(imagen);
+                        });
+                        initializeSortable();
+                    }
+                } else {
+                    console.error('Error al cargar imágenes:', data.error);
+                    mostrarEstadoVacio();
+                }
+            })
+            .catch(error => {
+                console.error('Error en la petición:', error);
+                mostrarEstadoVacio();
+            });
+    }
+
+    function agregarImagenExistente(imagen) {
+        const imageCard = document.createElement('div');
+        imageCard.className = 'image-card existing-image';
+        imageCard.dataset.imagenId = imagen.id;
+        
+        const size = imagen.size ? (imagen.size / 1024 / 1024).toFixed(2) + ' MB' : 'Tamaño desconocido';
+        
+        imageCard.innerHTML = `
+            <div class="image-preview-container">
+                <img src="${imagen.url_imagen}" alt="${imagen.imagen_nombre}" class="image-preview">
+                <div class="image-overlay">
+                    <div class="image-actions">
+                        <button type="button" class="action-btn primary-btn ${imagen.es_principal ? 'active' : ''}" 
+                                title="${imagen.es_principal ? 'Es imagen principal' : 'Establecer como principal'}"
+                                onclick="toggleImagenPrincipal(${imagen.id}, this)">
+                            <i class="fas fa-star"></i>
+                        </button>
+                        <button type="button" class="action-btn delete-btn" 
+                                title="Eliminar imagen"
+                                onclick="eliminarImagen(${imagen.id}, this)">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <button type="button" class="drag-handle" title="Arrastrar para reordenar">
+                            <i class="fas fa-grip-vertical"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="image-info">
+                <div class="image-name">${imagen.imagen_nombre}</div>
+                <div class="image-details">
+                    <span class="image-size">${size}</span>
+                    ${imagen.es_principal ? '<span class="primary-badge">Principal</span>' : ''}
+                </div>
+            </div>
+        `;
+        
+        imagenesContainer.appendChild(imageCard);
+    }
+
+    function mostrarEstadoVacio() {
+        imagenesContainer.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-images"></i>
+                <h3>No hay imágenes</h3>
+                <p>Arrastra imágenes aquí o usa el botón "Seleccionar archivos" para agregar imágenes al producto.</p>
+            </div>
+        `;
+    }
+
+    // Funciones globales para el manejo de imágenes
+    window.eliminarImagen = function(imagenId, button) {
+        if (!confirm('¿Estás seguro de que quieres eliminar esta imagen?')) {
+            return;
+        }
+
+        const card = button.closest('.image-card');
+        
+        fetch(`/admin/tienda/producto/imagenes/eliminar/${imagenId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                card.remove();
+                showMessage('Imagen eliminada correctamente');
+                
+                if (imagenesContainer.querySelectorAll('.image-card').length === 0) {
+                    mostrarEstadoVacio();
+                }
+            } else {
+                showMessage('Error al eliminar imagen: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error al eliminar imagen', 'error');
+        });
+    };
+
+    window.toggleImagenPrincipal = function(imagenId, button) {
+        const card = button.closest('.image-card');
+        const isActive = button.classList.contains('active');
+        
+        if (isActive) {
+            const totalImages = imagenesContainer.querySelectorAll('.image-card').length;
+            if (totalImages === 1) {
+                showMessage('No puedes quitar la imagen principal si es la única imagen', 'warning');
+                return;
+            }
+        }
+
+        fetch(`/admin/tienda/producto/imagenes/establecer-principal/${imagenId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                imagenesContainer.querySelectorAll('.primary-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.title = 'Establecer como principal';
+                });
+                
+                imagenesContainer.querySelectorAll('.primary-badge').forEach(badge => {
+                    badge.remove();
+                });
+
+                if (data.es_principal) {
+                    button.classList.add('active');
+                    button.title = 'Es imagen principal';
+                    
+                    const imageInfo = card.querySelector('.image-details');
+                    const badge = document.createElement('span');
+                    badge.className = 'primary-badge';
+                    badge.textContent = 'Principal';
+                    imageInfo.appendChild(badge);
+                }
+                
+                showMessage(data.es_principal ? 'Imagen establecida como principal' : 'Imagen principal removida');
+            } else {
+                showMessage('Error: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error al cambiar imagen principal', 'error');
+        });
+    };
+
+    function initializeSortable() {
+        if (typeof Sortable !== 'undefined' && imagenesContainer) {
+            new Sortable(imagenesContainer, {
+                animation: 150,
+                handle: '.drag-handle',
+                onEnd: function(evt) {
+                    const orden = Array.from(imagenesContainer.querySelectorAll('.image-card[data-imagen-id]'))
+                        .map(card => parseInt(card.dataset.imagenId));
+                    
+                    fetch('/admin/tienda/producto/imagenes/reordenar/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({orden: orden})
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showMessage('Imágenes reordenadas correctamente');
+                        } else {
+                            showMessage('Error al reordenar: ' + data.error, 'error');
+                            cargarImagenesExistentes();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showMessage('Error al reordenar imágenes', 'error');
+                        cargarImagenesExistentes();
+                    });
+                }
+            });
+        }
+    }
+
+    function showMessage(text, type = 'success') {
+        const existingMessage = document.querySelector('.admin-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+
+        const message = document.createElement('div');
+        message.className = `admin-message ${type}`;
+        message.innerHTML = `
+            <div class="message-content">
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-exclamation-triangle'}"></i>
+                ${text}
+            </div>
+        `;
+
+        const form = document.querySelector('form');
+        if (form) {
+            form.insertBefore(message, form.firstChild);
+        }
+
+        setTimeout(() => {
+            if (message.parentNode) {
+                message.remove();
+            }
+        }, 5000);
+    }
+
+    // Cargar imágenes existentes al inicializar
+    cargarImagenesExistentes();
+
+    // Agregar listener para el submit del formulario
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            console.log('Formulario siendo enviado...');
+            selectedFiles.forEach((files, inputName) => {
+                const fileInput = form.querySelector(`input[name="${inputName}"]`);
+                if (fileInput && (!fileInput.files || fileInput.files.length === 0)) {
+                    console.log(`Restaurando ${files.length} archivos para input ${inputName}`);
+                    const dataTransfer = new DataTransfer();
+                    for (let file of files) {
+                        dataTransfer.items.add(file);
+                    }
+                    fileInput.files = dataTransfer.files;
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

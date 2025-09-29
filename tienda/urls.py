@@ -141,4 +141,8 @@ urlpatterns = [
     # path('admin/configuracion/restaurar/', views.admin_restaurar_configuracion, name='admin_restaurar_configuracion'),
     # path('admin/backup/', views.admin_crear_backup, name='admin_crear_backup'),
     # path('admin/email/test/', views.admin_probar_email, name='admin_probar_email'),
+    # Vistas AJAX para gestión de imágenes
+    path('admin/imagenes/eliminar/<int:imagen_id>/', views.eliminar_imagen, name='admin_eliminar_imagen'),
+    path('admin/imagenes/establecer-principal/<int:imagen_id>/', views.establecer_principal, name='admin_establecer_principal'),
+    path('admin/imagenes/reordenar/', views.reordenar_imagenes, name='admin_reordenar_imagenes'),
 ]

@@ -11,9 +11,9 @@ class Producto(models.Model):
         ('agotado', 'Agotado'),
     ]
 
-    nombre = models.CharField(max_length=100)
-    precio = models.DecimalField(max_digits=10, decimal_places=2)
-    categoria = models.CharField(max_length=50)
+    nombre = models.CharField(max_length=100, default='Producto sin nombre')
+    precio = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    categoria = models.CharField(max_length=50, default='Sin categoría')
     descripcion = models.TextField(blank=True, null=True)
 
     # Campos de inventario mejorados
@@ -133,6 +133,18 @@ class Producto(models.Model):
         ).exists()
 
         return productos_pedidos or compras_directas
+
+    @property
+    def total_resenas(self):
+        """Devuelve el total de reseñas del producto"""
+        return self.resena_set.count()
+
+    @property
+    def promedio_calificacion(self):
+        """Devuelve el promedio de calificaciones del producto"""
+        from django.db.models import Avg
+        avg_rating = self.resena_set.aggregate(avg=Avg('calificacion'))['avg']
+        return round(avg_rating, 1) if avg_rating else 0.0
 
     class Meta:
         verbose_name = "Producto"

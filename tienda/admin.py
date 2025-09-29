@@ -1106,6 +1106,9 @@ class ProductoAdmin(admin.ModelAdmin):
     list_editable = ["stock", "estado"]
     ordering = ["nombre"]
 
+    # Usar template personalizado
+    change_form_template = "admin/tienda/producto_change_form_simple.html"
+
     fieldsets = (
         ("Información Básica", {
             "fields": ("nombre", "descripcion", "precio", "categoria", "imagenes_files")
@@ -1130,6 +1133,25 @@ class ProductoAdmin(admin.ModelAdmin):
         # Marcar que el formulario tiene campos de archivo
         form.has_file_field = True
         return form
+    
+    def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
+        """Personalizar el contexto del formulario para manejar archivos"""
+        # Asegurar que has_file_field esté en el contexto
+        context['has_file_field'] = True
+        return super().render_change_form(request, context, add, change, form_url, obj)
+
+    def get_form_kwargs(self, request, obj=None, **kwargs):
+        """Pasar el objeto producto al formulario para manejar imágenes existentes"""
+        kwargs = super().get_form_kwargs(request, obj, **kwargs)
+        kwargs['producto'] = obj
+        return kwargs
+
+    def save_model(self, request, obj, form, change):
+        """Guardar el modelo y procesar las imágenes del formulario"""
+        # Primero guardar el objeto del modelo
+        super().save_model(request, obj, form, change)
+        # Luego llamar al método save() del formulario para procesar las imágenes
+        form.save()
 
     def stock_status(self, obj):
         if obj.agotado:
@@ -1161,6 +1183,10 @@ class ProductoAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path("actualizar/<int:producto_id>/", admin_site.admin_view(self.actualizar_stock_view), name="tienda_producto_actualizar_stock"),
+            path("imagenes/eliminar/<int:imagen_id>/", admin_site.admin_view(self.eliminar_imagen_view), name="admin_eliminar_imagen"),
+            path("imagenes/establecer-principal/<int:imagen_id>/", admin_site.admin_view(self.establecer_imagen_principal_view), name="admin_establecer_principal"),
+            path("imagenes/reordenar/", admin_site.admin_view(self.reordenar_imagenes_view), name="admin_reordenar_imagenes"),
+            path("<int:producto_id>/imagenes/", admin_site.admin_view(self.listar_imagenes_view), name="admin_listar_imagenes"),
         ]
         return custom_urls + urls
 
@@ -1215,6 +1241,141 @@ class ProductoAdmin(admin.ModelAdmin):
             return JsonResponse({"success": False, "error": "Producto no encontrado"})
         except ValueError:
             return JsonResponse({"success": False, "error": "Valor de stock inválido"})
+
+    @method_decorator(staff_member_required)
+    def eliminar_imagen_view(self, request, imagen_id):
+        """Vista AJAX para eliminar una imagen de producto"""
+        if not request.method == "POST":
+            return JsonResponse({"success": False, "error": "Método no permitido"})
+
+        try:
+            from tienda.models import ProductoImagen
+            imagen = ProductoImagen.objects.get(id=imagen_id)
+
+            # Verificar que el usuario tenga permisos para este producto
+            if not request.user.is_superuser and imagen.producto not in self.get_queryset(request):
+                return JsonResponse({"success": False, "error": "No tienes permisos para esta imagen"})
+
+            # Para imágenes almacenadas como blobs, solo eliminamos el registro de la BD
+            # No hay archivos físicos que eliminar
+            imagen.delete()
+
+            return JsonResponse({
+                "success": True,
+                "message": "Imagen eliminada correctamente"
+            })
+
+        except ProductoImagen.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Imagen no encontrada"})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": f"Error al eliminar imagen: {str(e)}"})
+
+    @method_decorator(staff_member_required)
+    def establecer_imagen_principal_view(self, request, imagen_id):
+        """Vista AJAX para establecer una imagen como principal"""
+        if not request.method == "POST":
+            return JsonResponse({"success": False, "error": "Método no permitido"})
+
+        try:
+            from tienda.models import ProductoImagen
+            imagen = ProductoImagen.objects.get(id=imagen_id)
+
+            # Verificar que el usuario tenga permisos para este producto
+            if not request.user.is_superuser and imagen.producto not in self.get_queryset(request):
+                return JsonResponse({"success": False, "error": "No tienes permisos para esta imagen"})
+
+            # Desmarcar todas las imágenes principales de este producto
+            ProductoImagen.objects.filter(producto=imagen.producto, es_principal=True).update(es_principal=False)
+
+            # Establecer esta imagen como principal
+            imagen.es_principal = True
+            imagen.save()
+
+            return JsonResponse({
+                "success": True,
+                "message": "Imagen principal actualizada correctamente"
+            })
+
+        except ProductoImagen.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Imagen no encontrada"})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": f"Error al actualizar imagen principal: {str(e)}"})
+
+    @method_decorator(staff_member_required)
+    def reordenar_imagenes_view(self, request):
+        """Vista AJAX para reordenar las imágenes de un producto"""
+        if not request.method == "POST":
+            return JsonResponse({"success": False, "error": "Método no permitido"})
+
+        try:
+            import json
+            data = json.loads(request.body)
+            imagenes_orden = data.get('orden', [])
+
+            if not imagenes_orden:
+                return JsonResponse({"success": False, "error": "No se proporcionó orden de imágenes"})
+
+            from tienda.models import ProductoImagen
+
+            # Actualizar el orden de cada imagen
+            for i, imagen_id in enumerate(imagenes_orden):
+                try:
+                    imagen = ProductoImagen.objects.get(id=imagen_id)
+                    # Verificar que el usuario tenga permisos para este producto
+                    if not request.user.is_superuser and imagen.producto not in self.get_queryset(request):
+                        continue  # Saltar esta imagen si no tiene permisos
+
+                    imagen.orden = i
+                    imagen.save()
+                except ProductoImagen.DoesNotExist:
+                    continue  # Saltar si la imagen no existe
+
+            return JsonResponse({
+                "success": True,
+                "message": "Imágenes reordenadas correctamente"
+            })
+
+        except json.JSONDecodeError:
+            return JsonResponse({"success": False, "error": "Datos JSON inválidos"})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": f"Error al reordenar imágenes: {str(e)}"})
+
+    @method_decorator(staff_member_required)
+    def listar_imagenes_view(self, request, producto_id):
+        """Vista AJAX para obtener las imágenes de un producto"""
+        if not request.method == "GET":
+            return JsonResponse({"success": False, "error": "Método no permitido"})
+
+        try:
+            producto = Producto.objects.get(id=producto_id)
+            
+            # Verificar permisos
+            if not request.user.is_superuser and producto not in self.get_queryset(request):
+                return JsonResponse({"success": False, "error": "No tienes permisos para este producto"})
+
+            # Obtener imágenes ordenadas
+            imagenes = producto.imagenes.order_by('orden', 'fecha_subida')
+            
+            images_data = []
+            for imagen in imagenes:
+                images_data.append({
+                    'id': imagen.id,
+                    'url_imagen': imagen.url_imagen,
+                    'imagen_nombre': imagen.imagen_nombre,
+                    'es_principal': imagen.es_principal,
+                    'size': len(imagen.imagen_blob) if imagen.imagen_blob else 0,
+                    'orden': imagen.orden,
+                })
+
+            return JsonResponse({
+                "success": True,
+                "images": images_data
+            })
+
+        except Producto.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Producto no encontrado"})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": f"Error al obtener imágenes: {str(e)}"})
 
 
 @admin.register(MovimientoInventario, site=admin_site)

@@ -12,7 +12,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from .services.email_service import EmailService
 from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos, ComparacionProductos, NewsletterSubscription, NewsletterCampaign, NewsletterLog, EmailTemplate, EmailNotification, EmailQueue, ContribucionWishlist, ReferidoWishlist, HistorialCompartir, ProductoImagen
-from .forms import ProductoForm, CuponForm, ProfileForm, NewsletterSubscriptionForm, NewsletterUnsubscribeForm, NewsletterCampaignForm, NewsletterTestForm
+from .forms import ProductoForm, ProductoAdminForm, CuponForm, ProfileForm, NewsletterSubscriptionForm, NewsletterUnsubscribeForm, NewsletterCampaignForm, NewsletterTestForm
 from .recomendador import RecomendadorIA
 from .services.email_service import EmailService
 from django.utils.translation import gettext_lazy as _
@@ -26,6 +26,7 @@ from django.db.models.functions import TruncMonth, TruncDay
 import pandas as pd
 from datetime import date, timedelta
 import logging
+import json
 
 recomendador = RecomendadorIA()
 
@@ -1769,7 +1770,7 @@ def admin_actualizar_stock(request, producto_id):
     try:
         producto = Producto.objects.get(id=producto_id)
         nuevo_stock = int(request.POST.get('stock', 0))
-        descripcion = request.POST.get('descripcion', 'Ajuste manual desde admin')
+        descripcion = request.POST.get('descripcion', 'Ajuste manual')
 
         if nuevo_stock < 0:
             return JsonResponse({'success': False, 'error': 'El stock no puede ser negativo'})
@@ -1924,6 +1925,7 @@ def admin_actualizar_estado_usuario(request):
         return JsonResponse({'success': False, 'error': 'No autorizado'})
 
     try:
+
         usuario_id = request.POST.get('usuario_id')
         nuevo_estado = request.POST.get('estado')
 
@@ -2120,13 +2122,17 @@ def admin_editar_producto(request, producto_id):
         return redirect('admin_productos')
 
     if request.method == 'POST':
-        form = ProductoForm(request.POST, request.FILES, instance=producto)
+        print(f"DEBUG: Archivos subidos: {request.FILES}")
+        form = ProductoAdminForm(request.POST, request.FILES, instance=producto)
         if form.is_valid():
+            print("DEBUG: Formulario válido")
             producto = form.save()
             messages.success(request, f'Producto "{producto.nombre}" actualizado exitosamente.')
             return redirect('admin_productos')
+        else:
+            print(f"DEBUG: Errores del formulario: {form.errors}")
     else:
-        form = ProductoForm(instance=producto)
+        form = ProductoAdminForm(instance=producto)
 
     return render(request, 'tienda/admin_producto_form.html', {
         'form': form,
@@ -2500,6 +2506,8 @@ def toggle_wishlist(request, producto_id):
 
         except Producto.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Producto no encontrado'})
+        except ValueError as e:
+            return JsonResponse({'success': False, 'error': str(e)})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
 
@@ -2865,7 +2873,7 @@ def gestionar_contribuciones_wishlist(request, wishlist_id):
                 wishlist.fecha_modificacion = timezone.now()
                 wishlist.save()
 
-                messages.success(request, 'Contribuciones activadas exitosamente para esta lista de deseos.')
+                messages.success(request, f'Contribuciones activadas para "{wishlist.producto.nombre}". Meta: ${meta_contribucion}')
 
             except ValueError as e:
                 messages.error(request, f'Error en la meta: {str(e)}')
@@ -2873,7 +2881,7 @@ def gestionar_contribuciones_wishlist(request, wishlist_id):
         elif accion == 'desactivar_contribuciones':
             wishlist.permitir_contribuciones = False
             wishlist.save()
-            messages.success(request, 'Contribuciones desactivadas para esta lista de deseos.')
+            messages.success(request, f'Contribuciones desactivadas para "{wishlist.producto.nombre}"')
 
         elif accion == 'actualizar_meta':
             nueva_meta = request.POST.get('meta_contribucion')
@@ -3881,6 +3889,7 @@ def compartir_wishlist(request, wishlist_id):
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 enlaces = wishlist.generar_enlaces_compartir()
                 return JsonResponse({
+                   
                     'success': True,
                     'enlaces': enlaces,
                     'mensaje': f'Lista compartida en {plataforma.title()}'
@@ -4011,3 +4020,103 @@ def servir_imagen_producto(request, producto_id, imagen_id):
     except ProductoImagen.DoesNotExist:
         from django.http import Http404
         raise Http404("Imagen no encontrada")
+
+
+# ========================================
+# VISTAS AJAX PARA GESTIÓN DE IMÁGENES
+# ========================================
+
+@login_required
+def eliminar_imagen(request, imagen_id):
+    """Vista AJAX para eliminar una imagen de producto"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+    try:
+        imagen = ProductoImagen.objects.get(id=imagen_id)
+        producto_id = imagen.producto.id
+        imagen.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Imagen eliminada exitosamente',
+            'producto_id': producto_id
+        })
+
+    except ProductoImagen.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Imagen no encontrada'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def establecer_principal(request, imagen_id):
+    """Vista AJAX para establecer una imagen como principal"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+    try:
+        imagen = ProductoImagen.objects.get(id=imagen_id)
+
+        # Quitar el flag principal de otras imágenes del mismo producto
+        ProductoImagen.objects.filter(
+            producto=imagen.producto,
+            es_principal=True
+        ).exclude(pk=imagen.pk).update(es_principal=False)
+
+        # Establecer esta imagen como principal
+        imagen.es_principal = True
+        imagen.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Imagen establecida como principal',
+            'producto_id': imagen.producto.id
+        })
+
+    except ProductoImagen.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Imagen no encontrada'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def reordenar_imagenes(request):
+    """Vista AJAX para reordenar imágenes de un producto"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'No autorizado'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+    try:
+        data = json.loads(request.body)
+        orden = data.get('orden', [])
+
+        if not orden:
+            return JsonResponse({'success': False, 'error': 'No se proporcionó orden'})
+
+        # Actualizar el orden de las imágenes
+        for index, imagen_id in enumerate(orden):
+            try:
+                imagen = ProductoImagen.objects.get(id=int(imagen_id))
+                imagen.orden = index
+                imagen.save()
+            except (ProductoImagen.DoesNotExist, ValueError):
+                continue
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Imágenes reordenadas exitosamente'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Datos JSON inválidos'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
