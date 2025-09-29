@@ -245,7 +245,7 @@
             <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #ccc; margin-bottom: 10px;"></i>
             <p><strong>Arrastra imágenes aquí</strong> o haz clic para seleccionar</p>
             <input type="file" id="file-input" name="imagenes_files" multiple accept="image/*" style="display: none;">
-            <button type="button" onclick="document.getElementById('file-input').click()" class="button default">
+            <button type="button" id="select-files-btn" class="button default">
                 <i class="fas fa-plus"></i> Seleccionar Archivos
             </button>
         </div>
@@ -281,7 +281,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     dragDropZone.addEventListener('drop', handleDrop, false);
-    dragDropZone.addEventListener('click', () => fileInput.click());
+    
+    // Manejar click en el botón específicamente
+    const selectFilesBtn = document.getElementById('select-files-btn');
+    selectFilesBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        fileInput.click();
+    });
+
+    // Manejar click en la zona de drag & drop (pero no en el botón)
+    dragDropZone.addEventListener('click', function(e) {
+        // Solo si el click no es en el botón
+        if (e.target !== selectFilesBtn && !selectFilesBtn.contains(e.target)) {
+            fileInput.click();
+        }
+    });
+    
     fileInput.addEventListener('change', handleFileSelect);
 
     function preventDefaults(e) {
@@ -310,7 +326,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handleFiles(files) {
         if (files.length > 0) {
-            selectedFiles.set(fileInput.name, files);
+            // Asignar archivos directamente al input sin usar selectedFiles Map
+            const dataTransfer = new DataTransfer();
+            for (let file of files) {
+                dataTransfer.items.add(file);
+            }
+            fileInput.files = dataTransfer.files;
+            
             showNewImagesPreview(files);
             showMessage(`Se seleccionaron ${files.length} imagen(es). Haz clic en "Guardar" para subirlas.`);
         }
@@ -597,22 +619,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cargar imágenes existentes al inicializar
     cargarImagenesExistentes();
 
-    // Agregar listener para el submit del formulario
+    // Listener simple para el submit del formulario
     const form = document.querySelector('form');
     if (form) {
         form.addEventListener('submit', function(e) {
-            console.log('Formulario siendo enviado...');
-            selectedFiles.forEach((files, inputName) => {
-                const fileInput = form.querySelector(`input[name="${inputName}"]`);
-                if (fileInput && (!fileInput.files || fileInput.files.length === 0)) {
-                    console.log(`Restaurando ${files.length} archivos para input ${inputName}`);
-                    const dataTransfer = new DataTransfer();
-                    for (let file of files) {
-                        dataTransfer.items.add(file);
-                    }
-                    fileInput.files = dataTransfer.files;
-                }
-            });
+            console.log('Formulario siendo enviado con archivos:', fileInput.files.length);
         });
     }
 });
