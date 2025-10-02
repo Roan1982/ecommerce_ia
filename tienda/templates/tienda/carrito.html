@@ -426,7 +426,7 @@ function showMessage(message, type) {
     // Crear elemento de mensaje temporal
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.style.cssText = 'top: 80px; right: 20px; z-index: 1050; max-width: 400px; min-width: 250px;';
     alertDiv.innerHTML = `
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
