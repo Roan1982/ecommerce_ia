@@ -10,10 +10,10 @@ echo Creando superusuario...
 echo.
 echo Usuario: admin
 echo Email: admin@example.com
-echo Contrasena: admin123
+echo Contrasena: admin
 echo.
 
-echo from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'admin123') | python manage.py shell
+echo from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'admin') | python manage.py shell
 
 echo.
 echo ========================================
@@ -22,7 +22,7 @@ echo ========================================
 echo.
 echo Puedes acceder al panel de administracion con:
 echo Usuario: admin
-echo Contrasena: admin123
+echo Contrasena: admin
 echo URL: http://127.0.0.1:8000/admin/
 echo.
 pause
