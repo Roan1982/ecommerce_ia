@@ -303,84 +303,86 @@ class ProductoAdminForm(forms.ModelForm):
         if commit:
             instance.save()
 
-        # Evitar procesar archivos múltiples veces
-        if hasattr(self, '_files_processed'):
-            print("DEBUG: Archivos ya procesados, saltando...")
-            return instance
-        self._files_processed = True
+            # Evitar procesar archivos múltiples veces
+            if hasattr(self, '_files_processed'):
+                print("DEBUG: Archivos ya procesados, saltando...")
+                return instance
+            self._files_processed = True
 
-        # Procesar imágenes a eliminar
-        images_to_delete = self.cleaned_data.get('images_to_delete', '')
-        if images_to_delete:
-            image_ids = [int(id.strip()) for id in images_to_delete.split(',') if id.strip()]
-            ProductoImagen.objects.filter(id__in=image_ids, producto=instance).delete()
+            # Procesar imágenes a eliminar
+            images_to_delete = self.cleaned_data.get('images_to_delete', '')
+            if images_to_delete:
+                image_ids = [int(id.strip()) for id in images_to_delete.split(',') if id.strip()]
+                ProductoImagen.objects.filter(id__in=image_ids, producto=instance).delete()
 
-        # Procesar reordenamiento de imágenes existentes
-        existing_order = self.data.get('existing_images_order', '')
-        if existing_order:
-            order_data = existing_order.split(',')
-            for index, image_id in enumerate(order_data):
-                if image_id.strip():
+            # Procesar reordenamiento de imágenes existentes
+            existing_order = self.data.get('existing_images_order', '')
+            if existing_order:
+                order_data = existing_order.split(',')
+                for index, image_id in enumerate(order_data):
+                    if image_id.strip():
+                        try:
+                            img = ProductoImagen.objects.get(id=int(image_id), producto=instance)
+                            img.orden = index
+                            img.save()
+                        except (ProductoImagen.DoesNotExist, ValueError):
+                            pass
+
+            # Procesar los archivos subidos si existen
+            uploaded_files = self.files.getlist('imagenes_files') if self.files and hasattr(self.files, 'getlist') and 'imagenes_files' in self.files else []
+            
+            # Si no tiene getlist, intentar obtener como lista o valor único
+            if not uploaded_files and self.files and 'imagenes_files' in self.files:
+                file_value = self.files['imagenes_files']
+                if isinstance(file_value, list):
+                    uploaded_files = file_value
+                else:
+                    uploaded_files = [file_value] if file_value else []
+            
+            # DEBUG: Agregar logs para depuración
+            print(f"DEBUG ProductoAdminForm.save(): self.files = {self.files}")
+            print(f"DEBUG: uploaded_files = {uploaded_files}")
+            print(f"DEBUG: len(uploaded_files) = {len(uploaded_files)}")
+
+            if commit:
+                # Obtener el orden máximo actual para las nuevas imágenes
+                max_orden = instance.imagenes.aggregate(max_orden=models.Max('orden'))['max_orden'] or 0
+                print(f"DEBUG: max_orden inicial: {max_orden}")
+
+                has_principal = instance.imagenes.filter(es_principal=True).exists()
+                for i, uploaded_file in enumerate(uploaded_files):
                     try:
-                        img = ProductoImagen.objects.get(id=int(image_id), producto=instance)
-                        img.orden = index
-                        img.save()
-                    except (ProductoImagen.DoesNotExist, ValueError):
-                        pass
+                        # Asegurar que el archivo esté al inicio
+                        uploaded_file.seek(0)
+                        file_content = uploaded_file.read()
+                        print(f"DEBUG: Procesando archivo: {uploaded_file.name}, tamaño: {len(file_content)} bytes")
+                        
+                        # Verificar que el archivo no esté vacío
+                        if len(file_content) == 0:
+                            print(f"WARNING: El archivo {uploaded_file.name} está vacío, saltando...")
+                            continue
+                        
+                        es_principal = not has_principal and i == 0  # Primera imagen y no hay principal
+                        nueva_imagen = ProductoImagen.objects.create(
+                            producto=instance,
+                            imagen_blob=file_content,
+                            imagen_nombre=uploaded_file.name,
+                            imagen_tipo_mime=uploaded_file.content_type or 'application/octet-stream',
+                            orden=max_orden + 1,
+                            es_principal=es_principal
+                        )
+                        print(f"DEBUG: Imagen creada exitosamente: {nueva_imagen.imagen_nombre} (ID: {nueva_imagen.id})")
+                        max_orden += 1
+                        # Si es la primera imagen y no hay principal, ya tenemos principal
+                        if es_principal:
+                            has_principal = True
+                    except Exception as e:
+                        print(f"ERROR: Fallo al procesar archivo {uploaded_file.name}: {e}")
+                        import traceback
+                        traceback.print_exc()
 
-        # Procesar los archivos subidos si existen
-        uploaded_files = self.files.getlist('imagenes_files') if self.files and hasattr(self.files, 'getlist') and 'imagenes_files' in self.files else []
-        
-        # Si no tiene getlist, intentar obtener como lista o valor único
-        if not uploaded_files and self.files and 'imagenes_files' in self.files:
-            file_value = self.files['imagenes_files']
-            if isinstance(file_value, list):
-                uploaded_files = file_value
-            else:
-                uploaded_files = [file_value] if file_value else []
-        
-        # DEBUG: Agregar logs para depuración
-        print(f"DEBUG ProductoAdminForm.save(): self.files = {self.files}")
-        print(f"DEBUG: uploaded_files = {uploaded_files}")
-        print(f"DEBUG: len(uploaded_files) = {len(uploaded_files)}")
+                print(f"DEBUG: ProductoAdminForm.save() completado. Total imágenes del producto: {instance.imagenes.count()}")
 
-        # Obtener el orden máximo actual para las nuevas imágenes
-        max_orden = instance.imagenes.aggregate(max_orden=models.Max('orden'))['max_orden'] or 0
-        print(f"DEBUG: max_orden inicial: {max_orden}")
-
-        has_principal = instance.imagenes.filter(es_principal=True).exists()
-        for i, uploaded_file in enumerate(uploaded_files):
-            try:
-                # Asegurar que el archivo esté al inicio
-                uploaded_file.seek(0)
-                file_content = uploaded_file.read()
-                print(f"DEBUG: Procesando archivo: {uploaded_file.name}, tamaño: {len(file_content)} bytes")
-                
-                # Verificar que el archivo no esté vacío
-                if len(file_content) == 0:
-                    print(f"WARNING: El archivo {uploaded_file.name} está vacío, saltando...")
-                    continue
-                
-                es_principal = not has_principal and i == 0  # Primera imagen y no hay principal
-                nueva_imagen = ProductoImagen.objects.create(
-                    producto=instance,
-                    imagen_blob=file_content,
-                    imagen_nombre=uploaded_file.name,
-                    imagen_tipo_mime=uploaded_file.content_type or 'application/octet-stream',
-                    orden=max_orden + 1,
-                    es_principal=es_principal
-                )
-                print(f"DEBUG: Imagen creada exitosamente: {nueva_imagen.imagen_nombre} (ID: {nueva_imagen.id})")
-                max_orden += 1
-                # Si es la primera imagen y no hay principal, ya tenemos principal
-                if es_principal:
-                    has_principal = True
-            except Exception as e:
-                print(f"ERROR: Fallo al procesar archivo {uploaded_file.name}: {e}")
-                import traceback
-                traceback.print_exc()
-
-        print(f"DEBUG: ProductoAdminForm.save() completado. Total imágenes del producto: {instance.imagenes.count()}")
         return instance
 
 
