@@ -423,23 +423,38 @@ function updateCartUI(data) {
 }
 
 function showMessage(message, type) {
-    // Crear elemento de mensaje temporal
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    alertDiv.style.cssText = 'top: 80px; right: 20px; z-index: 1050; max-width: 400px; min-width: 250px;';
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    // Crear elemento de mensaje temporal usando Bootstrap Toast
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container position-fixed';
+    toastContainer.style.cssText = 'top: 80px; right: 20px; z-index: 1050;';
+
+    const toastElement = document.createElement('div');
+    toastElement.className = `toast align-items-center text-white bg-${type} border-0`;
+    toastElement.setAttribute('role', 'alert');
+    toastElement.setAttribute('aria-live', 'assertive');
+    toastElement.setAttribute('aria-atomic', 'true');
+
+    toastElement.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
     `;
 
-    document.body.appendChild(alertDiv);
+    toastContainer.appendChild(toastElement);
+    document.body.appendChild(toastContainer);
 
-    // Auto-remover después de 3 segundos
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.remove();
-        }
-    }, 3000);
+    // Inicializar y mostrar el toast
+    const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: 3000
+    });
+    toast.show();
+
+    // Remover el contenedor después de que se oculte el toast
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastContainer.remove();
+    });
 }
 
 // Agregar animación de carga a los botones
