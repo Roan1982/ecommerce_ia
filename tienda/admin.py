@@ -1111,7 +1111,7 @@ class ProductoAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ("Información Básica", {
-            "fields": ("nombre", "descripcion", "precio", "categoria", "imagenes_files")
+            "fields": ("nombre", "descripcion", "precio", "categoria")
         }),
         ("Inventario", {
             "fields": ("stock", "stock_minimo", "sku", "estado"),
