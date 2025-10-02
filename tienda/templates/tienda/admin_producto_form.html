@@ -2,7 +2,136 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{{ titulo }}{% endblock %}
+{% block extra_css %}
+<style>
+.image-management-container {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.image-management-container:hover {
+    border-color: #007bff;
+    background-color: #e3f2fd;
+}
+
+.image-upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.image-upload-area.drag-over {
+    border-color: #007bff;
+    background-color: #e3f2fd;
+}
+
+.upload-placeholder i {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 10px;
+}
+
+.upload-link {
+    color: #007bff;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.upload-link:hover {
+    color: #0056b3;
+}
+
+.images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.image-item {
+    position: relative;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+
+.image-container {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    overflow: hidden;
+}
+
+.image-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    gap: 5px;
+}
+
+.image-item:hover .image-overlay {
+    opacity: 1;
+}
+
+.image-overlay button {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.image-overlay button:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+.btn-success {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+}
+
+.image-info {
+    padding: 8px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+.image-info small {
+    display: block;
+    text-align: center;
+    color: #6c757d;
+    word-break: break-all;
+}
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
@@ -148,21 +277,21 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="{{ form.imagen.id_for_label }}" class="form-label">
-                            {{ form.imagen.label }}
+                        <label for="{{ form.imagenes_files.id_for_label }}" class="form-label">
+                            {{ form.imagenes_files.label }}{% if form.imagenes_files.field.required %} <span class="text-danger">*</span>{% endif %}
                         </label>
-                        {{ form.imagen }}
-                        {% if form.imagen.errors %}
-                            <div class="text-danger small">{{ form.imagen.errors.0 }}</div>
+                        {{ form.imagenes_files }}
+                        {% if form.imagenes_files.errors %}
+                            <div class="text-danger small">{{ form.imagenes_files.errors.0 }}</div>
                         {% endif %}
-                        {% if producto and producto.imagen %}
-                        <div class="mt-2">
-                            <img src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}"
-                                 class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
-                            <p class="text-muted small mt-1">Imagen actual</p>
+                        <div class="form-text">
+                            {{ form.imagenes_files.help_text }}
                         </div>
-                        {% endif %}
                     </div>
+
+                    <!-- Campos ocultos para gestión de imágenes -->
+                    {{ form.images_to_delete }}
+                    {{ form.existing_images_order }}
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-admin">
@@ -211,12 +340,26 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Validación del formulario
     const form = document.querySelector('form');
     form.addEventListener('submit', function(e) {
+        console.log('Form submit triggered');
+        console.log('Files in imageInput:', imageInput.files);
+
+        if (imageInput.files.length === 0) {
+            console.warn('No files attached to imageInput');
+        } else {
+            for (const file of imageInput.files) {
+                console.log(`File attached: ${file.name}, size: ${file.size} bytes`);
+            }
+        }
+
+        // Actualizar archivos justo antes de enviar
+        updateFilesBeforeSubmit();
+
         const precio = document.getElementById('id_precio');
         const stock = document.getElementById('id_stock');
         const stockMinimo = document.getElementById('id_stock_minimo');
@@ -224,19 +367,19 @@ document.addEventListener('DOMContentLoaded', function() {
         let isValid = true;
 
         // Validar precio positivo
-        if (precio.value && parseFloat(precio.value) <= 0) {
+        if (precio && precio.value && parseFloat(precio.value) <= 0) {
             mostrarError(precio, 'El precio debe ser mayor a 0');
             isValid = false;
         }
 
         // Validar stock no negativo
-        if (stock.value && parseInt(stock.value) < 0) {
+        if (stock && stock.value && parseInt(stock.value) < 0) {
             mostrarError(stock, 'El stock no puede ser negativo');
             isValid = false;
         }
 
         // Validar stock mínimo no negativo
-        if (stockMinimo.value && parseInt(stockMinimo.value) < 0) {
+        if (stockMinimo && stockMinimo.value && parseInt(stockMinimo.value) < 0) {
             mostrarError(stockMinimo, 'El stock mínimo no puede ser negativo');
             isValid = false;
         }
@@ -273,6 +416,415 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Gestión de imágenes - Funciona con ambos widgets
+    console.log('Initializing image management JavaScript');
+    const imageInput = document.getElementById('id_imagenes_files');
+
+    console.log('imageInput found:', !!imageInput);
+
+    if (imageInput) {
+        // Verificar si es el widget de gestión avanzada o el simple
+        const imageContainer = document.getElementById('image-management-imagenes_files');
+        const isManagementWidget = !!imageContainer;
+
+        console.log('isManagementWidget:', isManagementWidget);
+
+        if (isManagementWidget) {
+            // Lógica para ImageManagementWidget (productos con imágenes existentes)
+            console.log('Using ImageManagementWidget logic');
+            setupManagementWidget(imageInput, imageContainer);
+        } else {
+            // Lógica para ImagePreviewWidget (productos nuevos o sin imágenes)
+            console.log('Using ImagePreviewWidget logic');
+            setupPreviewWidget(imageInput);
+        }
+    }
+
+    function setupManagementWidget(imageInput, imageContainer) {
+        const uploadArea = imageContainer.querySelector('.image-upload-area');
+        const newImagesGrid = imageContainer.querySelector('.new-images-preview .images-grid');
+
+        console.log('Management widget - uploadArea found:', !!uploadArea);
+        console.log('Management widget - newImagesGrid found:', !!newImagesGrid);
+
+        uploadArea.addEventListener('drop', function(event) {
+            event.preventDefault();
+            const files = event.dataTransfer.files;
+            console.log('Files dropped:', files);
+
+            for (const file of files) {
+                console.log('Processing file:', file.name);
+                // Adjuntar archivos al formulario
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                imageInput.files = dataTransfer.files;
+                console.log('Files attached to input:', imageInput.files);
+            }
+        });
+    }
+
+    function setupPreviewWidget(imageInput) {
+        imageInput.addEventListener('change', function(event) {
+            const files = event.target.files;
+            console.log('Files selected:', files);
+
+            for (const file of files) {
+                console.log('Processing file:', file.name);
+                // Confirmar que los archivos están adjuntos
+                console.log('Files attached to input:', imageInput.files);
+            }
+        });
+    }
+
+    function mostrarError(elemento, mensaje) {
+        // Remover errores previos
+        const errorExistente = elemento.parentNode.querySelector('.text-danger');
+        if (errorExistente) {
+            errorExistente.remove();
+        }
+
+        // Agregar nuevo error
+        const error = document.createElement('div');
+        error.className = 'text-danger small';
+        error.textContent = mensaje;
+        elemento.parentNode.appendChild(error);
+
+        // Resaltar campo
+        elemento.classList.add('is-invalid');
+    }
+
+    // Limpiar errores al cambiar valor
+    document.querySelectorAll('input, select, textarea').forEach(elemento => {
+        elemento.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+            const error = this.parentNode.querySelector('.text-danger');
+            if (error) {
+                error.remove();
+            }
+        });
+    });
+
+    // Gestión de imágenes - Funciona con ambos widgets
+    console.log('Initializing image management JavaScript');
+    const imageInput = document.getElementById('id_imagenes_files');
+
+    console.log('imageInput found:', !!imageInput);
+
+    if (imageInput) {
+        // Verificar si es el widget de gestión avanzada o el simple
+        const imageContainer = document.getElementById('image-management-imagenes_files');
+        const isManagementWidget = !!imageContainer;
+
+        console.log('isManagementWidget:', isManagementWidget);
+
+        if (isManagementWidget) {
+            // Lógica para ImageManagementWidget (productos con imágenes existentes)
+            console.log('Using ImageManagementWidget logic');
+            setupManagementWidget(imageInput, imageContainer);
+        } else {
+            // Lógica para ImagePreviewWidget (productos nuevos o sin imágenes)
+            console.log('Using ImagePreviewWidget logic');
+            setupPreviewWidget(imageInput);
+        }
+    }
+
+    function setupManagementWidget(imageInput, imageContainer) {
+        const uploadArea = imageContainer.querySelector('.image-upload-area');
+        const newImagesGrid = imageContainer.querySelector('.new-images-preview .images-grid');
+
+        console.log('Management widget - uploadArea found:', !!uploadArea);
+        console.log('Management widget - newImagesGrid found:', !!newImagesGrid);
+
+        // Drag and drop functionality
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function highlight(e) {
+            if (uploadArea) {
+                uploadArea.classList.add('drag-over');
+            }
+        }
+
+        function unhighlight(e) {
+            if (uploadArea) {
+                uploadArea.classList.remove('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            if (uploadArea) {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            if (uploadArea) {
+                uploadArea.addEventListener(eventName, highlight, false);
+            }
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            if (uploadArea) {
+                uploadArea.addEventListener(eventName, unhighlight, false);
+            }
+        });
+
+        if (uploadArea) {
+            uploadArea.addEventListener('drop', handleDrop, false);
+            uploadArea.addEventListener('click', function(e) {
+                if (e.target.closest('.image-overlay') || e.target.closest('.image-info')) {
+                    return; // Don't trigger file selection when clicking on image controls
+                }
+                imageInput.click();
+            });
+        }
+
+        imageInput.addEventListener('change', function(e) {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            // Convert FileList to Array and filter for images
+            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+
+            if (imageFiles.length === 0) {
+                alert('Por favor selecciona archivos de imagen válidos.');
+                return;
+            }
+
+            // Check file count limit
+            const existingImages = imageContainer.querySelectorAll('.existing-image').length;
+            const newImages = imageContainer.querySelectorAll('.new-image').length;
+            const totalImages = existingImages + newImages + imageFiles.length;
+
+            if (totalImages > 10) {
+                alert(`No puedes subir más de 10 imágenes. Actualmente tienes ${existingImages + newImages} imágenes.`);
+                return;
+            }
+
+            // Check file sizes
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            const oversizedFiles = imageFiles.filter(file => file.size > maxSize);
+
+            if (oversizedFiles.length > 0) {
+                alert(`Los siguientes archivos son demasiado grandes (máximo 5MB):\n${oversizedFiles.map(f => f.name).join('\n')}`);
+                return;
+            }
+
+            // Preview new images
+            imageFiles.forEach(file => {
+                previewFile(file);
+            });
+        }
+
+        function previewFile(file) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = function() {
+                const previewContainer = document.createElement('div');
+                previewContainer.className = 'image-item new-image';
+                previewContainer._file = file; // Store file reference
+                previewContainer.innerHTML = `
+                    <div class="image-container">
+                        <img src="${reader.result}" alt="${file.name}" class="image-preview">
+                        <div class="image-overlay">
+                            <button type="button" class="btn btn-sm btn-danger remove-new-image">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="image-info">
+                        <small class="text-muted">${file.name}</small>
+                    </div>
+                `;
+
+                // Add to preview grid
+                if (newImagesGrid) {
+                    newImagesGrid.appendChild(previewContainer);
+                } else {
+                    // Create grid if it doesn't exist
+                    const grid = document.createElement('div');
+                    grid.className = 'images-grid';
+                    grid.id = 'new-images-grid-imagenes_files';
+                    imageContainer.appendChild(grid);
+                    grid.appendChild(previewContainer);
+                }
+
+                // Add remove functionality
+                previewContainer.querySelector('.remove-new-image').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    previewContainer.remove();
+                    updateFileInput();
+                });
+
+                updateFileInput();
+            };
+        }
+
+        function updateFileInput() {
+            // Update the file input with all selected files
+            const newImages = imageContainer.querySelectorAll('.new-image');
+            const files = Array.from(newImages).map(item => item._file).filter(file => file);
+
+            console.log('Management widget - updateFileInput called, new files:', files.length);
+
+            // Create a new DataTransfer object
+            const dt = new DataTransfer();
+
+            // Add existing files from input (if any)
+            if (imageInput.files) {
+                Array.from(imageInput.files).forEach(file => {
+                    console.log('Adding existing file:', file.name);
+                    dt.items.add(file);
+                });
+            }
+
+            // Add new files
+            files.forEach(file => {
+                console.log('Adding new file:', file.name);
+                dt.items.add(file);
+            });
+
+            // Update the input
+            imageInput.files = dt.files;
+            console.log('Management widget - Final files in input:', imageInput.files.length);
+        }
+
+        // Handle existing image deletion
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.delete-image')) {
+                e.preventDefault();
+                const button = e.target.closest('.delete-image');
+                const imageId = button.dataset.imageId;
+                const imageItem = button.closest('.image-item');
+
+                if (confirm('¿Estás seguro de que quieres eliminar esta imagen?')) {
+                    // Add to deletion list
+                    const deleteInput = document.getElementById('images_to_delete');
+                    const currentDeletes = deleteInput.value ? deleteInput.value.split(',') : [];
+                    currentDeletes.push(imageId);
+                    deleteInput.value = currentDeletes.join(',');
+
+                    // Remove from UI
+                    imageItem.remove();
+                }
+            }
+        });
+
+        // Handle setting primary image
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.set-primary')) {
+                e.preventDefault();
+                const button = e.target.closest('.set-primary');
+                const imageId = button.dataset.imageId;
+
+                // Update UI
+                document.querySelectorAll('.set-primary').forEach(btn => {
+                    btn.innerHTML = '<i class="bi bi-star"></i> Hacer Principal';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-warning');
+                });
+
+                button.innerHTML = '<i class="bi bi-star"></i> Principal';
+                button.classList.remove('btn-warning');
+                button.classList.add('btn-success');
+            }
+        });
+    }
+
+    function setupPreviewWidget(imageInput) {
+        console.log('Setting up preview widget for simple file input');
+
+        // Para el widget simple, solo necesitamos manejar el evento change
+        // Los archivos se envían automáticamente cuando se selecciona
+        imageInput.addEventListener('change', function(e) {
+            const files = e.target.files;
+            console.log('Preview widget - Files selected:', files.length);
+
+            if (files.length > 0) {
+                // Mostrar mensaje de que los archivos están listos para enviar
+                console.log('Preview widget - Files ready to submit:', Array.from(files).map(f => f.name));
+            }
+        });
+
+        // Agregar funcionalidad de drag & drop al input si es posible
+        const inputContainer = imageInput.closest('.form-group') || imageInput.parentNode;
+        if (inputContainer) {
+            inputContainer.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                inputContainer.style.border = '2px dashed #007bff';
+            });
+
+            inputContainer.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                inputContainer.style.border = '';
+            });
+
+            inputContainer.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                inputContainer.style.border = '';
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    // Asignar archivos al input
+                    imageInput.files = files;
+                    console.log('Preview widget - Files dropped and assigned:', files.length);
+
+                    // Trigger change event
+                    const event = new Event('change', { bubbles: true });
+                    imageInput.dispatchEvent(event);
+                }
+            });
+        }
+    }
 });
+
+function updateFilesBeforeSubmit() {
+    console.log('updateFilesBeforeSubmit called');
+    const imageInput = document.getElementById('id_imagenes_files');
+    const imageContainer = document.getElementById('image-management-imagenes_files');
+
+    if (imageInput && imageContainer) {
+        const newImages = imageContainer.querySelectorAll('.new-image');
+        const files = Array.from(newImages).map(item => item._file).filter(file => file);
+
+        console.log('Files to add before submit:', files.length);
+
+        if (files.length > 0) {
+            // Create a new DataTransfer with all files
+            const dt = new DataTransfer();
+
+            // Add existing files from input (if any)
+            if (imageInput.files) {
+                Array.from(imageInput.files).forEach(file => {
+                    dt.items.add(file);
+                });
+            }
+
+            // Add new files
+            files.forEach(file => {
+                dt.items.add(file);
+            });
+
+            // Update the input
+            imageInput.files = dt.files;
+            console.log('Final files in input before submit:', imageInput.files.length);
+        }
+    } else {
+        console.log('Elements not found for file update');
+    }
+}
 </script>
 {% endblock %}

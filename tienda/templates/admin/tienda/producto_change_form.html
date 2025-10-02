@@ -1,0 +1,1446 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+
+<!-- Font Awesome para iconos -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- SortableJS para drag & drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<style>
+/* Estilos modernos para gestión de imágenes */
+.image-management-container {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.image-upload-zone {
+    border: 2px dashed #dee2e6;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.image-upload-zone:hover,
+.image-upload-zone.dragover {
+    border-color: #007bff;
+    background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+}
+
+.upload-icon {
+    font-size: 48px;
+    color: #6c757d;
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+}
+
+.image-upload-zone:hover .upload-icon {
+    color: #007bff;
+    transform: scale(1.1);
+}
+
+.upload-text {
+    font-size: 18px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+.upload-subtext {
+    font-size: 14px;
+    color: #6c757d;
+    margin-bottom: 16px;
+}
+
+.upload-stats {
+    font-size: 12px;
+    color: #868e96;
+    background: rgba(255,255,255,0.8);
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+/* Sección de imágenes existentes */
+.existing-images-section {
+    margin-bottom: 24px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #343a40;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title i {
+    color: #007bff;
+}
+
+/* Grid de imágenes */
+.images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 16px;
+}
+
+/* Tarjeta de imagen moderna */
+.image-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    cursor: grab;
+}
+
+.image-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.image-card.sortable-ghost {
+    opacity: 0.4;
+}
+
+.image-card.sortable-chosen {
+    transform: rotate(5deg);
+    z-index: 1000;
+}
+
+/* Contenedor de imagen */
+.image-container {
+    position: relative;
+    aspect-ratio: 16/10;
+    overflow: hidden;
+    background: #f8f9fa;
+}
+
+.image-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.image-card:hover .image-preview {
+    transform: scale(1.05);
+}
+
+/* Badge de imagen principal */
+.primary-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    z-index: 2;
+}
+
+/* Overlay de acciones */
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.5) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.image-card:hover .image-overlay {
+    opacity: 1;
+}
+
+/* Botones de acción modernos */
+.action-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+}
+
+.action-btn:hover {
+    transform: scale(1.1);
+}
+
+.btn-delete {
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+}
+
+.btn-delete:hover {
+    background: rgba(220, 53, 69, 1);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+.btn-primary-toggle {
+    background: rgba(255, 193, 7, 0.9);
+    color: white;
+}
+
+.btn-primary-toggle:hover {
+    background: rgba(255, 193, 7, 1);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+}
+
+.btn-primary-toggle.is-primary {
+    background: rgba(40, 167, 69, 0.9);
+}
+
+.btn-primary-toggle.is-primary:hover {
+    background: rgba(40, 167, 69, 1);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+/* Información de la imagen */
+.image-info {
+    padding: 16px;
+    background: white;
+}
+
+.image-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #343a40;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.image-size {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* Sección de nuevas imágenes */
+.new-images-section {
+    display: none;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+    border-left: 4px solid #28a745;
+}
+
+.new-images-section.show {
+    display: block;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.new-images-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #155724;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Estado de carga */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+}
+
+.loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #dee2e6;
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Mensajes de estado */
+.status-message {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 16px 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.status-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .images-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+    }
+    
+    .image-upload-zone {
+        padding: 30px 15px;
+    }
+    
+    .upload-icon {
+        font-size: 36px;
+    }
+    
+    .upload-text {
+        font-size: 16px;
+    }
+}
+
+/* Ocultar el input file original */
+#id_imagenes_files {
+    display: none;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Asegurar enctype en el formulario
+    const form = document.querySelector('form[method="post"]');
+    if (form && !form.getAttribute('enctype')) {
+        form.setAttribute('enctype', 'multipart/form-data');
+        console.log('DEBUG: Enctype multipart/form-data añadido al formulario');
+    }
+
+    // Verificar si hay campo de imágenes y inicializar
+    const imageField = document.querySelector('#id_imagenes_files');
+    if (imageField) {
+        // Solo inicializar si no existe ya la interfaz moderna
+        if (!document.querySelector('.image-management-container')) {
+            initializeImageManagement();
+        } else {
+            console.log('Interfaz de gestión ya existe');
+        }
+    }
+});
+
+function initializeImageManagement() {
+    const imageField = document.querySelector('#id_imagenes_files');
+    if (!imageField) {
+        console.log('Campo de imágenes no encontrado');
+        return;
+    }
+
+    // Crear la interfaz moderna
+    createModernImageInterface(imageField);
+}
+
+function createModernImageInterface(imageField) {
+    // Crear contenedor principal
+    const container = document.createElement('div');
+    container.className = 'image-management-container';
+    container.innerHTML = `
+        <div class="existing-images-section" id="existing-images-section">
+            <div class="section-title">
+                <i class="fas fa-images"></i>
+                Imágenes actuales
+                <span class="badge badge-primary" id="images-count">0</span>
+            </div>
+            <div class="images-grid" id="existing-images-grid"></div>
+        </div>
+
+        <div class="image-upload-zone" id="upload-zone">
+            <div class="upload-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <div class="upload-text">Arrastra imágenes aquí</div>
+            <div class="upload-subtext">o haz clic para seleccionar archivos</div>
+            <div class="upload-stats" id="upload-stats">
+                Máximo 10 imágenes • 5MB por archivo • JPG, PNG, GIF, WebP
+            </div>
+        </div>
+
+        <div class="new-images-section" id="new-images-section">
+            <div class="new-images-title">
+                <i class="fas fa-plus-circle"></i>
+                Nuevas imágenes seleccionadas
+            </div>
+            <div class="images-grid" id="new-images-grid"></div>
+        </div>
+
+        <div id="status-messages"></div>
+    `;
+
+    // Insertar después del campo original
+    imageField.parentNode.insertBefore(container, imageField.nextSibling);
+
+    // Inicializar funcionalidad
+    initializeUploadZone(imageField, container);
+    initializeExistingImages(container);
+    loadExistingImages(container);
+}
+
+function initializeUploadZone(imageField, container) {
+    const uploadZone = container.querySelector('#upload-zone');
+    const newImagesSection = container.querySelector('#new-images-section');
+    const newImagesGrid = container.querySelector('#new-images-grid');
+    const statusMessages = container.querySelector('#status-messages');
+    
+    let selectedFiles = [];
+    let dragCounter = 0;
+
+    // Click para seleccionar archivos
+    uploadZone.addEventListener('click', () => {
+        imageField.click();
+    });
+
+    // Drag & Drop eventos
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    uploadZone.addEventListener('dragenter', (e) => {
+        dragCounter++;
+        uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', (e) => {
+        dragCounter--;
+        if (dragCounter === 0) {
+            uploadZone.classList.remove('dragover');
+        }
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+        dragCounter = 0;
+        uploadZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        handleFiles(files);
+    });
+
+    // Cambio en el input file
+    imageField.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+
+    function handleFiles(files) {
+        const validFiles = validateFiles(files);
+        if (validFiles.length > 0) {
+            selectedFiles = [...selectedFiles, ...validFiles];
+            updateFileInput();
+            renderNewImages();
+            updateStats();
+            showMessage('Imágenes agregadas correctamente', 'success');
+        }
+    }
+
+    function validateFiles(files) {
+        const validFiles = [];
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxFiles = 10;
+
+        if (selectedFiles.length >= maxFiles) {
+            showMessage(`Máximo ${maxFiles} imágenes permitidas`, 'error');
+            return [];
+        }
+
+        Array.from(files).forEach(file => {
+            // Verificar tipo
+            if (!allowedTypes.includes(file.type.toLowerCase())) {
+                showMessage(`Tipo no válido: ${file.name}. Solo JPG, PNG, GIF, WebP`, 'error');
+                return;
+            }
+
+            // Verificar tamaño
+            if (file.size > maxSize) {
+                showMessage(`Archivo muy grande: ${file.name}. Máximo 5MB`, 'error');
+                return;
+            }
+
+            // Verificar duplicados
+            if (selectedFiles.find(f => f.name === file.name)) {
+                showMessage(`Archivo duplicado: ${file.name}`, 'error');
+                return;
+            }
+
+            // Verificar límite total
+            if (selectedFiles.length + validFiles.length >= maxFiles) {
+                showMessage(`Máximo ${maxFiles} imágenes permitidas`, 'error');
+                return;
+            }
+
+            validFiles.push(file);
+        });
+
+        return validFiles;
+    }
+
+    function updateFileInput() {
+        try {
+            const dt = new DataTransfer();
+            selectedFiles.forEach(file => dt.items.add(file));
+            imageField.files = dt.files;
+        } catch (e) {
+            console.warn('DataTransfer no soportado completamente');
+        }
+    }
+
+    function renderNewImages() {
+        newImagesGrid.innerHTML = '';
+        
+        if (selectedFiles.length > 0) {
+            newImagesSection.classList.add('show');
+            
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageCard = createImageCard({
+                        src: e.target.result,
+                        name: file.name,
+                        size: formatFileSize(file.size),
+                        isNew: true,
+                        index: index
+                    });
+                    newImagesGrid.appendChild(imageCard);
+                };
+                reader.readAsDataURL(file);
+            });
+        } else {
+            newImagesSection.classList.remove('show');
+        }
+    }
+
+    function updateStats() {
+        const statsEl = container.querySelector('#upload-stats');
+        const remaining = 10 - selectedFiles.length;
+        const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+        
+        statsEl.innerHTML = `
+            Seleccionadas: ${selectedFiles.length}/10 • 
+            Disponibles: ${remaining} • 
+            Tamaño total: ${formatFileSize(totalSize)}
+        `;
+    }
+
+    // Función para eliminar archivo nuevo
+    window.removeNewImage = function(index) {
+        selectedFiles.splice(index, 1);
+        updateFileInput();
+        renderNewImages();
+        updateStats();
+        showMessage('Imagen eliminada', 'success');
+    };
+}
+
+function initializeExistingImages(container) {
+    const existingGrid = container.querySelector('#existing-images-grid');
+    
+    // Hacer sortable
+    if (window.Sortable && existingGrid) {
+        new Sortable(existingGrid, {
+            animation: 200,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: function(evt) {
+                updateImageOrder();
+                showMessage('Orden actualizado', 'success');
+            }
+        });
+    }
+
+    // Funciones globales para manejar imágenes existentes
+    window.deleteExistingImage = function(imageId) {
+        if (confirm('¿Estás seguro de que quieres eliminar esta imagen?')) {
+            fetch(\`/admin/tienda/producto/imagenes/eliminar/\${imageId}/\`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken(),
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.querySelector(\`[data-image-id="\${imageId}"]\`).remove();
+                    updateImagesCount();
+                    showMessage('Imagen eliminada correctamente', 'success');
+                } else {
+                    showMessage('Error al eliminar imagen: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showMessage('Error de conexión al eliminar imagen', 'error');
+            });
+        }
+    };
+
+    window.togglePrimaryImage = function(imageId) {
+        fetch(\`/admin/tienda/producto/imagenes/establecer-principal/\${imageId}/\`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Actualizar UI
+                document.querySelectorAll('.primary-badge').forEach(badge => badge.remove());
+                document.querySelectorAll('.btn-primary-toggle').forEach(btn => {
+                    btn.classList.remove('is-primary');
+                    btn.innerHTML = '<i class="fas fa-star"></i>';
+                });
+
+                // Marcar como principal
+                const card = document.querySelector(\`[data-image-id="\${imageId}"]\`);
+                const container = card.querySelector('.image-container');
+                const badge = document.createElement('div');
+                badge.className = 'primary-badge';
+                badge.innerHTML = '<i class="fas fa-crown"></i> Portada';
+                container.appendChild(badge);
+
+                const btn = card.querySelector('.btn-primary-toggle');
+                btn.classList.add('is-primary');
+                btn.innerHTML = '<i class="fas fa-crown"></i>';
+
+                showMessage('Imagen principal actualizada', 'success');
+            } else {
+                showMessage('Error al actualizar imagen principal: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            showMessage('Error de conexión', 'error');
+        });
+    };
+}
+
+function loadExistingImages(container) {
+    const existingGrid = container.querySelector('#existing-images-grid');
+    
+    // Obtener el ID del producto de la URL
+    const urlParts = window.location.pathname.split('/');
+    const productId = urlParts[urlParts.length - 3]; // Asumiendo /admin/tienda/producto/ID/change/
+    
+    if (productId && productId !== 'add') {
+        // Fetch existing images from server
+        fetch(\`/admin/tienda/producto/\${productId}/imagenes/\`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Si no hay endpoint específico, intentar obtener las imágenes del contexto
+                loadImagesFromContext(existingGrid);
+                return;
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.images) {
+                renderExistingImages(existingGrid, data.images);
+            } else {
+                loadImagesFromContext(existingGrid);
+            }
+        })
+        .catch(error => {
+            console.log('Loading images from context instead');
+            loadImagesFromContext(existingGrid);
+        });
+    }
+    
+    updateImagesCount();
+}
+
+function loadImagesFromContext(existingGrid) {
+    // Intentar obtener imágenes del contexto Django si están disponibles
+    // Esto sería pasado desde el template del Django admin
+    if (window.existingImages && window.existingImages.length > 0) {
+        renderExistingImages(existingGrid, window.existingImages);
+    } else {
+        // Mostrar mensaje si no hay imágenes
+        showEmptyState(existingGrid);
+    }
+}
+
+function renderExistingImages(existingGrid, images) {
+    existingGrid.innerHTML = '';
+    
+    if (images && images.length > 0) {
+        images.forEach(image => {
+            const imageCard = createImageCard({
+                id: image.id,
+                src: image.url_imagen,
+                name: image.imagen_nombre,
+                size: formatFileSize(image.size || 0),
+                isPrimary: image.es_principal,
+                isNew: false
+            });
+            existingGrid.appendChild(imageCard);
+        });
+    } else {
+        showEmptyState(existingGrid);
+    }
+    
+    updateImagesCount();
+}
+
+function showEmptyState(existingGrid) {
+    existingGrid.innerHTML = \`
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6c757d;">
+            <i class="fas fa-images" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+            <div style="font-size: 18px; margin-bottom: 8px;">No hay imágenes</div>
+            <div style="font-size: 14px;">Sube algunas imágenes para este producto</div>
+        </div>
+    \`;
+}
+
+function createImageCard(data) {
+    const card = document.createElement('div');
+    card.className = 'image-card';
+    if (!data.isNew) {
+        card.setAttribute('data-image-id', data.id);
+    }
+
+    card.innerHTML = \`
+        <div class="image-container">
+            <img src="\${data.src}" alt="\${data.name}" class="image-preview">
+            \${data.isPrimary ? '<div class="primary-badge"><i class="fas fa-crown"></i> Portada</div>' : ''}
+            <div class="image-overlay">
+                <button type="button" class="action-btn btn-delete" onclick="\${data.isNew ? \`removeNewImage(\${data.index})\` : \`deleteExistingImage(\${data.id})\`}">
+                    <i class="fas fa-trash"></i>
+                </button>
+                \${!data.isNew ? \`
+                <button type="button" class="action-btn btn-primary-toggle \${data.isPrimary ? 'is-primary' : ''}" onclick="togglePrimaryImage(\${data.id})">
+                    <i class="fas fa-\${data.isPrimary ? 'crown' : 'star'}"></i>
+                </button>
+                \` : ''}
+            </div>
+        </div>
+        <div class="image-info">
+            <div class="image-name">\${data.name}</div>
+            <div class="image-size">\${data.size}</div>
+        </div>
+    \`;
+
+    return card;
+}
+
+function updateImageOrder() {
+    const existingGrid = document.querySelector('#existing-images-grid');
+    const imageIds = Array.from(existingGrid.querySelectorAll('[data-image-id]'))
+        .map(card => card.getAttribute('data-image-id'));
+
+    fetch('/admin/tienda/producto/imagenes/reordenar/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken(),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orden: imageIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            console.error('Error al reordenar imágenes:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error de conexión al reordenar imágenes');
+    });
+}
+
+function updateImagesCount() {
+    const existingGrid = document.querySelector('#existing-images-grid');
+    const count = existingGrid ? existingGrid.querySelectorAll('.image-card').length : 0;
+    const countEl = document.querySelector('#images-count');
+    if (countEl) {
+        countEl.textContent = count;
+    }
+}
+
+function showMessage(message, type) {
+    const statusMessages = document.querySelector('#status-messages');
+    if (!statusMessages) return;
+
+    const messageEl = document.createElement('div');
+    messageEl.className = \`status-message status-\${type}\`;
+    messageEl.textContent = message;
+    
+    statusMessages.appendChild(messageEl);
+    
+    setTimeout(() => {
+        messageEl.remove();
+    }, 5000);
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function getCSRFToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    return token ? token.value : '';
+}
+<style>
+/* Estilos para el widget de gestión de imágenes */
+.image-management-container {
+    margin-top: 20px;
+}
+
+.image-upload-area {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    background-color: #f9f9f9;
+    transition: all 0.3s ease;
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.image-upload-area:hover,
+.image-upload-area.dragover {
+    border-color: #007bff;
+    background-color: #e3f2fd;
+}
+
+.upload-placeholder {
+    color: #666;
+}
+
+.upload-placeholder i {
+    font-size: 48px;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.upload-link {
+    color: #007bff;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.image-upload-widget {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.image-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    border: 1px solid #ddd;
+    transition: all 0.3s ease;
+}
+
+.image-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.image-container {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    overflow: hidden;
+}
+
+.image-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.image-item:hover .image-overlay {
+    opacity: 1;
+}
+
+.image-overlay .btn {
+    font-size: 11px;
+    padding: 4px 8px;
+}
+
+.image-info {
+    padding: 8px;
+    background: white;
+    border-top: 1px solid #eee;
+}
+
+.image-info small {
+    display: block;
+    color: #666;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Estilos para drag & drop */
+.sortable .image-item {
+    cursor: move;
+}
+
+.sortable .image-item:hover {
+    transform: translateY(-2px);
+}
+
+.sortable-placeholder {
+    background: #e3f2fd;
+    border: 2px dashed #007bff;
+    visibility: visible !important;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+}
+
+/* Estilos para imágenes nuevas */
+.new-images-preview {
+    border: 1px solid #28a745;
+    border-radius: 8px;
+    padding: 15px;
+    background-color: #f8fff9;
+    margin-bottom: 20px;
+}
+
+.new-images-preview h4 {
+    color: #28a745;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .images-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+    }
+
+    .image-container {
+        height: 100px;
+    }
+
+    .image-upload-area {
+        padding: 30px 15px;
+    }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.image-item {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Loading states */
+.image-uploading {
+    position: relative;
+}
+
+.image-uploading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #007bff;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{{ block.super }}
+
+<script>
+// Pasar imágenes existentes al JavaScript
+window.existingImages = [
+    {% if original %}
+        {% for imagen in original.imagenes.all %}
+        {
+            id: {{ imagen.id }},
+            url_imagen: "{{ imagen.url_imagen }}",
+            imagen_nombre: "{{ imagen.imagen_nombre|escapejs }}",
+            es_principal: {{ imagen.es_principal|yesno:"true,false" }},
+            size: {{ imagen.imagen_blob|length|default:0 }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    {% endif %}
+];
+</script>
+
+<!-- JavaScript para gestión de imágenes -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Asegurar enctype en el formulario
+    const form = document.querySelector('form[method="post"]');
+    if (form && !form.getAttribute('enctype')) {
+        form.setAttribute('enctype', 'multipart/form-data');
+        console.log('DEBUG: Enctype multipart/form-data añadido al formulario');
+    }
+
+    // Buscar el campo de imagenes_files y mejorar su funcionalidad
+    const imageField = document.querySelector('#id_imagenes_files');
+    if (imageField) {
+        console.log('DEBUG: Campo imagenes_files encontrado');
+        
+        // Asegurar que tenga los atributos correctos
+        imageField.setAttribute('multiple', 'true');
+        imageField.setAttribute('accept', 'image/*');
+        
+        // Agregar eventos para debug
+        imageField.addEventListener('change', function(e) {
+            console.log('DEBUG: Archivos seleccionados:', e.target.files.length);
+            if (e.target.files.length > 0) {
+                for (let i = 0; i < e.target.files.length; i++) {
+                    console.log(`DEBUG: Archivo ${i + 1}: ${e.target.files[i].name}, tamaño: ${e.target.files[i].size} bytes`);
+                }
+            }
+        });
+
+        // Mejorar el form submit para asegurar que los archivos se envíen
+        form.addEventListener('submit', function(e) {
+            console.log('DEBUG: Formulario enviándose...');
+            const files = imageField.files;
+            console.log('DEBUG: Archivos en el submit:', files.length);
+            
+            // Verificar que el enctype esté correcto
+            if (form.getAttribute('enctype') !== 'multipart/form-data') {
+                form.setAttribute('enctype', 'multipart/form-data');
+                console.log('DEBUG: Corrigiendo enctype en submit');
+            }
+        });
+    } else {
+        console.log('DEBUG: Campo imagenes_files NO encontrado');
+    }
+
+    const imageManagementContainers = document.querySelectorAll('.image-management-container');
+
+    imageManagementContainers.forEach(container => {
+        const containerId = container.id.split('-')[2]; // Extract field name
+        initializeImageManagement(container, containerId);
+    });
+
+    function initializeImageManagement(container, fieldName) {
+        const uploadArea = container.querySelector('.image-upload-area');
+        const uploadLink = container.querySelector('.upload-link');
+        const fileInput = container.querySelector('.image-upload-input');
+        const newImagesGrid = container.querySelector(`#new-images-grid-${fieldName}`);
+        const newImagesSection = container.querySelector(`#new-images-${fieldName}`);
+        const existingImagesGrid = container.querySelector(`#existing-images-grid-${fieldName}`);
+        const imagesToDeleteInput = container.querySelector('#images_to_delete');
+
+        let selectedFiles = [];
+        let imagesToDelete = [];
+
+        // Inicializar estadísticas
+        updateUploadStats();
+
+        // Click en el enlace para seleccionar archivos
+        uploadLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            fileInput.click();
+        });
+
+        // Drag & drop functionality
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            uploadArea.classList.add('dragover');
+        }
+
+        function unhighlight(e) {
+            uploadArea.classList.remove('dragover');
+        }
+
+        uploadArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        fileInput.addEventListener('change', function(e) {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            const validFiles = [];
+            const duplicateNames = new Set(selectedFiles.map(f => f.name));
+
+            [...files].forEach(file => {
+                // Verificar duplicados
+                if (duplicateNames.has(file.name)) {
+                    alert(`La imagen "${file.name}" ya está seleccionada.`);
+                    return;
+                }
+
+                if (validateFile(file, selectedFiles.length + validFiles.length)) {
+                    validFiles.push(file);
+                    duplicateNames.add(file.name);
+                }
+            });
+
+            // Agregar archivos válidos
+            selectedFiles.push(...validFiles);
+            updateFileInput();
+            updateNewImagesPreview();
+            updateUploadStats();
+        }
+
+        function updateFileInput() {
+            // Limpiar el input actual
+            fileInput.value = '';
+
+            // Para navegadores que soportan DataTransfer
+            if (window.DataTransfer && fileInput.files) {
+                try {
+                    const dt = new DataTransfer();
+                    selectedFiles.forEach(file => {
+                        dt.items.add(file);
+                    });
+                    fileInput.files = dt.files;
+                } catch (e) {
+                    // Fallback para navegadores que no soportan DataTransfer completamente
+                    console.warn('DataTransfer no soportado, usando método alternativo');
+                    // El formulario manejará los archivos a través de selectedFiles
+                }
+            }
+        }
+
+        function validateFile(file, currentTotal = selectedFiles.length) {
+            // Check file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                alert(`Tipo de archivo no válido: ${file.name}. Solo se permiten imágenes JPEG, PNG, GIF y WebP.`);
+                return false;
+            }
+
+            // Check file size (5MB)
+            const maxSize = 5 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert(`Archivo demasiado grande: ${file.name}. Máximo 5MB por archivo.`);
+                return false;
+            }
+
+            // Check total files limit
+            if (currentTotal >= 10) {
+                alert('Máximo 10 imágenes permitidas.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function updateNewImagesPreview() {
+            newImagesGrid.innerHTML = '';
+
+            if (selectedFiles.length > 0) {
+                newImagesSection.style.display = 'block';
+
+                selectedFiles.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const imageItem = createImageItem(e.target.result, file.name, index, false);
+                        imageItem.querySelector('.delete-image').addEventListener('click', () => {
+                            selectedFiles.splice(index, 1);
+                            updateFileInput();
+                            updateNewImagesPreview();
+                            updateUploadStats();
+                        });
+                        newImagesGrid.appendChild(imageItem);
+                    };
+                    reader.onerror = function(e) {
+                        console.error('Error al leer el archivo:', file.name, e);
+                        alert(`Error al procesar la imagen: ${file.name}`);
+                        // Remover archivo problemático
+                        selectedFiles.splice(index, 1);
+                        updateFileInput();
+                        updateNewImagesPreview();
+                        updateUploadStats();
+                    };
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                newImagesSection.style.display = 'none';
+            }
+        }
+
+        function updateUploadStats() {
+            const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+            const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+
+            // Actualizar el texto del placeholder con estadísticas
+            const placeholder = uploadArea.querySelector('.upload-placeholder small');
+            if (placeholder) {
+                const remaining = 10 - selectedFiles.length;
+                placeholder.innerHTML = `Máximo 10 imágenes, 5MB cada una. Seleccionadas: ${selectedFiles.length}/10 (${totalSizeMB}MB)`;
+            }
+        }
+
+        function createImageItem(src, name, index, isExisting = false, imageId = null) {
+            const item = document.createElement('div');
+            item.className = 'image-item';
+            item.innerHTML = `
+                <div class="image-container">
+                    <img src="${src}" alt="${name}" class="image-preview">
+                    <div class="image-overlay">
+                        <button type="button" class="btn btn-sm btn-danger delete-image">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        ${isExisting ? `
+                        <button type="button" class="btn btn-sm btn-warning set-primary" data-image-id="${imageId}">
+                            <i class="fas fa-star"></i> Hacer Principal
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="image-info">
+                    <small class="text-muted">${name}</small>
+                </div>
+            `;
+            return item;
+        }
+
+        // Handle existing images
+        if (existingImagesGrid) {
+            // Delete functionality
+            existingImagesGrid.addEventListener('click', function(e) {
+                if (e.target.closest('.delete-image')) {
+                    e.preventDefault();
+                    const button = e.target.closest('.delete-image');
+                    const imageId = button.dataset.imageId;
+                    const imageItem = button.closest('.image-item');
+
+                    if (confirm('¿Estás seguro de que quieres eliminar esta imagen?')) {
+                        // AJAX call to delete image
+                        fetch(`/admin/tienda/producto/imagenes/eliminar/${imageId}/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                                'Content-Type': 'application/json',
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                imageItem.remove();
+                            } else {
+                                alert('Error al eliminar imagen: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            alert('Error de conexión al eliminar imagen');
+                        });
+                    }
+                }
+
+                if (e.target.closest('.set-primary')) {
+                    e.preventDefault();
+                    const button = e.target.closest('.set-primary');
+                    const imageId = button.dataset.imageId;
+
+                    // AJAX call to set as primary
+                    fetch(`/admin/tienda/producto/imagenes/establecer-principal/${imageId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                            'Content-Type': 'application/json',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Update UI
+                            existingImagesGrid.querySelectorAll('.set-primary').forEach(btn => {
+                                btn.classList.remove('btn-success');
+                                btn.classList.add('btn-warning');
+                                btn.innerHTML = '<i class="fas fa-star"></i> Hacer Principal';
+                            });
+
+                            button.classList.remove('btn-warning');
+                            button.classList.add('btn-success');
+                            button.innerHTML = '<i class="fas fa-star"></i> Principal';
+                        } else {
+                            alert('Error al establecer imagen principal: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error de conexión al establecer imagen principal');
+                    });
+                }
+            });
+
+            // Make existing images sortable
+            if (typeof Sortable !== 'undefined') {
+                new Sortable(existingImagesGrid, {
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    onEnd: function(evt) {
+                        updateExistingImagesOrder();
+                    }
+                });
+            }
+        }
+
+        function updateExistingImagesOrder() {
+            const orderField = container.querySelector('input[name="existing_images_order"]');
+
+            if (orderField) {
+                const imageIds = Array.from(existingImagesGrid.querySelectorAll('.image-item.existing-image'))
+                    .map(item => item.dataset.imageId);
+                orderField.value = imageIds.join(',');
+
+                // AJAX call to update order
+                fetch('/admin/tienda/producto/imagenes/reordenar/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        orden: imageIds
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Error al reordenar imágenes:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error de conexión al reordenar imágenes');
+                });
+            }
+        }
+    }
+});
+</script>
+
+<!-- Incluir SortableJS para drag & drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{% endblock %}

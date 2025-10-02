@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Imagen</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-image { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Prueba de Carga de Imagen</h1>
+
+    <div class="test-image">
+        <h3>Imagen del producto 59, imagen 81:</h3>
+        <img id="test-image" src="/producto/59/imagen/81/" alt="mi_imagen.jpg" style="max-width: 300px; max-height: 300px;">
+        <p id="status">Cargando...</p>
+    </div>
+
+    <script>
+        const img = document.getElementById('test-image');
+        const status = document.getElementById('status');
+
+        img.onload = function() {
+            status.textContent = '✅ Imagen cargada correctamente';
+            status.className = 'success';
+            console.log('Imagen cargada:', img.src);
+            console.log('Dimensiones:', img.naturalWidth + 'x' + img.naturalHeight);
+        };
+
+        img.onerror = function() {
+            status.textContent = '❌ Error al cargar la imagen';
+            status.className = 'error';
+            console.error('Error al cargar imagen:', img.src);
+        };
+
+        // Verificar después de 3 segundos si no se ha cargado
+        setTimeout(function() {
+            if (!img.complete) {
+                status.textContent = '⏳ Imagen aún cargando...';
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

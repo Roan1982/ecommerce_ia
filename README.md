@@ -4,6 +4,85 @@
 
 Sistema completo de e-commerce desarrollado con Django que incluye un avanzado módulo de inteligencia artificial para recomendaciones personalizadas de productos. Caracterizado por un sistema innovador de gestión de imágenes múltiples con carrusel interactivo y una interfaz moderna y responsiva.
 
+## 🚀 Instalación Rápida
+
+### Opción 1: Instalación Completa Automática (Más Fácil)
+Ejecuta el archivo `install_complete.bat` para configurar todo automáticamente:
+```batch
+install_complete.bat
+```
+Este archivo hace todo: crea venv, instala dependencias, configura BD, crea superusuario y está listo para usar.
+
+### Opción 2: Configuración Automática (Sin Superusuario)
+1. Ejecuta el archivo `setup.bat`:
+   ```batch
+   setup.bat
+   ```
+   Este archivo automáticamente:
+   - Crea el entorno virtual
+   - Instala todas las dependencias
+   - Configura la base de datos
+   - Aplica las migraciones
+
+### Opción 3: Configuración Manual
+1. Crear entorno virtual:
+   ```bash
+   python -m venv venv
+   ```
+
+2. Activar entorno virtual:
+   ```bash
+   venv\Scripts\activate  # Windows
+   # source venv/bin/activate  # Linux/Mac
+   ```
+
+3. Instalar dependencias:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Configurar base de datos:
+   ```bash
+   python manage.py makemigrations
+   python manage.py migrate
+   ```
+
+5. Ejecutar servidor:
+   ```bash
+   python manage.py runserver
+   ```
+   O usar el archivo `runserver.bat`:
+   ```batch
+   runserver.bat
+   ```
+
+### Acceder al Sistema
+- **Sitio web**: http://127.0.0.1:8000/
+- **Panel de administración**: http://127.0.0.1:8000/admin/
+
+### Crear Superusuario (Admin)
+Para crear un usuario administrador automáticamente:
+```batch
+create_superuser.bat
+```
+O manualmente:
+```bash
+python manage.py createsuperuser
+```
+
+**Credenciales por defecto:**
+- Usuario: `admin`
+- Email: `admin@example.com`
+- Contraseña: `admin123`
+
+### 📁 Archivos .bat Disponibles
+
+- **`install_complete.bat`**: Instalación completa automática (venv + dependencias + BD + superusuario)
+- **`setup.bat`**: Configuración básica (venv + dependencias + BD)
+- **`runserver.bat`**: Ejecuta el servidor de desarrollo
+- **`create_superuser.bat`**: Crea usuario administrador
+- **`activate_env.bat`**: Activa el entorno virtual y abre terminal de comandos
+
 ### ✨ Características Principales
 
 - 🤖 **Sistema de Recomendaciones IA**: Filtrado colaborativo basado en compras previas
