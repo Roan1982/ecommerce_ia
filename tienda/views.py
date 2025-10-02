@@ -363,16 +363,24 @@ def actualizar_carrito(request, item_id):
 
             if nueva_cantidad <= 0:
                 item.delete()
-                messages.success(request, _('Producto eliminado del carrito.'))
+                # Solo mostrar mensaje si NO es AJAX
+                if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    messages.success(request, _('Producto eliminado del carrito.'))
             elif nueva_cantidad <= item.producto.stock:
                 item.cantidad = nueva_cantidad
                 item.save()
-                messages.success(request, _('Cantidad actualizada.'))
+                # Solo mostrar mensaje si NO es AJAX
+                if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    messages.success(request, _('Cantidad actualizada.'))
             else:
-                messages.warning(request, _('Cantidad solicitada excede el stock disponible.'))
+                # Solo mostrar mensaje si NO es AJAX
+                if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    messages.warning(request, _('Cantidad solicitada excede el stock disponible.'))
 
         except (CarritoProducto.DoesNotExist, ValueError):
-            messages.error(request, _('Error al actualizar el carrito.'))
+            # Solo mostrar mensaje si NO es AJAX
+            if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                messages.error(request, _('Error al actualizar el carrito.'))
 
     # Si es una petición AJAX, devolver JSON
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
