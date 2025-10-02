@@ -39,6 +39,22 @@
             padding: 20px 0;
             margin-top: 50px;
         }
+        .navbar {
+            flex-wrap: nowrap; /* Prevent wrapping into multiple rows */
+            overflow: hidden; /* Ensure content stays within the navbar */
+            white-space: nowrap; /* Prevent text wrapping */
+            align-items: center; /* Ensure vertical alignment */
+        }
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 1050;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body>

@@ -302,6 +302,19 @@
     </div>
 </div>
 
+<style>
+.toast-container {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 1050;
+    pointer-events: none; /* Prevent interaction with other elements */
+}
+.toast {
+    pointer-events: auto; /* Allow interaction with the Toast itself */
+}
+</style>
+
 <script>
 function eliminarDelCarrito(itemId, nombreProducto) {
     // Obtener información del producto
@@ -423,10 +436,7 @@ function updateCartUI(data) {
 }
 
 function showMessage(message, type) {
-    // Crear elemento de mensaje temporal usando Bootstrap Toast
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'toast-container position-fixed';
-    toastContainer.style.cssText = 'top: 80px; right: 20px; z-index: 1050;';
+    const toastContainer = document.querySelector('.toast-container') || createToastContainer();
 
     const toastElement = document.createElement('div');
     toastElement.className = `toast align-items-center text-white bg-${type} border-0`;
@@ -442,19 +452,23 @@ function showMessage(message, type) {
     `;
 
     toastContainer.appendChild(toastElement);
-    document.body.appendChild(toastContainer);
 
-    // Inicializar y mostrar el toast
     const toast = new bootstrap.Toast(toastElement, {
         autohide: true,
         delay: 3000
     });
     toast.show();
 
-    // Remover el contenedor después de que se oculte el toast
     toastElement.addEventListener('hidden.bs.toast', function() {
-        toastContainer.remove();
+        toastElement.remove();
     });
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    return container;
 }
 
 // Agregar animación de carga a los botones
