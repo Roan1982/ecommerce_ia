@@ -806,8 +806,14 @@ class Wishlist(models.Model):
     # Configuración de contribuciones grupales
     permitir_contribuciones = models.BooleanField(default=False,
                                                 help_text="Permitir que otros usuarios contribuyan al pago")
-    contribucion_objetivo = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,
-                                              help_text="Monto objetivo para contribuciones grupales")
+    contribucion_objetivo = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=False,
+        default=0,
+        help_text="Monto objetivo para contribuciones grupales"
+    )
     contribucion_privada = models.BooleanField(default=False,
                                              help_text="Las contribuciones son privadas (solo visible para el propietario)")
     descripcion_contribucion = models.TextField(blank=True, null=True,
@@ -837,6 +843,14 @@ class Wishlist(models.Model):
         return f"{self.usuario.username} - {self.producto.nombre}"
 
     def save(self, *args, **kwargs):
+        # Validar el modelo antes de guardar
+        from django.core.exceptions import ValidationError
+        try:
+            self.full_clean()
+        except ValidationError:
+            # Re-lanzar para que admin/forms vean el error
+            raise
+
         # Generar código de referido único si no existe
         if not self.codigo_referido:
             import secrets
@@ -847,7 +861,17 @@ class Wishlist(models.Model):
                 if not Wishlist.objects.filter(codigo_referido=codigo).exists():
                     self.codigo_referido = codigo
                     break
+
         super().save(*args, **kwargs)
+
+    def clean(self):
+        """Validación del modelo: si permitir contribuciones, la meta debe ser > 0"""
+        from django.core.exceptions import ValidationError
+
+        if self.permitir_contribuciones:
+            # contribucion_objetivo puede ser Decimal o número; aceptamos > 0
+            if not self.contribucion_objetivo or self.contribucion_objetivo <= 0:
+                raise ValidationError({'contribucion_objetivo': 'La meta debe ser mayor a 0 cuando las contribuciones están activas.'})
 
     @property
     def total_contribuido(self):

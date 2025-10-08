@@ -3,31 +3,47 @@ echo ========================================
 echo   CONFIGURACION DEL PROYECTO ECOMMERCE
 echo ========================================
 
-echo Creando entorno virtual...
+echo Creando entorno virtual (venv)...
 python -m venv venv
 
 echo Activando entorno virtual...
 call venv\Scripts\activate
 
-echo Instalando dependencias...
+echo Instalando dependencias desde requirements.txt...
+pip install --upgrade pip
 pip install -r requirements.txt
 
-echo Creando migraciones...
-python manage.py makemigrations
+echo Creando migraciones (si es necesario)...
+python manage.py makemigrations --noinput
 
 echo Aplicando migraciones...
-python manage.py migrate
+python manage.py migrate --noinput
 
-echo Creando superusuario...
-echo from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'admin') | python manage.py shell
+echo Verificando existencia de superusuario 'admin'...
+python - <<PY
+from django.contrib.auth import get_user_model
+User = get_user_model()
+if not User.objects.filter(username='admin').exists():
+	User.objects.create_superuser('admin', 'admin@example.com', 'admin')
+	print('Superusuario admin creado: admin / admin')
+else:
+	print('Superusuario admin ya existe')
+PY
+
+echo.
+set /p POPULAR="Deseas poblar la base de datos con datos de prueba? (s/N): "
+if /I "%POPULAR%"=="s" (
+	echo Poblando BD con datos de prueba...
+	python poblar_bd.py
+	echo Asignando metas de wishlist basadas en precio...
+	python scripts\asignar_metas_wishlist.py
+) else (
+	echo Saltando población de BD.
+)
 
 echo ========================================
 echo   CONFIGURACION COMPLETADA
 echo ========================================
-echo.
-echo Credenciales de superusuario:
-echo Usuario: admin
-echo Contrasena: admin
 echo.
 echo Iniciando servidor de desarrollo...
 echo.

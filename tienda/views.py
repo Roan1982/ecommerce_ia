@@ -2601,14 +2601,21 @@ def wishlists_con_contribuciones(request):
             estado='completado'
         ).values('usuario_contribuyente').distinct().count()
 
-        progreso = (total_contribuido / wishlist.contribucion_objetivo) * 100 if wishlist.contribucion_objetivo > 0 else 0
+        # Evitar errores si contribucion_objetivo es None
+        objetivo = wishlist.contribucion_objetivo or 0
+        try:
+            progreso = (total_contribuido / objetivo) * 100 if objetivo > 0 else 0
+        except Exception:
+            progreso = 0
+
+        faltante = max(0, objetivo - total_contribuido) if objetivo > 0 else 0
 
         wishlists_data.append({
             'wishlist': wishlist,
             'total_contribuido': total_contribuido,
             'num_contribuidores': num_contribuidores,
             'progreso': progreso,
-            'faltante': max(0, wishlist.contribucion_objetivo - total_contribuido),
+            'faltante': faltante,
         })
 
     return render(request, 'tienda/wishlists_contribuciones.html', {
