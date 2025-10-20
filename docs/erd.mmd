@@ -1,0 +1,211 @@
+%% ERD Mermaid para ecommerce_ia - tienda.models
+%% Generado automáticamente a partir de `tienda/models.py`
+%% Fondo: blanco, flechas negras (estilizado en compatibilidad con renderizadores)
+
+erDiagram
+    USER ||--o{ PROFILE : has
+    USER ||--o{ CARRITO : owns
+    USER ||--o{ COMPRA : places
+    USER ||--o{ METODOPAGO : has
+    USER ||--o{ DIRECCIONENVIO : has
+    USER ||--o{ PEDIDO : places
+    USER ||--o{ WISHLIST : owns
+    USER ||--o{ COMPARACIONPRODUCTOS : owns
+    USER ||--o{ HISTORIALPUNTOS : has
+    USER ||--o{ NEWSLETTERSUBSCRIPTION : subscribes
+    USER ||--o{ NEWSLETTERCAMPAIGN : creates
+
+    PRODUCTO ||--o{ PRODUCTOIMAGEN : has
+    PRODUCTO ||--o{ MOVIMIENTOINVENTARIO : has
+    PRODUCTO ||--o{ CARRITOPRODUCTO : in
+    PRODUCTO ||--o{ COMPRAPRODUCTO : in
+    PRODUCTO ||--o{ PEDIDOPRODUCTO : in
+    PRODUCTO ||--o{ RESENA : has
+    PRODUCTO ||--o{ WISHLIST : wished_by
+    PRODUCTO ||--o{ COMPARACIONPRODUCTOS : compared_in
+
+    CARRITO ||--o{ CARRITOPRODUCTO : contains
+    CARRITOPRODUCTO }o--|| PRODUCTO : references
+
+    COMPRA ||--o{ COMPRAPRODUCTO : contains
+    COMPRAPRODUCTO }o--|| PRODUCTO : references
+
+    PEDIDO ||--o{ PEDIDOPRODUCTO : contains
+    PEDIDOPRODUCTO }o--|| PRODUCTO : references
+    PEDIDO }o--|| DIRECCIONENVIO : ships_to
+    PEDIDO }o--|| METODOPAGO : pays_with
+    PEDIDO ||--o{ PEDIDOCUPON : has
+
+    CUPON ||--o{ PEDIDOCUPON : used_in
+    PEDIDOCUPON }o--|| PEDIDO : references
+
+    WISHLIST }o--|| USER : belongs_to
+    WISHLIST }o--|| PRODUCTO : references
+    WISHLIST ||--o{ CONTRIBUCIONWISHLIST : has
+    CONTRIBUCIONWISHLIST }o--|| USER : contributed_by
+    CONTRIBUCIONWISHLIST }o--|| PEDIDO : may_generate
+
+    HISTORIALPUNTOS }o--|| USER : belongs_to
+    PROFILE }o--|| USER : extends
+
+    COMPARACIONPRODUCTOS }o--|| PRODUCTO : many_to_many
+    COMPARACIONPRODUCTOS }o--|| USER : belongs_to
+
+    EMAILTEMPLATE ||--o{ EMAILNOTIFICATION : templates
+    EMAILNOTIFICATION }o--|| USER : for_user
+    EMAILNOTIFICATION }o--|| PEDIDO : related_to
+    EMAILNOTIFICATION }o--|| PRODUCTO : related_to
+    EMAILQUEUE }o--|| EMAILNOTIFICATION : queue_for
+
+    NEWSLETTERCAMPAIGN ||--o{ NEWSLETTERLOG : logs
+    NEWSLETTERLOG }o--|| NEWSLETTERSUBSCRIPTION : target
+
+    MOVIMIENTOINVENTARIO }o--|| PRODUCTO : for_product
+
+    %% Campos principales (resumen):
+    USER {
+        integer id PK
+        string username
+        string email
+    }
+    PROFILE {
+        integer id PK
+        integer usuario_id FK
+        string telefono
+        integer puntos_totales
+        integer puntos_disponibles
+    }
+    PRODUCTO {
+        integer id PK
+        string nombre
+        decimal precio
+        integer stock
+        string sku
+        string estado
+    }
+    PRODUCTOIMAGEN {
+        integer id PK
+        integer producto_id FK
+        string imagen_nombre
+        string imagen_tipo_mime
+        boolean es_principal
+    }
+    CARRITO {
+        integer id PK
+        integer usuario_id FK
+    }
+    CARRITOPRODUCTO {
+        integer id PK
+        integer carrito_id FK
+        integer producto_id FK
+        integer cantidad
+    }
+    COMPRA {
+        integer id PK
+        integer usuario_id FK
+        decimal total
+    }
+    COMPRAPRODUCTO {
+        integer id PK
+        integer compra_id FK
+        integer producto_id FK
+        integer cantidad
+    }
+    DIRECCIONENVIO {
+        integer id PK
+        integer usuario_id FK
+        string calle
+        string ciudad
+    }
+    METODOPAGO {
+        integer id PK
+        integer usuario_id FK
+        string tipo
+    }
+    PEDIDO {
+        integer id PK
+        integer usuario_id FK
+        integer direccion_envio_id FK
+        integer metodo_pago_id FK
+        decimal total_pedido
+    }
+    PEDIDOPRODUCTO {
+        integer id PK
+        integer pedido_id FK
+        integer producto_id FK
+        integer cantidad
+    }
+    CUPON {
+        integer id PK
+        string codigo
+        decimal valor_descuento
+    }
+    PEDIDOCUPON {
+        integer id PK
+        integer pedido_id FK
+        integer cupon_id FK
+        decimal descuento_aplicado
+    }
+    WISHLIST {
+        integer id PK
+        integer usuario_id FK
+        integer producto_id FK
+        boolean permitir_contribuciones
+    }
+    CONTRIBUCIONWISHLIST {
+        integer id PK
+        integer wishlist_item_id FK
+        integer usuario_contribuyente_id FK
+        decimal monto
+    }
+    HISTORIALPUNTOS {
+        integer id PK
+        integer usuario_id FK
+        integer puntos
+    }
+    COMPARACIONPRODUCTOS {
+        integer id PK
+        integer usuario_id FK
+    }
+    NEWSLETTERSUBSCRIPTION {
+        integer id PK
+        string email
+    }
+    NEWSLETTERCAMPAIGN {
+        integer id PK
+        integer creado_por_id FK
+        string titulo
+    }
+    NEWSLETTERLOG {
+        integer id PK
+        integer campaign_id FK
+        integer suscriptor_id FK
+    }
+    EMAILTEMPLATE {
+        integer id PK
+        string nombre
+    }
+    EMAILNOTIFICATION {
+        integer id PK
+        integer usuario_id FK
+        string tipo
+    }
+    EMAILQUEUE {
+        integer id PK
+        integer notificacion_id FK
+    }
+    MOVIMIENTOINVENTARIO {
+        integer id PK
+        integer producto_id FK
+        string tipo
+        integer cantidad
+    }
+
+%% Instrucciones para exportar a JPG:
+%% 1) Usar VSCode -> abrir `docs/erd.mmd` -> Open Preview (Mermaid). Exportar PNG/SVG y convertir a JPG.
+%% 2) Usar mermaid.live: pegar el contenido y exportar.
+%% 3) CLI (recomendado para reproducibilidad):
+%%    - npm i -g @mermaid-js/mermaid-cli
+%%    - mmdc -i docs/erd.mmd -o docs/erd.png --backgroundColor white
+%%    - magick docs/erd.png -background white -flatten docs/erd.jpg
+

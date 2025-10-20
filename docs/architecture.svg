@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1400" height="820" viewBox="0 0 1400 820" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .box { fill: #ffffff; stroke: #333333; stroke-width: 1.5px; rx: 6px; }
+    .group { fill: #f8f9fa; stroke: #333333; stroke-width: 1px; }
+    .title { font: bold 16px sans-serif; fill: #111; }
+    .label { font: 13px sans-serif; fill: #111; }
+    .small { font: 12px sans-serif; fill: #333; }
+    .arrow { stroke: #333; stroke-width: 1.4px; fill: none; marker-end: url(#arrowhead); }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+
+  <!-- Internet / Clients -->
+  <g transform="translate(30,30)">
+    <rect class="group" x="0" y="0" width="260" height="90" rx="8" />
+    <text class="title" x="20" y="34">Internet / Clients</text>
+    <text class="small" x="20" y="64">Web browsers / Mobile apps</text>
+  </g>
+
+  <!-- PythonAnywhere hosting box -->
+  <g transform="translate(340,20)">
+    <rect class="group" x="0" y="0" width="680" height="340" rx="8" />
+    <text class="title" x="18" y="28">PythonAnywhere (hosting)</text>
+
+    <rect class="box" x="22" y="56" width="220" height="44" rx="6" />
+    <text class="label" x="36" y="86">Load balancer / Reverse Proxy</text>
+
+    <rect class="box" x="260" y="56" width="340" height="76" rx="6" />
+    <text class="label" x="278" y="84">WSGI App (Django)</text>
+    <text class="small" x="278" y="100">ecommerce_project.wsgi</text>
+
+    <rect class="box" x="22" y="122" width="220" height="56" rx="6" />
+    <text class="label" x="36" y="154">Staticfiles / Media</text>
+    <text class="small" x="36" y="170">Mapped via Web tab</text>
+
+    <rect class="box" x="22" y="192" width="220" height="56" rx="6" />
+    <text class="label" x="36" y="224">Virtualenv</text>
+    <text class="small" x="36" y="240">~/.virtualenvs/ecommerce_ia</text>
+
+    <rect class="box" x="260" y="150" width="340" height="70" rx="6" />
+    <text class="label" x="278" y="176">Logs</text>
+    <text class="small" x="278" y="192">access / error / server</text>
+  </g>
+
+  <!-- Application Layer (detailed) -->
+  <g transform="translate(160,400)">
+    <rect class="group" x="0" y="0" width="1080" height="360" rx="8" />
+    <text class="title" x="18" y="28">Application Layer</text>
+
+    <!-- Views -->
+    <rect class="box" x="30" y="56" width="220" height="68" rx="6" />
+    <text class="label" x="54" y="94">tienda.views</text>
+
+    <!-- Models -->
+    <rect class="box" x="280" y="56" width="220" height="68" rx="6" />
+    <text class="label" x="300" y="94">tienda.models</text>
+    <text class="small" x="300" y="110">ORM / DB models</text>
+
+    <!-- Recommender subgraph -->
+    <rect class="box" x="540" y="36" width="480" height="168" rx="8" fill="#ffffff"/>
+    <text class="label" x="548" y="56">Recommender (IA)</text>
+
+    <rect class="box" x="560" y="76" width="200" height="44" rx="6" />
+    <text class="small" x="574" y="102">tienda/recomendador.py</text>
+
+    <rect class="box" x="560" y="132" width="200" height="44" rx="6" />
+    <text class="small" x="574" y="158">Processing: build matrix</text>
+
+    <rect class="box" x="780" y="76" width="220" height="44" rx="6" />
+    <text class="small" x="794" y="102">Data sources: Pedido, PedidoProducto</text>
+    <text class="small" x="794" y="118">Compra, CompraProducto</text>
+
+    <rect class="box" x="780" y="132" width="220" height="44" rx="6" />
+    <text class="small" x="794" y="158">Similarity calc</text>
+    <text class="small" x="794" y="174">sklearn -> numpy -> py fallback</text>
+
+    <rect class="box" x="560" y="196" width="440" height="44" rx="6" />
+    <text class="small" x="574" y="224">Cache / Results store (optional)</text>
+
+    <!-- Services -->
+    <rect class="box" x="120" y="156" width="220" height="68" rx="6" />
+    <text class="label" x="144" y="194">services/*.py</text>
+    <text class="small" x="144" y="210">email_service, payment_service</text>
+
+    <!-- Scripts -->
+    <rect class="box" x="360" y="156" width="140" height="68" rx="6" />
+    <text class="label" x="378" y="194">scripts/</text>
+    <text class="small" x="378" y="210">management scripts, cron</text>
+  </g>
+
+  <!-- Database -->
+  <g transform="translate(1180,160)">
+    <rect class="group" x="0" y="0" width="220" height="120" rx="8" />
+    <text class="title" x="12" y="24">Database</text>
+    <rect class="box" x="12" y="36" width="196" height="72" rx="6" />
+    <text class="label" x="26" y="64">MySQL</text>
+    <text class="small" x="26" y="82">RoanIaMusic$ecommerce</text>
+  </g>
+
+  <!-- External services -->
+  <g transform="translate(1180,320)">
+    <rect class="group" x="0" y="0" width="220" height="180" rx="8" />
+    <text class="title" x="12" y="24">External Services</text>
+    <rect class="box" x="12" y="36" width="196" height="44" rx="6" />
+    <text class="label" x="26" y="68">Email Provider</text>
+    <text class="small" x="26" y="84">SMTP / SendGrid</text>
+
+    <rect class="box" x="12" y="92" width="196" height="44" rx="6" />
+    <text class="label" x="26" y="124">Payment Gateway</text>
+    <text class="small" x="26" y="140">Stripe / PayU</text>
+
+    <rect class="box" x="12" y="148" width="196" height="44" rx="6" />
+    <text class="label" x="26" y="180">Object Storage</text>
+    <text class="small" x="26" y="196">S3 or similar</text>
+  </g>
+
+  <!-- Arrows: Internet -> Load balancer -->
+  <path class="arrow" d="M290 75 L340 75" />
+  <path class="arrow" d="M340 75 L400 75" />
+
+  <!-- Load balancer -> WSGI -->
+  <path class="arrow" d="M500 95 L620 95" />
+
+  <!-- WSGI -> Static -->
+  <path class="arrow" d="M620 124 L380 137" />
+
+  <!-- WSGI -> VENV -->
+  <path class="arrow" d="M620 124 L380 208" />
+
+  <!-- WSGI -> Views -->
+  <path class="arrow" d="M620 124 L270 418" />
+
+  <!-- Views -> Models -->
+  <path class="arrow" d="M250 460 L320 460" />
+
+  <!-- Views -> Recommender -->
+  <path class="arrow" d="M360 460 L540 420" />
+
+  <!-- Recommender -> Data sources -->
+  <path class="arrow" d="M740 420 L940 220" />
+
+  <!-- Similarity calc -> fallback note (visual) -->
+  <path class="arrow" d="M900 460 L940 520" />
+
+  <!-- Models -> MySQL -->
+  <path class="arrow" d="M500 460 L1180 200" />
+
+  <!-- Services -> MySQL -->
+  <path class="arrow" d="M210 460 L1180 200" />
+
+  <!-- Views -> Email -->
+  <path class="arrow" d="M420 460 L1180 340" />
+
+  <!-- Views -> Payment -->
+  <path class="arrow" d="M420 460 L1180 120" />
+
+  <!-- Views -> Storage -->
+  <path class="arrow" d="M420 460 L1180 420" />
+
+  <!-- Scripts -> MySQL -->
+  <path class="arrow" d="M500 220 L1180 200" />
+
+  <text class="small" x="30" y="780">Diagram updated: Recommender internals added (data sources, processing, similarity calc and fallbacks).</text>
+</svg>

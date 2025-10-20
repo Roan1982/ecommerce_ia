@@ -1,0 +1,111 @@
+%% Architecture diagram for ecommerce_ia (detailed)
+%% Generated from project files: ecommerce_project/settings.py, tienda/models.py, tienda/views.py, tienda/recomendador.py
+%% Render with Mermaid (VSCode Mermaid preview, mermaid.live, etc.)
+
+flowchart LR
+
+  %% Clients
+  subgraph Internet
+    direction TB
+    Internet_title[Internet / Clients]
+    Client[Web Browser / Mobile App / Bots]
+  end
+
+  %% Hosting / Web tier
+  subgraph PA
+    direction TB
+  PA_title[Hosting - PythonAnywhere WSGI host]
+  LB["Load Balancer - Reverse Proxy nginx"]
+  WSGI["WSGI Application\necommerce_project.wsgi"]
+  VENV["Virtualenv\n~/.virtualenvs/ecommerce_ia"]
+  Static["Static files - collectstatic\nSTATIC_ROOT served by webserver"]
+  Logs["Server logs - access and error"]
+  end
+
+  %% Django application and components
+  subgraph Django
+    direction LR
+  Django_title[Application - Django ecommerce_project]
+  Admin["Admin site - django.contrib.admin"]
+  Templates["Templates - BASE_DIR/templates and app templates"]
+  Apps[App tienda]
+
+    subgraph Tienda
+      direction TB
+  Tienda_title[tienda app]
+  Views["views.py\nHTTP handlers, checkout, carrito, admin views"]
+  Models["models.py\nProducto, Pedido, Carrito, Wishlist, Profile, Cupon, etc."]
+  Reco["recomendador.py\nRecomendadorIA - load data, build matriz, cosine sim"]
+  Services["services - EmailService, payment wrappers, background helpers"]
+  Media["ProductoImagen blob\nmedia endpoints to stream images"]
+  Management["scripts and management commands\nDB tasks, poblar_bd, crear_productos"]
+    end
+  end
+
+  %% Data layer
+  subgraph DB
+    direction TB
+  DB_title[Database and Storage]
+  MYSQL["MySQL\nPA DB - RoanIaMusic-ecommerce"]
+  BlobDB["ProductoImagen blobs stored in DB or references to object storage"]
+  ObjectStorage["Object Storage - S3 optional for media"]
+  Cache["Optional Redis or in-memory cache"]
+  end
+
+  %% External services
+  subgraph Ext
+    direction TB
+  Ext_title[External Services]
+  SMTP["Email provider - SMTP or SendGrid"]
+  Payment["Payment gateway - Stripe or PayU"]
+  Analytics["Optional Analytics - Sentry or Crash reporting"]
+  CDN["Optional CDN for static and media"]
+  end
+
+  %% Clients -> Hosting
+  Client -->|HTTPS| LB
+  LB -->|proxy| WSGI
+  LB -->|serve static| Static
+
+  %% WSGI -> Django internals
+  WSGI -->|exec| VENV
+  WSGI --> Django
+  Django --> Templates
+  Django --> Tienda
+
+  %% Tienda interactions
+  Views -->|ORM calls| Models
+  Views -->|use| Services
+  Views -->|render| Templates
+  Views -->|call| Reco
+  Reco -->|reads| Models
+  Libs["sklearn, numpy, pandas"]
+  Reco -->|optional libs| Libs
+  Reco -->|may write| Cache
+  Services -->|enqueue email| EmailQueue["EmailQueue - EmailNotification"]
+  Services -->|call| Payment
+  Services -->|store media| ObjectStorage
+  Media -->|blob| BlobDB
+
+  %% Persistence
+  Models -->|persist| MYSQL
+  BlobDB -.-> MYSQL
+  ObjectStorage -.->|optional| CDN
+  Cache -.-> Views
+
+  %% External integrations
+  EmailQueue -->|deliver via| SMTP
+  Payment -->|gateway API| Payment
+  Analytics -->|capture| Django
+
+  %% Management scripts
+  Management -->|run| Models
+  Management -->|maintenance| BlobDB
+
+  %% Legend / notes
+  classDef infra fill:#f8f9fa,stroke:#333
+  class PA,Django,DB,Ext infra
+
+  %% Helpful links (renderers) - not nodes
+  %% To preview: open `docs/architecture.mmd` in VSCode and use Mermaid preview or copy to mermaid.live
+
