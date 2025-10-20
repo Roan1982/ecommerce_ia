@@ -13,7 +13,6 @@ from django.conf import settings
 from .services.email_service import EmailService
 from .models import Producto, Compra, CompraProducto, Carrito, CarritoProducto, DireccionEnvio, MetodoPago, Pedido, PedidoProducto, Resena, Cupon, MovimientoInventario, ConfiguracionSistema, Profile, Wishlist, HistorialPuntos, ComparacionProductos, NewsletterSubscription, NewsletterCampaign, NewsletterLog, EmailTemplate, EmailNotification, EmailQueue, ContribucionWishlist, ReferidoWishlist, HistorialCompartir, ProductoImagen
 from .forms import ProductoForm, ProductoAdminForm, CuponForm, ProfileForm, NewsletterSubscriptionForm, NewsletterUnsubscribeForm, NewsletterCampaignForm, NewsletterTestForm
-from .recomendador import RecomendadorIA
 from .services.email_service import EmailService
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
@@ -28,7 +27,7 @@ from datetime import date, timedelta
 import logging
 import json
 
-recomendador = RecomendadorIA()
+from .recomendador import RecomendadorIA
 
 logger = logging.getLogger(__name__)
 

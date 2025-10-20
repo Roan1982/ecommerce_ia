@@ -11,6 +11,16 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+
+# Use PyMySQL as MySQLdb shim when running on PythonAnywhere
+try:
+    import pymysql
+    pymysql.install_as_MySQLdb()
+except Exception:
+    # If PyMySQL is not installed in the current environment this will be
+    # a no-op here; the import error will surface when attempting to connect.
+    pass
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +30,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-rcfj=uozjc@$=w8rhh+-43-*xsc_a+s6yt5#jm05h(tx*p$tf!'
+# Read SECRET_KEY from environment in production; keep the existing key as a
+# fallback for local development only.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-rcfj=uozjc@$=w8rhh+-43-*xsc_a+s6yt5#jm05h(tx*p$tf!')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Turn DEBUG off for production deployments. You can re-enable locally
+# by setting an environment variable if needed.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
+# Add your PythonAnywhere host here
+ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', 'RoanIaMusic.pythonanywhere.com']
 
 
 # Application definition
@@ -77,8 +92,17 @@ WSGI_APPLICATION = 'ecommerce_project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        # Use environment variables when possible (recommended on PythonAnywhere).
+        # Fallback values are the ones you provided.
+        'NAME': os.environ.get('PA_DB_NAME', 'RoanIaMusic$ecommerce'),
+        'USER': os.environ.get('PA_DB_USER', 'RoanIaMusic'),
+        'PASSWORD': os.environ.get('PA_DB_PASSWORD', 'Roan1982'),
+        'HOST': os.environ.get('PA_DB_HOST', 'RoanIaMusic.mysql.pythonanywhere-services.com'),
+        'PORT': os.environ.get('PA_DB_PORT', '3306'),
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
 
@@ -121,6 +145,9 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'tienda' / 'static',
 ]
+
+# Directory where `collectstatic` will gather static files for the webserver.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Para desarrollo
