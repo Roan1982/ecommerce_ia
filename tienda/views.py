@@ -22,7 +22,6 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.models import User
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth, TruncDay
-import pandas as pd
 from datetime import date, timedelta
 import logging
 import json
